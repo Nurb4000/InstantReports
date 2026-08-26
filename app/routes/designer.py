@@ -70,7 +70,7 @@ async def new_report_page(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    if not current_user or _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return request.app.state.templates.TemplateResponse(
@@ -86,7 +86,7 @@ async def edit_report_page(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    if not current_user or _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(Report).where(Report.id == report_id))
@@ -109,7 +109,7 @@ async def create_report(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    if not current_user or _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     report = Report(
@@ -135,7 +135,7 @@ async def update_report(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    if not current_user or _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(Report).where(Report.id == report_id))
