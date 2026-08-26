@@ -83,14 +83,14 @@
 - [x] Data insights/summaries from query results
 - [x] AI chat sidebar in designer UI
 
-### Phase 9: Advanced Features ⏳
-- [ ] Conditional formatting (highlight rules)
-- [ ] Calculated fields in report definitions
-- [ ] Page numbering tokens (`{{page.number}}`, etc.)
-- [ ] Failure notifications (email on schedule error)
-- [ ] Report retention/cleanup policy
-- [ ] API key authentication for external integrations
-- [ ] Report templates (save as template, new from template)
+### Phase 9: Advanced Features ✅
+- [x] Conditional formatting (highlight rules for cells/rows)
+- [x] Calculated fields expression evaluator with validation
+- [x] Page numbering tokens (`{{page.number}}`, `{{date.now}}`, etc.)
+- [x] Failure notifications (email on schedule error)
+- [x] Report retention/cleanup (configurable, daily at 2 AM)
+- [x] API key authentication (generate/validate/revoke)
+- [ ] Report templates (save as template, new from template) - TODO
 
 ---
 
@@ -107,20 +107,12 @@ d10763e - feat: report engine and exporters (PDF, Excel, CSV, HTML)
 33b1e0c - chore: update Dockerfile and entrypoint for designer/runner modes
 4dd3981 - feat: portal and admin polish (search, filter, audit log, API endpoints)
 7980090 - feat: AI integration with OpenAI-compatible client (llama.cpp default)
+5aedfa4 - feat: advanced features - conditional formatting, calculated fields, API keys, cleanup
 ```
 
 ---
 
 ## Next Steps
-
-### Phase 9: Advanced Features
-- [ ] Conditional formatting (highlight rules for cells/rows)
-- [ ] Calculated fields in report definitions (expression evaluator)
-- [ ] Page numbering tokens (`{{page.number}}`, `{{page.total}}`)
-- [ ] Failure notifications (email on schedule error)
-- [ ] Report retention/cleanup policy
-- [ ] API key authentication for external integrations
-- [ ] Report templates (save as template, new from template)
 
 ### Phase 10: Testing & Documentation
 - [ ] Unit tests for connectors, engine, exporters
