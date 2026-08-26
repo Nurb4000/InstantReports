@@ -1,0 +1,99 @@
+{
+  "name": "Sales Cross-Tab Analysis",
+  "description": "Cross-tabulation of sales by region and quarter with conditional formatting",
+  "data_sources": [
+    {
+      "id": "quarterly_sales",
+      "name": "Quarterly Sales Data",
+      "connector_type": "postgresql",
+      "query": "SELECT region, quarter, product_line, SUM(revenue) as total FROM sales GROUP BY region, quarter, product_line"
+    }
+  ],
+  "parameters": [],
+  "layout": {
+    "page": {
+      "size": "A4",
+      "orientation": "landscape"
+    },
+    "sections": [
+      {
+        "type": "header",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Sales Cross-Tab Analysis",
+            "style": "title"
+          },
+          {
+            "type": "text",
+            "content": "Fiscal Year {{date.now | format_date('%Y')}}",
+            "style": "subtitle"
+          }
+        ]
+      },
+      {
+        "type": "detail",
+        "data_source": "quarterly_sales",
+        "elements": [
+          {
+            "type": "crosstab",
+            "rows": ["region"],
+            "columns": ["quarter"],
+            "value": "total",
+            "aggregate": "sum",
+            "format": "$#,##0.00",
+            "conditional_formatting": [
+              {
+                "target": "cell",
+                "field": "total",
+                "condition": {"operator": "<", "value": 10000},
+                "format": {"background": "#ffcccc", "color": "#990000"}
+              },
+              {
+                "target": "cell",
+                "field": "total",
+                "condition": {"operator": ">=", "value": 50000},
+                "format": {"background": "#ccffcc", "color": "#006600"}
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "summary",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Key Findings",
+            "style": "heading"
+          },
+          {
+            "type": "table",
+            "data_source": "quarterly_sales",
+            "columns": [
+              {"field": "region", "header": "Region"},
+              {"field": "quarter", "header": "Quarter"},
+              {"field": "total", "header": "Total Revenue", "format": "$#,##0.00"}
+            ],
+            "sort": "total DESC",
+            "limit": 10
+          }
+        ]
+      },
+      {
+        "type": "footer",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Generated: {{date.now}} | Page {{page.number}} of {{page.total}}",
+            "style": "footer"
+          }
+        ]
+      }
+    ]
+  },
+  "export_settings": {
+    "pdf": {"enabled": true},
+    "xlsx": {"enabled": true}
+  }
+}

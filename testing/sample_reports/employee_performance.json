@@ -1,0 +1,130 @@
+{
+  "name": "Employee Performance Report",
+  "description": "Demonstrates calculated fields and conditional formatting",
+  "data_sources": [
+    {
+      "id": "employee_data",
+      "name": "Employee Performance Data",
+      "connector_type": "postgresql",
+      "query": "SELECT employee_name, department, sales_target, actual_sales, calls_made, meetings_held FROM employee_performance"
+    }
+  ],
+  "calculated_fields": [
+    {
+      "name": "sales_achievement_pct",
+      "expression": "{{actual_sales}} / {{sales_target}} * 100",
+      "description": "Percentage of sales target achieved"
+    },
+    {
+      "name": "revenue_per_call",
+      "expression": "{{actual_sales}} / {{calls_made}}",
+      "description": "Revenue generated per sales call"
+    },
+    {
+      "name": "status",
+      "expression": "IF({{sales_achievement_pct}} >= 100, 'Exceeded', IF({{sales_achievement_pct}} >= 80, 'On Track', 'Needs Improvement'))",
+      "description": "Performance status based on achievement"
+    }
+  ],
+  "parameters": [],
+  "layout": {
+    "page": {
+      "size": "A4",
+      "orientation": "portrait"
+    },
+    "sections": [
+      {
+        "type": "header",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Employee Performance Report",
+            "style": "title"
+          },
+          {
+            "type": "text",
+            "content": "Period: Q{{date.now | format_date('%q')}} {{date.now | format_date('%Y')}}",
+            "style": "subtitle"
+          }
+        ]
+      },
+      {
+        "type": "detail",
+        "data_source": "employee_data",
+        "elements": [
+          {
+            "type": "table",
+            "columns": [
+              {"field": "employee_name", "header": "Employee"},
+              {"field": "department", "header": "Department"},
+              {"field": "sales_target", "header": "Target", "format": "$#,##0"},
+              {"field": "actual_sales", "header": "Actual", "format": "$#,##0"},
+              {"field": "sales_achievement_pct", "header": "Achievement %", "format": "#0.00\"%\""},
+              {"field": "revenue_per_call", "header": "Rev/Call", "format": "$#,##0.00"},
+              {"field": "status", "header": "Status"}
+            ],
+            "conditional_formatting": [
+              {
+                "target": "cell",
+                "field": "sales_achievement_pct",
+                "condition": {"operator": ">=", "value": 100},
+                "format": {"background": "#ccffcc", "bold": true}
+              },
+              {
+                "target": "cell",
+                "field": "sales_achievement_pct",
+                "condition": {"operator": "<", "value": 80},
+                "format": {"background": "#ffcccc", "color": "#cc0000"}
+              },
+              {
+                "target": "row",
+                "condition": {"field": "status", "operator": "==", "value": "Needs Improvement"},
+                "format": {"border": "2px solid red"}
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "summary",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Department Summary",
+            "style": "heading"
+          },
+          {
+            "type": "crosstab",
+            "data_source": "employee_data",
+            "rows": ["department"],
+            "columns": ["status"],
+            "value": "employee_name",
+            "aggregate": "count",
+            "format": "# employees"
+          },
+          {
+            "type": "chart",
+            "chart_type": "bar",
+            "x_field": "department",
+            "y_field": "actual_sales",
+            "title": "Average Sales by Department"
+          }
+        ]
+      },
+      {
+        "type": "footer",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Confidential - Internal Use Only | Page {{page.number}} of {{page.total}}",
+            "style": "footer"
+          }
+        ]
+      }
+    ]
+  },
+  "export_settings": {
+    "pdf": {"enabled": true},
+    "xlsx": {"enabled": true}
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "name": "Regional Sales Summary",
+  "description": "Sales data grouped by region with subtotals and charts",
+  "data_sources": [
+    {
+      "id": "sales_by_region",
+      "name": "Regional Sales",
+      "connector_type": "postgresql",
+      "query": "SELECT region, product_category, SUM(quantity) as total_qty, SUM(revenue) as total_revenue, COUNT(*) as order_count FROM sales GROUP BY region, product_category"
+    }
+  ],
+  "parameters": [],
+  "layout": {
+    "page": {
+      "size": "A4",
+      "orientation": "landscape"
+    },
+    "sections": [
+      {
+        "type": "header",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Regional Sales Summary Report",
+            "style": "title"
+          },
+          {
+            "type": "text",
+            "content": "Report Date: {{date.today}}",
+            "style": "subtitle"
+          }
+        ]
+      },
+      {
+        "type": "detail",
+        "data_source": "sales_by_region",
+        "group_by": "region",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Region: {{group.region}}",
+            "style": "group_header"
+          },
+          {
+            "type": "table",
+            "columns": [
+              {"field": "product_category", "header": "Category"},
+              {"field": "total_qty", "header": "Total Qty", "format": "#,##0"},
+              {"field": "total_revenue", "header": "Total Revenue", "format": "$#,##0.00"},
+              {"field": "order_count", "header": "Orders", "format": "#,##0"}
+            ],
+            "group_footer": {
+              "show": true,
+              "elements": [
+                {
+                  "type": "text",
+                  "content": "Region Total: Revenue ${{group.total_revenue | sum | currency}}",
+                  "style": "bold"
+                }
+              ]
+            }
+          },
+          {
+            "type": "chart",
+            "chart_type": "bar",
+            "x_field": "product_category",
+            "y_field": "total_revenue",
+            "title": "Revenue by Category"
+          }
+        ]
+      },
+      {
+        "type": "summary",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Executive Summary",
+            "style": "heading"
+          },
+          {
+            "type": "table",
+            "data_source": "sales_by_region",
+            "columns": [
+              {"field": "region", "header": "Region"},
+              {"field": "total_revenue", "header": "Total Revenue", "format": "$#,##0.00"},
+              {"field": "order_count", "header": "Total Orders", "format": "#,##0"}
+            ],
+            "sort": "total_revenue DESC"
+          }
+        ]
+      },
+      {
+        "type": "footer",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Page {{page.number}} | Confidential",
+            "style": "footer"
+          }
+        ]
+      }
+    ]
+  },
+  "export_settings": {
+    "pdf": {"enabled": true},
+    "xlsx": {"enabled": true}
+  }
+}

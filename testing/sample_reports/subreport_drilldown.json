@@ -1,0 +1,148 @@
+{
+  "name": "Sales with Drill-Down Subreports",
+  "description": "Main sales report with drill-down subreports for order details",
+  "data_sources": [
+    {
+      "id": "sales_summary",
+      "name": "Sales Summary",
+      "connector_type": "postgresql",
+      "query": "SELECT region, product, SUM(quantity) as total_qty, SUM(revenue) as total_revenue FROM sales GROUP BY region, product"
+    },
+    {
+      "id": "order_details",
+      "name": "Order Details",
+      "connector_type": "postgresql",
+      "query": "SELECT order_id, customer_name, order_date, quantity, unit_price FROM orders WHERE region = $region AND product = $product"
+    }
+  ],
+  "parameters": [],
+  "layout": {
+    "page": {
+      "size": "A4",
+      "orientation": "portrait"
+    },
+    "sections": [
+      {
+        "type": "header",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Sales Report with Order Details",
+            "style": "title"
+          },
+          {
+            "type": "text",
+            "content": "Click on any row to view order details",
+            "style": "subtitle"
+          }
+        ]
+      },
+      {
+        "type": "detail",
+        "data_source": "sales_summary",
+        "group_by": "region",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Region: {{group.region}}",
+            "style": "group_header"
+          },
+          {
+            "type": "table",
+            "columns": [
+              {"field": "product", "header": "Product"},
+              {"field": "total_qty", "header": "Qty Sold", "format": "#,##0"},
+              {"field": "total_revenue", "header": "Revenue", "format": "$#,##0.00"}
+            ],
+            "sort": "total_revenue DESC"
+          },
+          {
+            "type": "subreport",
+            "data_source": "order_details",
+            "render_mode": "drill_down",
+            "pass_parameters": {
+              "region": "{{group.region}}",
+              "product": "{{row.product}}"
+            },
+            "trigger": {
+              "label": "View Orders",
+              "on_click": "row"
+            },
+            "layout": {
+              "elements": [
+                {
+                  "type": "text",
+                  "content": "Orders for {{row.product}} in {{group.region}}",
+                  "style": "subtitle"
+                },
+                {
+                  "type": "table",
+                  "columns": [
+                    {"field": "order_id", "header": "Order ID"},
+                    {"field": "customer_name", "header": "Customer"},
+                    {"field": "order_date", "header": "Date", "format": "YYYY-MM-DD"},
+                    {"field": "quantity", "header": "Qty", "format": "#,##0"},
+                    {"field": "unit_price", "header": "Price", "format": "$#,##0.00"}
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "text",
+            "content": "Region Subtotal: Revenue ${{group.total_revenue | sum | currency}}",
+            "style": "bold"
+          }
+        ],
+        "group_footer": {
+          "show": true,
+          "elements": [
+            {
+              "type": "text",
+              "content": "--- End of {{group.region}} ---",
+              "style": "separator"
+            }
+          ]
+        }
+      },
+      {
+        "type": "summary",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Summary Statistics",
+            "style": "heading"
+          },
+          {
+            "type": "chart",
+            "chart_type": "pie",
+            "x_field": "region",
+            "y_field": "total_revenue",
+            "title": "Revenue by Region"
+          },
+          {
+            "type": "chart",
+            "chart_type": "bar",
+            "x_field": "product",
+            "y_field": "total_revenue",
+            "title": "Top Products by Revenue"
+          }
+        ]
+      },
+      {
+        "type": "footer",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Page {{page.number}} | Report ID: {{report.name}}",
+            "style": "footer"
+          }
+        ]
+      }
+    ]
+  },
+  "export_settings": {
+    "pdf": {"enabled": true},
+    "xlsx": {"enabled": true, "subreports_as_sheets": true}
+  }
+}
