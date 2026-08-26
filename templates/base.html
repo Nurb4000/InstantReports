@@ -19,7 +19,10 @@
                 <li><a href="/portal" class="nav-link">My Reports</a></li>
                 {% if current_user.role in ['admin', 'designer'] %}
                 <li><a href="/admin/schedules" class="nav-link">Schedules</a></li>
+                {% endif %}
+                {% if current_user.role == 'admin' %}
                 <li><a href="/admin/users" class="nav-link">Users</a></li>
+                <li><a href="/admin/audit" class="nav-link">Audit Log</a></li>
                 {% endif %}
             </ul>
             <div class="navbar-user">

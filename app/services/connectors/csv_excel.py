@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import io
 from typing import Any
 
@@ -96,6 +97,3 @@ class ExcelConnector(DataConnector):
                 pass
 
         return df
-
-
-import asyncio

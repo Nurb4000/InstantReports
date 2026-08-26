@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log - InstantReports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Audit Log</h1>
+    <button class="btn btn-secondary" onclick="loadAuditLog()">Refresh</button>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Action</th>
+                <th>Report</th>
+                <th>Schedule</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody id="audit-table">
+            <tr>
+                <td colspan="5" class="text-center text-muted">Loading audit log...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadAuditLog() {
+        try {
+            const response = await fetch('/admin/api/audit-log?limit=100');
+            if (response.ok) {
+                const logs = await response.json();
+                const tbody = document.getElementById('audit-table');
+                
+                if (logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No audit entries found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = logs.map(log => `
+                    <tr>
+                        <td>${new Date(log.executed_at).toLocaleString()}</td>
+                        <td><span class="badge bg-${log.action === 'generated' ? 'success' : log.action === 'failed' ? 'danger' : 'info'}">${log.action}</span></td>
+                        <td>${log.report_id || '-'}</td>
+                        <td>${log.schedule_id || '-'}</td>
+                        <td><pre class="small">${JSON.stringify(log.details, null, 2)}</pre></td>
+                    </tr>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading audit log:', error);
+        }
+    }
+
+    loadAuditLog();
+</script>
+{% endblock %}

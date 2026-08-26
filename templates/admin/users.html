@@ -63,17 +63,23 @@
 <script>
     async function loadUsers() {
         try {
-            const response = await fetch('/admin/users');
+            const response = await fetch('/admin/api/users');
             if (response.ok) {
                 const users = await response.json();
                 const tbody = document.getElementById('users-table');
+                
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No users found.</td></tr>';
+                    return;
+                }
+
                 tbody.innerHTML = users.map(user => `
                     <tr>
                         <td>${user.name}</td>
                         <td>${user.email}</td>
-                        <td>${user.role}</td>
+                        <td><span class="badge bg-${user.role === 'admin' ? 'danger' : user.role === 'designer' ? 'primary' : 'secondary'}">${user.role}</span></td>
                         <td>${user.auth_source}</td>
-                        <td>${user.is_active ? 'Active' : 'Inactive'}</td>
+                        <td>${user.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
                         <td>
                             <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
                             ${user.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">Delete</button>` : ''}
@@ -99,7 +105,7 @@
         const formData = new FormData(this);
         
         try {
-            const response = await fetch('/admin/users', {
+            const response = await fetch('/admin/api/users', {
                 method: 'POST',
                 body: formData,
             });
@@ -108,7 +114,8 @@
                 hideCreateUserModal();
                 loadUsers();
             } else {
-                alert('Failed to create user');
+                const error = await response.json();
+                alert('Failed to create user: ' + (error.detail || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error creating user:', error);
