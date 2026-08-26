@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.routes.auth import get_current_user_optional
 from app.database import get_db
 from app.models.connection import Delivery, DeliveryRecipient, Schedule
