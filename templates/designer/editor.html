@@ -62,18 +62,52 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h1>{% if report %}{{ report.name }}{% else %}New Report{% endif %}</h1>
-        {% if report %}
-        <p class="text-muted">Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }}</p>
-        {% endif %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1>{% if report %}{{ report.name }}{% else %}New Report{% endif %}</h1>
+            {% if report %}
+            <p class="text-muted">Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }}</p>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <button id="save-btn" class="btn btn-success">Save Report</button>
+            <a href="/designer" class="btn btn-secondary">Cancel</a>
+        </div>
     </div>
-    <div class="d-flex gap-2">
-        <button id="save-btn" class="btn btn-success">Save Report</button>
-        <a href="/designer" class="btn btn-secondary">Cancel</a>
+
+    <div class="card mb-3">
+        <ul class="nav nav-tabs" id="designerTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design" type="button" role="tab">Design</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">History</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="ai-tab" data-bs-toggle="tab" data-bs-target="#ai" type="button" role="tab">AI Assistant</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="designerTabContent">
+            <div class="tab-pane fade show active" id="design" role="tabpanel">
+                <!-- Designer content goes here -->
+            </div>
+            <div class="tab-pane fade" id="history" role="tabpanel">
+                {% if report %}
+                <div id="version-history">
+                    <h3>Version History</h3>
+                    <div id="versions-list"></div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="tab-pane fade" id="ai" role="tabpanel">
+                <div id="ai-assistant">
+                    <h3>AI Assistant</h3>
+                    <p>Describe what you want to create or modify, and the AI will help you build it.</p>
+                    <div id="ai-chat"></div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
 <div class="designer-layout">
     <div class="designer-sidebar">
@@ -184,7 +218,73 @@
             const elementType = e.dataTransfer.getData('text/plain');
             console.log('Dropped element:', elementType);
         });
+
+        {% if report %}
+        loadVersions('{{ report.id }}');
+        {% endif %}
     });
+
+    async function loadVersions(reportId) {
+        try {
+            const response = await fetch(`/designer/reports/${reportId}/versions`);
+            if (response.ok) {
+                const versions = await response.json();
+                const container = document.getElementById('versions-list');
+                if (versions.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No versions yet.</p>';
+                    return;
+                }
+                container.innerHTML = versions.map(v => `
+                    <div class="version-item p-2 mb-2 border rounded">
+                        <div class="d-flex justify-content-between">
+                            <strong>v${v.version_number}</strong>
+                            <small class="text-muted">${new Date(v.created_at).toLocaleString()}</small>
+                        </div>
+                        <p>${v.commit_message}</p>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="viewVersion('${reportId}', ${v.version_number})">View</button>
+                            <button class="btn btn-outline-success" onclick="restoreVersion('${reportId}', ${v.version_number})">Restore</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading versions:', error);
+        }
+    }
+
+    async function viewVersion(reportId, versionNumber) {
+        try {
+            const response = await fetch(`/designer/reports/${reportId}/versions/${versionNumber}`);
+            if (response.ok) {
+                const version = await response.json();
+                alert(`Version ${versionNumber} definition:\n${JSON.stringify(version.definition, null, 2)}`);
+            }
+        } catch (error) {
+            console.error('Error viewing version:', error);
+        }
+    }
+
+    async function restoreVersion(reportId, versionNumber) {
+        if (!confirm(`Restore to version ${versionNumber}? This will create a new version.`)) {
+            return;
+        }
+        try {
+            const response = await fetch(`/designer/reports/${reportId}/versions/${versionNumber}/restore`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({})
+            });
+            if (response.ok) {
+                alert('Version restored successfully!');
+                loadVersions(reportId);
+            } else {
+                alert('Failed to restore version');
+            }
+        } catch (error) {
+            console.error('Error restoring version:', error);
+        }
+    }
 
     function addSection(type) {
         console.log('Adding section:', type);
