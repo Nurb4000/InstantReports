@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Schedules - InstantReports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Schedules</h1>
+    <button class="btn btn-primary" onclick="showCreateScheduleModal()">+ New Schedule</button>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Report</th>
+                <th>Cron Expression</th>
+                <th>Timezone</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="schedules-table">
+            <tr>
+                <td colspan="6" class="text-center text-muted">Loading schedules...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="create-schedule-modal" class="modal" style="display: none;">
+    <div class="modal-content card">
+        <h2>Create New Schedule</h2>
+        <form id="create-schedule-form">
+            <div class="form-group">
+                <label for="schedule-name">Name</label>
+                <input type="text" id="schedule-name" name="name" class="form-control" required placeholder="Daily Sales Report">
+            </div>
+            <div class="form-group">
+                <label for="schedule-report">Report</label>
+                <select id="schedule-report" name="report_id" class="form-control" required>
+                    <option value="">Select a report...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="schedule-cron">Cron Expression</label>
+                <input type="text" id="schedule-cron" name="cron_expression" class="form-control" placeholder="0 8 * * *" required>
+                <small class="text-muted">Format: minute hour day_of_month month day_of_week</small>
+            </div>
+            <div class="form-group">
+                <label for="schedule-timezone">Timezone</label>
+                <input type="text" id="schedule-timezone" name="timezone" class="form-control" value="UTC" required>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create Schedule</button>
+                <button type="button" class="btn btn-secondary" onclick="hideCreateScheduleModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    async function loadSchedules() {
+        try {
+            const response = await fetch('/admin/schedules');
+            if (response.ok) {
+                const schedules = await response.json();
+                const tbody = document.getElementById('schedules-table');
+                tbody.innerHTML = schedules.map(schedule => `
+                    <tr>
+                        <td>${schedule.name}</td>
+                        <td>${schedule.report_name || 'Unknown'}</td>
+                        <td><code>${schedule.cron_expression || 'One-shot'}</code></td>
+                        <td>${schedule.timezone}</td>
+                        <td>${schedule.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary" onclick="editSchedule('${schedule.id}')">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${schedule.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading schedules:', error);
+        }
+    }
+
+    async function loadReports() {
+        try {
+            const response = await fetch('/designer/reports');
+            if (response.ok) {
+                const reports = await response.json();
+                const select = document.getElementById('schedule-report');
+                select.innerHTML = '<option value="">Select a report...</option>' + 
+                    reports.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+            }
+        } catch (error) {
+            console.error('Error loading reports:', error);
+        }
+    }
+
+    function showCreateScheduleModal() {
+        document.getElementById('create-schedule-modal').style.display = 'block';
+        loadReports();
+    }
+
+    function hideCreateScheduleModal() {
+        document.getElementById('create-schedule-modal').style.display = 'none';
+    }
+
+    document.getElementById('create-schedule-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        try {
+            const response = await fetch('/admin/schedules', {
+                method: 'POST',
+                body: formData,
+            });
+            
+            if (response.ok) {
+                hideCreateScheduleModal();
+                loadSchedules();
+            } else {
+                alert('Failed to create schedule');
+            }
+        } catch (error) {
+            console.error('Error creating schedule:', error);
+        }
+    });
+
+    loadSchedules();
+</script>
+{% endblock %}

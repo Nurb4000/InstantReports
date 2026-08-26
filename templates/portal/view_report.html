@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}View Report - InstantReports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ output.file_name }}</h1>
+    <div class="d-flex gap-2">
+        <a href="/portal/reports/{{ output.report_id }}/download/{{ output.id }}" class="btn btn-primary">Download</a>
+        <a href="/portal" class="btn btn-secondary">Back to List</a>
+    </div>
+</div>
+
+<div class="card">
+    {% if output.mime_type in ['text/html', 'application/xhtml+xml'] %}
+    <iframe src="/portal/reports/{{ output.report_id }}/download/{{ output.id }}" 
+            style="width: 100%; height: 80vh; border: none;"></iframe>
+    {% else %}
+    <div class="text-center py-5">
+        <p>This report is in {{ output.format|upper }} format.</p>
+        <p>Please download it to view the contents.</p>
+        <a href="/portal/reports/{{ output.report_id }}/download/{{ output.id }}" class="btn btn-primary mt-3">Download Report</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

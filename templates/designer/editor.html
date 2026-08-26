@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}{% if report %}Edit: {{ report.name }}{% else %}New Report{% endif %} - InstantReports{% endblock %}
+
+{% block extra_head %}
+<style>
+    .designer-layout {
+        display: grid;
+        grid-template-columns: 250px 1fr 300px;
+        gap: 1rem;
+        height: calc(100vh - 140px);
+    }
+    .designer-sidebar {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+    .designer-canvas {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        overflow-y: auto;
+        min-height: 400px;
+    }
+    .designer-properties {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+    .section-item {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+        cursor: move;
+        border: 1px solid #dee2e6;
+    }
+    .section-item:hover {
+        background: #e9ecef;
+    }
+    .element-handle {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        margin-right: 0.5rem;
+        opacity: 0.5;
+    }
+    .toolbar {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    .toolbar .btn {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1>{% if report %}{{ report.name }}{% else %}New Report{% endif %}</h1>
+        {% if report %}
+        <p class="text-muted">Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }}</p>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        <button id="save-btn" class="btn btn-success">Save Report</button>
+        <a href="/designer" class="btn btn-secondary">Cancel</a>
+    </div>
+</div>
+
+<div class="designer-layout">
+    <div class="designer-sidebar">
+        <h3>Sections</h3>
+        <div id="sections-list" data-sortable="true">
+            {% if report and report.definition.get('layout', {}).get('sections') %}
+                {% for section in report.definition.layout.sections %}
+                <div class="section-item" data-section-type="{{ section.type }}" data-section-index="{{ loop.index0 }}">
+                    <span class="element-handle">&#9776;</span>
+                    {{ section.type|capitalize }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <button id="add-section-btn" class="btn btn-primary btn-sm mt-3" 
+                hx-get="/designer/sections/new" 
+                hx-target="#sections-list"
+                hx-swap="beforeend">
+            + Add Section
+        </button>
+
+        <h3 class="mt-4">Elements</h3>
+        <div id="elements-palette">
+            <div class="section-item" draggable="true" data-element-type="text">Text</div>
+            <div class="section-item" draggable="true" data-element-type="image">Image</div>
+            <div class="section-item" draggable="true" data-element-type="table">Table</div>
+            <div class="section-item" draggable="true" data-element-type="chart">Chart</div>
+            <div class="section-item" draggable="true" data-element-type="crosstab">Cross-tab</div>
+            <div class="section-item" draggable="true" data-element-type="subreport">Sub-report</div>
+        </div>
+    </div>
+
+    <div class="designer-canvas" id="canvas">
+        <div class="toolbar">
+            <button class="btn btn-secondary btn-sm" onclick="addSection('header')">Header</button>
+            <button class="btn btn-secondary btn-sm" onclick="addSection('detail')">Detail</button>
+            <button class="btn btn-secondary btn-sm" onclick="addSection('summary')">Summary</button>
+            <button class="btn btn-secondary btn-sm" onclick="addSection('footer')">Footer</button>
+        </div>
+
+        <div id="canvas-content">
+            {% if report and report.definition.get('layout', {}).get('sections') %}
+                {% for section in report.definition.layout.sections %}
+                <div class="section-preview" data-section-index="{{ loop.index0 }}">
+                    <div class="section-header d-flex justify-content-between align-items-center">
+                        <strong>{{ section.type|capitalize }}</strong>
+                        <div>
+                            <button class="btn btn-sm btn-secondary" onclick="editSection({{ loop.index0 }})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSection({{ loop.index0 }})">Delete</button>
+                        </div>
+                    </div>
+                    <div class="section-body mt-2">
+                        {% if section.elements %}
+                            {% for element in section.elements %}
+                            <div class="element-preview p-2 mb-1 border" data-element-index="{{ loop.index0 }}">
+                                {{ element.type|capitalize }} Element
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">No elements in this section</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center text-muted py-5">
+                    <p>No sections yet. Add a section to get started.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="designer-properties" id="properties-panel">
+        <h3>Properties</h3>
+        <div id="properties-content">
+            <p class="text-muted">Select an element to edit its properties.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const canvas = document.getElementById('canvas-content');
+        const sectionsList = document.getElementById('sections-list');
+
+        if (Sortable) {
+            new Sortable(sectionsList, {
+                animation: 150,
+                handle: '.element-handle',
+                onEnd: function(evt) {
+                    console.log('Section moved from', evt.oldIndex, 'to', evt.newIndex);
+                }
+            });
+        }
+
+        document.querySelectorAll('.section-item[draggable="true"]').forEach(item => {
+            item.addEventListener('dragstart', function(e) {
+                e.dataTransfer.setData('text/plain', this.dataset.elementType);
+            });
+        });
+
+        canvas.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const elementType = e.dataTransfer.getData('text/plain');
+            console.log('Dropped element:', elementType);
+        });
+    });
+
+    function addSection(type) {
+        console.log('Adding section:', type);
+    }
+
+    function editSection(index) {
+        console.log('Editing section:', index);
+    }
+
+    function deleteSection(index) {
+        if (confirm('Delete this section?')) {
+            console.log('Deleting section:', index);
+        }
+    }
+
+    document.getElementById('save-btn').addEventListener('click', async function() {
+        const reportId = '{{ report.id if report else "" }}';
+        const url = reportId ? `/designer/reports/${reportId}` : '/designer/reports';
+        const method = reportId ? 'POST' : 'POST';
+
+        try {
+            const formData = new FormData();
+            formData.append('name', '{{ report.name if report else "Untitled Report" }}');
+            formData.append('definition', JSON.stringify({}));
+
+            const response = await fetch(url, {
+                method: method,
+                body: formData,
+            });
+
+            if (response.ok) {
+                alert('Report saved successfully!');
+                window.location.href = '/designer';
+            } else {
+                alert('Failed to save report');
+            }
+        } catch (error) {
+            console.error('Error saving report:', error);
+            alert('An error occurred while saving');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+services:
+  instantreports:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MODE=${MODE:-designer}
+      - DATABASE_URL=postgresql+asyncpg://ir:${DB_PASSWORD:-secret}@postgres:5432/instantreports
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_SEARCH_BASE=${LDAP_SEARCH_BASE:-}
+      - AI_BASE_URL=${AI_BASE_URL:-http://llama-cpp:8080/v1}
+      - AI_API_KEY=${AI_API_KEY:-none}
+      - AI_MODEL=${AI_MODEL:-local-model}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-reports@example.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - report_data:/app/data
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: instantreports
+      POSTGRES_USER: ir
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ir -d instantreports"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mokapi:
+    image: mokapi/mokapi
+    ports:
+      - "5580:5580"
+    volumes:
+      - ./testing/mokapi/config.json:/etc/mokapi/config.json
+
+volumes:
+  pgdata:
+  report_data:

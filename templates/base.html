@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}InstantReports{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/main.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    {% if current_user %}
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="navbar-brand">InstantReports</a>
+            <ul class="navbar-nav">
+                {% if mode == 'designer' %}
+                <li><a href="/designer" class="nav-link">Designer</a></li>
+                {% endif %}
+                <li><a href="/portal" class="nav-link">My Reports</a></li>
+                {% if current_user.role in ['admin', 'designer'] %}
+                <li><a href="/admin/schedules" class="nav-link">Schedules</a></li>
+                <li><a href="/admin/users" class="nav-link">Users</a></li>
+                {% endif %}
+            </ul>
+            <div class="navbar-user">
+                <span>{{ current_user.name }}</span>
+                <a href="/logout" class="nav-link">Logout</a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="{% block main_class %}container{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', path='/js/htmx.min.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/alpine.min.js') }}" defer></script>
+    <script src="{{ url_for('static', path='/js/sortable.min.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from app.config import settings
+from app.database import engine
+from app.models import *  # noqa: F401,F403 - ensure all models are imported for Alembic
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+
+
+app = FastAPI(
+    title="InstantReports",
+    description="Report design, scheduling, and delivery platform",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+static_dir = Path(settings.STATIC_DIR)
+templates_dir = Path(settings.TEMPLATES_DIR)
+
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+templates = Jinja2Templates(directory=str(templates_dir))
+templates.env.globals["mode"] = settings.MODE
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+if settings.MODE == "designer":
+    from app.routes import auth, designer, datasources, preview, ai, admin  # noqa: F401
+
+    app.include_router(auth.router, prefix="/auth", tags=["auth"])
+    app.include_router(designer.router, prefix="/designer", tags=["designer"])
+    app.include_router(datasources.router, prefix="/datasources", tags=["datasources"])
+    app.include_router(preview.router, prefix="/preview", tags=["preview"])
+    app.include_router(ai.router, prefix="/ai", tags=["ai"])
+    app.include_router(admin.router, prefix="/admin", tags=["admin"])
+
+elif settings.MODE == "runner":
+    from app.routes import auth, portal, admin  # noqa: F401
+
+    app.include_router(auth.router, prefix="/auth", tags=["auth"])
+    app.include_router(portal.router, prefix="/portal", tags=["portal"])
+    app.include_router(admin.router, prefix="/admin", tags=["admin"])
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "mode": settings.MODE}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}My Reports - InstantReports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>My Reports</h1>
+</div>
+
+<div class="card">
+    <h2>Delivered Reports</h2>
+    {% if outputs %}
+    <table>
+        <thead>
+            <tr>
+                <th>Report Name</th>
+                <th>Format</th>
+                <th>Generated</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for output in outputs %}
+            <tr>
+                <td>{{ output.report.name if output.report else 'Unknown' }}</td>
+                <td>{{ output.format|upper }}</td>
+                <td>{{ output.generated_at.strftime('%Y-%m-%d %H:%M') if output.generated_at else '-' }}</td>
+                <td>
+                    <a href="/portal/reports/{{ output.report_id }}/download/{{ output.id }}" class="btn btn-primary btn-sm">Download</a>
+                    <a href="/portal/reports/{{ output.report_id }}/output/{{ output.id }}" class="btn btn-secondary btn-sm">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No reports have been delivered to you yet. Check back later or contact your administrator.</p>
+    {% endif %}
+</div>
+{% endblock %}

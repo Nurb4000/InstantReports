@@ -1,0 +1,61 @@
+{
+  "ldap": {
+    "port": 389,
+    "users": [
+      {
+        "dn": "cn=admin,dc=mokapi,dc=org",
+        "password": "password",
+        "attributes": {
+          "uid": ["admin"],
+          "cn": ["Admin User"],
+          "mail": ["admin@example.com"],
+          "memberOf": ["cn=admins,ou=groups,dc=mokapi,dc=org"]
+        }
+      },
+      {
+        "dn": "cn=ziggy,dc=mokapi,dc=org",
+        "password": "password",
+        "attributes": {
+          "uid": ["ziggy"],
+          "cn": ["Ziggy"],
+          "mail": ["ziggy@example.com"],
+          "memberOf": ["cn=designers,ou=groups,dc=mokapi,dc=org"]
+        }
+      },
+      {
+        "dn": "cn=jane,dc=mokapi,dc=org",
+        "password": "password",
+        "attributes": {
+          "uid": ["jane"],
+          "cn": ["Jane Doe"],
+          "mail": ["jane@example.com"],
+          "memberOf": ["cn=viewers,ou=groups,dc=mokapi,dc=org"]
+        }
+      }
+    ],
+    "groups": [
+      {
+        "dn": "cn=admins,ou=groups,dc=mokapi,dc=org",
+        "attributes": {
+          "cn": ["admins"]
+        }
+      },
+      {
+        "dn": "cn=designers,ou=groups,dc=mokapi,dc=org",
+        "attributes": {
+          "cn": ["designers"]
+        }
+      },
+      {
+        "dn": "cn=viewers,ou=groups,dc=mokapi,dc=org",
+        "attributes": {
+          "cn": ["viewers"]
+        }
+      }
+    ]
+  },
+  "smtp": {
+    "port": 1025,
+    "hostname": "localhost"
+  }
+}
