@@ -2,7 +2,7 @@ services:
   instantreports:
     build: .
     ports:
-      - "8000:8000"
+      - "8080:8000"
     environment:
       - MODE=${MODE:-designer}
       - SEPARATE_MODE=${SEPARATE_MODE:-false}
