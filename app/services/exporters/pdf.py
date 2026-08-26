@@ -9,13 +9,17 @@ from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch, cm
 from reportlab.platypus import (
-    Image,
+    Frame,
+    PageTemplate,
+    BaseDocTemplate,
+    KeepTogether,
     Paragraph,
-    SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
+from reportlab.platypus.doctemplate import PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 from app.services.engine.chart import ChartGenerator
 
@@ -25,6 +29,7 @@ class PDFExporter:
 
     def __init__(self):
         self.chart_generator = ChartGenerator()
+        self.renderer = None  # Will be set when exporting
 
     def export(self, rendered_report: dict[str, Any], output_format: str = "pdf") -> bytes:
         """Export a rendered report to PDF.
@@ -44,17 +49,61 @@ class PDFExporter:
             page_size = landscape(page_size)
 
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
+        
+        # Create frames for header, body, and footer
+        left_margin = cm(2)
+        right_margin = cm(2)
+        top_margin = cm(2)
+        bottom_margin = cm(2)
+        
+        body_height = page_size[1] - top_margin - bottom_margin - inch
+        
+        left_frame = Frame(
+            left_margin, bottom_margin,
+            page_size[0] - left_margin - right_margin,
+            body_height,
+            id='normal'
+        )
+        
+        # Create document template
+        doc = BaseDocTemplate(
             buffer,
             pagesize=page_size,
-            rightMargin=cm(2),
-            leftMargin=cm(2),
-            topMargin=cm(2),
-            bottomMargin=cm(2),
+            title=rendered_report.get("name", "Report"),
+            author="InstantReports",
         )
+        
+        # Define page templates with header/footer
+        def header(canvas, doc):
+            canvas.saveState()
+            canvas.setFont('Helvetica', 8)
+            canvas.drawString(left_margin, page_size[1] - top_margin + cm(0.5), 
+                            rendered_report.get("name", ""))
+            canvas.restoreState()
 
+        def footer(canvas, doc):
+            canvas.saveState()
+            canvas.setFont('Helvetica', 8)
+            page_num = canvas.getPageNumber()
+            text = f"Page {page_num}"
+            canvas.drawCentredString(page_size[0] / 2.0, bottom_margin - cm(1), text)
+            canvas.restoreState()
+
+        # Create page template and add to document
+        page_template = PageTemplate(
+            id='MainTemplate',
+            frames=[left_frame],
+            onPage=footer,
+        )
+        doc.addPageTemplates([page_template])
+        
         styles = getSampleStyleSheet()
         story = []
+
+        # Add title as first element
+        title_style = styles['Title']
+        story.append(Paragraph(rendered_report.get("name", "Report"), title_style))
+        story.append(Spacer(1, 0.5 * inch))
 
         for section in rendered_report.get("sections", []):
             self._render_section(story, section, styles)

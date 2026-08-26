@@ -25,12 +25,41 @@ class ReportRenderer:
             "metadata": {
                 "page": definition.get("layout", {}).get("page", {}),
                 "parameters": definition.get("parameters", []),
+                "page_number": 1,
+                "total_pages": 1,
             },
         }
 
         for section_def in definition.get("layout", {}).get("sections", []):
             rendered_section = self._render_section(section_def, data)
             result["sections"].append(rendered_section)
+
+        return result
+
+    def resolve_tokens(self, text: str, context: dict[str, Any]) -> str:
+        """Resolve special tokens in text (page numbers, dates, etc.).
+
+        Supported tokens:
+        - {{page.number}} - Current page number
+        - {{page.total}} - Total pages
+        - {{date.now}} - Current date/time
+        - {{report.name}} - Report name
+        - {{user.name}} - Current user name
+        """
+        import datetime
+
+        replacements = {
+            "{{page.number}}": str(context.get("page_number", 1)),
+            "{{page.total}}": str(context.get("total_pages", 1)),
+            "{{date.now}}": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "{{date.today}}": datetime.date.today().strftime("%Y-%m-%d"),
+            "{{report.name}}": context.get("report_name", ""),
+            "{{user.name}}": context.get("user_name", ""),
+        }
+
+        result = text
+        for token, value in replacements.items():
+            result = result.replace(token, str(value))
 
         return result
 

@@ -153,7 +153,16 @@ async def run_scheduler():
     scheduler = ReportScheduler(settings.DATABASE_URL)
     scheduler.start()
 
-    logger.info("Runner mode started")
+    # Schedule cleanup job to run daily at 2 AM
+    from apscheduler.triggers.cron import CronTrigger
+    scheduler.scheduler.add_job(
+        cleanup_old_reports,
+        trigger=CronTrigger(hour=2, minute=0),
+        id="cleanup_old_reports",
+        replace_existing=True,
+    )
+
+    logger.info("Runner mode started with cleanup scheduler")
 
     try:
         while True:
@@ -161,6 +170,18 @@ async def run_scheduler():
     except KeyboardInterrupt:
         logger.info("Shutting down runner...")
         scheduler.shutdown()
+
+
+async def cleanup_old_reports():
+    """Cleanup job to remove old report outputs."""
+    from app.services.cleanup import cleanup_old_outputs
+    
+    logger.info("Running report output cleanup...")
+    try:
+        deleted = await cleanup_old_outputs()
+        logger.info(f"Cleanup complete: {deleted} records deleted")
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}")
 
 
 if __name__ == "__main__":

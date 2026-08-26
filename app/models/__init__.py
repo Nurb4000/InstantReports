@@ -13,8 +13,10 @@ from app.models.connection import (
     DeliveryRecipient,
     Schedule,
 )
+from app.models.api_key import APIKey
 
 __all__ = [
+    "APIKey",
     "AuthSource",
     "DataConnection",
     "Delivery",
