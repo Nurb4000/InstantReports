@@ -4,10 +4,6 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libgdk-pixbuf-2.0-0 \
-    libcairo2 \
     libffi-dev \
     libmariadb3 \
     && rm -rf /var/lib/apt/lists/*

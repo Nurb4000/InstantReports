@@ -1,0 +1,82 @@
+{
+  "name": "Simple Sales Table",
+  "description": "Basic sales data table with formatting",
+  "data_sources": [
+    {
+      "id": "sales_data",
+      "name": "Sales Database",
+      "connector_type": "postgresql",
+      "query": "SELECT product_name, region, quantity, revenue, profit FROM sales WHERE year = $year ORDER BY revenue DESC"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "year",
+      "type": "integer",
+      "required": true,
+      "default": 2024,
+      "label": "Report Year"
+    }
+  ],
+  "layout": {
+    "page": {
+      "size": "A4",
+      "orientation": "portrait",
+      "margins": {
+        "top": 20,
+        "bottom": 20,
+        "left": 15,
+        "right": 15
+      }
+    },
+    "sections": [
+      {
+        "type": "header",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Sales Report - {{year}}",
+            "style": "title"
+          },
+          {
+            "type": "text",
+            "content": "Generated: {{date.now}}",
+            "style": "subtitle"
+          }
+        ]
+      },
+      {
+        "type": "detail",
+        "data_source": "sales_data",
+        "elements": [
+          {
+            "type": "table",
+            "columns": [
+              {"field": "product_name", "header": "Product", "width": "30%"},
+              {"field": "region", "header": "Region", "width": "20%"},
+              {"field": "quantity", "header": "Quantity Sold", "width": "20%", "format": "#,##0"},
+              {"field": "revenue", "header": "Revenue", "width": "15%", "format": "$#,##0.00"},
+              {"field": "profit", "header": "Profit", "width": "15%", "format": "$#,##0.00"}
+            ],
+            "sort": "revenue DESC"
+          }
+        ]
+      },
+      {
+        "type": "footer",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Page {{page.number}} of {{page.total}}",
+            "style": "footer"
+          }
+        ]
+      }
+    ]
+  },
+  "export_settings": {
+    "pdf": {"enabled": true},
+    "xlsx": {"enabled": true},
+    "csv": {"enabled": true}
+  }
+}
