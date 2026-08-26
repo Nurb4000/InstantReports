@@ -12,8 +12,17 @@ from app.config import settings
 from app.database import get_db
 from app.models.report import Report
 from app.models.user import User
+from app.routes.admin import get_role_value
 
 router = APIRouter()
+
+
+def _check_role(user, *allowed):
+    """Check if user has one of the allowed roles."""
+    if not user:
+        return False
+    role = get_role_value(user)
+    return role in allowed
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -40,7 +49,7 @@ async def list_reports(
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    if current_user.role.value in ("admin", "designer"):
+    if _check_role(current_user, "admin", "designer"):
         result = await db.execute(
             select(Report).order_by(Report.updated_at.desc()).limit(50)
         )
@@ -52,7 +61,7 @@ async def list_reports(
     reports = result.scalars().all()
     return request.app.state.templates.TemplateResponse(
         "designer/reports.html",
-        {"request": request, "current_user": current_user, "reports": reports, "mode": __import__("app.config").settings.MODE},
+        {"request": request, "current_user": current_user, "reports": reports, "mode": settings.MODE},
     )
 
 
@@ -66,7 +75,7 @@ async def new_report_page(
 
     return request.app.state.templates.TemplateResponse(
         "designer/editor.html",
-        {"request": request, "current_user": current_user, "report": None, "mode": __import__("app.config").settings.MODE},
+        {"request": request, "current_user": current_user, "report": None, "mode": settings.MODE},
     )
 
 
@@ -88,7 +97,7 @@ async def edit_report_page(
 
     return request.app.state.templates.TemplateResponse(
         "designer/editor.html",
-        {"request": request, "current_user": current_user, "report": report, "mode": __import__("app.config").settings.MODE},
+        {"request": request, "current_user": current_user, "report": report, "mode": settings.MODE},
     )
 
 
@@ -153,7 +162,7 @@ async def delete_report(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value != "admin":
+    if not current_user or not _check_role(current_user, "admin"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(Report).where(Report.id == report_id))

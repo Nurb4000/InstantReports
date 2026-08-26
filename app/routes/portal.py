@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.routes.auth import get_current_user_optional
 from app.database import get_db
 from app.models.report import Report, ReportOutput
@@ -56,7 +57,7 @@ async def portal_index(
             "outputs": outputs,
             "search": search,
             "format_type": format_type,
-            "mode": __import__("app.config").settings.MODE,
+            "mode": settings.MODE,
         },
     )
 
@@ -82,7 +83,7 @@ async def view_report_output(
 
     return request.app.state.templates.TemplateResponse(
         "portal/view_report.html",
-        {"request": request, "current_user": current_user, "output": output, "mode": __import__("app.config").settings.MODE},
+        {"request": request, "current_user": current_user, "output": output, "mode": settings.MODE},
     )
 
 
