@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
-from app.auth import get_current_user_optional
+from app.routes.auth import get_current_user_optional
 from app.models.user import User
 
 router = APIRouter()

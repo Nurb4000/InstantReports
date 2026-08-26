@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user_optional
+from app.routes.auth import get_current_user_optional
 from app.database import get_db
 from app.models.connection import DataConnection
 from app.models.user import User
