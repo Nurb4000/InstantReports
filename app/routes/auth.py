@@ -9,6 +9,7 @@ from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import authenticate_ldap_user, authenticate_user, create_access_token, decode_access_token, get_current_user
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 
@@ -65,7 +66,8 @@ async def login(
 
     access_token = create_access_token(data={"sub": user.email})
 
-    response = RedirectResponse(url="/designer" if __import__("app.config").settings.MODE == "designer" else "/portal", status_code=status.HTTP_302_FOUND)
+    redirect_url = "/designer" if settings.MODE == "designer" else "/portal"
+    response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
     response.set_cookie(
         key="access_token",
         value=access_token,

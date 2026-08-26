@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import uuid
 from datetime import datetime
+
+# Add app to path
+sys.path.insert(0, '/app')
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -46,5 +50,5 @@ async def seed_admin_user(database_url: str):
 
 if __name__ == "__main__":
     import os
-    database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
+    database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://ir:secret@postgres:5432/instantreports")
     asyncio.run(seed_admin_user(database_url))
