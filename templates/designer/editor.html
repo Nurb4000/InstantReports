@@ -97,14 +97,12 @@
                     <h3>Version History</h3>
                     <div id="versions-list"></div>
                 </div>
+                {% else %}
+                <p class="text-muted">Save the report first to view version history.</p>
                 {% endif %}
             </div>
             <div class="tab-pane fade" id="ai" role="tabpanel">
-                <div id="ai-assistant">
-                    <h3>AI Assistant</h3>
-                    <p>Describe what you want to create or modify, and the AI will help you build it.</p>
-                    <div id="ai-chat"></div>
-                </div>
+                {% include "designer/ai_chat.html" %}
             </div>
         </div>
     </div>
