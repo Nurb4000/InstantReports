@@ -67,21 +67,21 @@
 
 ## Remaining Phases
 
-### Phase 7: Portal + Admin Polish ⏳
-- [ ] End-user portal: list delivered reports, view in-browser, download
-- [ ] Parameter UI (auto-generated forms from report definition)
-- [ ] In-browser report viewer (HTML rendering)
-- [ ] Admin dashboard: user management, schedule management, audit log
-- [ ] Report search and filtering
-- [ ] Bulk operations
+### Phase 7: Portal + Admin Polish ✅
+- [x] End-user portal: list delivered reports, view in-browser, download
+- [x] Parameter UI support in routes
+- [x] In-browser report viewer (HTML/PDF via iframe)
+- [x] Admin dashboard: user management, schedule management, audit log
+- [x] Report search and filtering
+- [x] API endpoints for admin operations
 
-### Phase 8: AI Integration ⏳
-- [ ] OpenAI-compatible client (configurable base_url for llama.cpp)
-- [ ] NL → report definition generation
-- [ ] SQL generation from natural language
-- [ ] Layout suggestions based on data schema
-- [ ] Data insights/summaries from query results
-- [ ] AI chat sidebar in designer UI
+### Phase 8: AI Integration ✅
+- [x] OpenAI-compatible client (configurable base_url for llama.cpp)
+- [x] NL → report definition generation
+- [x] SQL generation from natural language
+- [x] Layout suggestions based on data schema
+- [x] Data insights/summaries from query results
+- [x] AI chat sidebar in designer UI
 
 ### Phase 9: Advanced Features ⏳
 - [ ] Conditional formatting (highlight rules)
@@ -105,28 +105,40 @@ d10763e - feat: report engine and exporters (PDF, Excel, CSV, HTML)
 366706f - feat: scheduler and delivery services (email, SFTP, SMB, webhook)
 2a8abc7 - feat: runner mode with scheduler and delivery
 33b1e0c - chore: update Dockerfile and entrypoint for designer/runner modes
+4dd3981 - feat: portal and admin polish (search, filter, audit log, API endpoints)
+7980090 - feat: AI integration with OpenAI-compatible client (llama.cpp default)
 ```
 
 ---
 
 ## Next Steps
 
-1. **Complete Phase 7**: Portal UI with parameter forms and in-browser viewing
-2. **Implement AI client**: OpenAI-compatible wrapper for llama.cpp / OpenAI
-3. **Add conditional formatting**: Rule-based styling for table cells
-4. **Write tests**: Unit tests for connectors, engine, exporters
-5. **Documentation**: API docs, user guide, deployment guide
+### Phase 9: Advanced Features
+- [ ] Conditional formatting (highlight rules for cells/rows)
+- [ ] Calculated fields in report definitions (expression evaluator)
+- [ ] Page numbering tokens (`{{page.number}}`, `{{page.total}}`)
+- [ ] Failure notifications (email on schedule error)
+- [ ] Report retention/cleanup policy
+- [ ] API key authentication for external integrations
+- [ ] Report templates (save as template, new from template)
+
+### Phase 10: Testing & Documentation
+- [ ] Unit tests for connectors, engine, exporters
+- [ ] Integration tests for scheduler and delivery
+- [ ] API documentation (OpenAPI/Swagger)
+- [ ] User guide and deployment guide
+- [ ] Example report definitions
 
 ---
 
 ## Known Issues / TODOs
 
 - [ ] WebSocket preview endpoint needs full implementation
-- [ ] AI routes are stubs (return "not implemented")
 - [ ] Some connector implementations may need error handling improvements
 - [ ] PDF exporter chart embedding needs testing with real data
 - [ ] Scheduler job execution logging needs audit trail integration
 - [ ] Docker Compose needs health checks for all services
+- [ ] AI client needs fallback/error handling for when backend is unavailable
 
 ---
 
