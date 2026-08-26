@@ -21,6 +21,7 @@ async def portal_index(
     current_user: User | None = Depends(get_current_user_optional),
     search: str = Query(None),
     format_type: str = Query(None),
+    db: AsyncSession = Depends(get_db),
 ):
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
@@ -44,7 +45,6 @@ async def portal_index(
 
     query = query.order_by(ReportOutput.generated_at.desc()).limit(50)
 
-    db: AsyncSession = request.state.db
     result = await db.execute(query)
     outputs = result.scalars().all()
 
