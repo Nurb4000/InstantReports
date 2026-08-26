@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     SMTP_FROM: str = "reports@example.com"
     SMTP_USE_TLS: bool = True
 
+    # Timezone
+    TIMEZONE: str = "America/New_York"  # EST/EDT
+
     # Report storage
     REPORT_RETENTION_DAYS: int = 90
 

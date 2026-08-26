@@ -33,7 +33,7 @@
         <h2>Create New Schedule</h2>
         <form id="create-schedule-form">
             <div class="form-group">
-                <label for="schedule-name">Name</label>
+                <label for="schedule-name">Schedule Name</label>
                 <input type="text" id="schedule-name" name="name" class="form-control" required placeholder="Daily Sales Report">
             </div>
             <div class="form-group">
@@ -41,13 +41,70 @@
                 <input type="text" id="schedule-report" name="report_id" class="form-control" required placeholder="UUID">
             </div>
             <div class="form-group">
-                <label for="schedule-cron">Cron Expression</label>
-                <input type="text" id="schedule-cron" name="cron_expression" class="form-control" placeholder="0 8 * * *" required>
-                <small class="text-muted">Format: minute hour day_of_month month day_of_week (e.g., "0 8 * * *" for 8 AM daily)</small>
+                <label for="schedule-frequency">Frequency</label>
+                <select id="schedule-frequency" name="frequency" class="form-control" onchange="updateScheduleFields()">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="custom">Custom (Cron Expression)</option>
+                </select>
+            </div>
+            <div id="schedule-time-fields">
+                <div class="form-group">
+                    <label for="schedule-hour">Hour (0-23)</label>
+                    <input type="number" id="schedule-hour" name="hour" class="form-control" min="0" max="23" value="8" required>
+                </div>
+                <div class="form-group">
+                    <label for="schedule-minute">Minute (0-59)</label>
+                    <input type="number" id="schedule-minute" name="minute" class="form-control" min="0" max="59" value="0" required>
+                </div>
+            </div>
+            <div id="schedule-day-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="schedule-day-type">Day Type</label>
+                    <select id="schedule-day-type" class="form-control" onchange="updateDayFields()">
+                        <option value="specific">Specific Day(s)</option>
+                        <option value="last">Last Day of Month</option>
+                    </select>
+                </div>
+                <div id="specific-days-fields">
+                    <div class="form-group">
+                        <label>Select Days</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <label class="checkbox-label"><input type="checkbox" name="days" value="1"> Mon</label>
+                            <label class="checkbox-label"><input type="checkbox" name="days" value="2"> Tue</label>
+                            <label class="checkbox-label"><input type="checkbox" name="days" value="3"> Wed</label>
+                            <label class="checkbox-label"><input type="checkbox" name="days" value="4"> Thu</label>
+                            <label class="checkbox-label"><input type="checkbox" name="days" value="5"> Fri</label>
+                            <label class="checkbox-label"><input type="checkbox" name="days" value="6"> Sat</label>
+                            <label class="checkbox-label"><input type="checkbox" name="days" value="0"> Sun</label>
+                        </div>
+                    </div>
+                </div>
+                <div id="last-day-field" style="display: none;">
+                    <div class="form-group">
+                        <label for="schedule-last-day">Day of Month (1-28)</label>
+                        <input type="number" id="schedule-last-day" name="last_day" class="form-control" min="1" max="28" value="1">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="display: none;">
+                <label for="schedule-cron-custom">Cron Expression (Custom Mode)</label>
+                <input type="text" id="schedule-cron-custom" name="cron_expression_custom" class="form-control" placeholder="0 8 * * *">
             </div>
             <div class="form-group">
                 <label for="schedule-timezone">Timezone</label>
-                <input type="text" id="schedule-timezone" name="timezone" class="form-control" value="UTC" required>
+                <select id="schedule-timezone" name="timezone" class="form-control">
+                    <option value="America/New_York" selected>Eastern Time (EST/EDT)</option>
+                    <option value="America/Chicago">Central Time (CST/CDT)</option>
+                    <option value="America/Denver">Mountain Time (MST/MDT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PST/PDT)</option>
+                    <option value="UTC">UTC</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="schedule-cron-preview">Generated Cron Expression</label>
+                <input type="text" id="schedule-cron-preview" name="cron_expression" class="form-control" readonly placeholder="Will be generated automatically">
             </div>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Create Schedule</button>
@@ -91,11 +148,102 @@
 
     function showCreateScheduleModal() {
         document.getElementById('create-schedule-modal').style.display = 'block';
+        updateScheduleFields();
     }
 
     function hideCreateScheduleModal() {
         document.getElementById('create-schedule-modal').style.display = 'none';
     }
+
+    function updateScheduleFields() {
+        const frequency = document.getElementById('schedule-frequency').value;
+        const timeFields = document.getElementById('schedule-time-fields');
+        const dayFields = document.getElementById('schedule-day-fields');
+        const customCronField = document.getElementById('schedule-cron-custom');
+        
+        // Show/hide time fields
+        if (frequency === 'custom') {
+            timeFields.style.display = 'none';
+            dayFields.style.display = 'none';
+            customCronField.parentElement.style.display = 'block';
+            customCronField.required = true;
+            document.getElementById('schedule-cron-preview').value = '';
+        } else {
+            timeFields.style.display = 'block';
+            customCronField.parentElement.style.display = 'none';
+            customCronField.required = false;
+            
+            // Show/hide day fields based on frequency
+            if (frequency === 'weekly' || frequency === 'monthly') {
+                dayFields.style.display = 'block';
+            } else {
+                dayFields.style.display = 'none';
+            }
+            
+            generateCronExpression();
+        }
+    }
+
+    function updateDayFields() {
+        const dayType = document.getElementById('schedule-day-type').value;
+        const specificDays = document.getElementById('specific-days-fields');
+        const lastDay = document.getElementById('last-day-field');
+        
+        if (dayType === 'specific') {
+            specificDays.style.display = 'block';
+            lastDay.style.display = 'none';
+        } else {
+            specificDays.style.display = 'none';
+            lastDay.style.display = 'block';
+        }
+        
+        generateCronExpression();
+    }
+
+    function generateCronExpression() {
+        const frequency = document.getElementById('schedule-frequency').value;
+        const hour = document.getElementById('schedule-hour').value || '0';
+        const minute = document.getElementById('schedule-minute').value || '0';
+        let cron = `${minute} ${hour} * * *`;
+        
+        if (frequency === 'weekly') {
+            const days = Array.from(document.querySelectorAll('input[name="days"]:checked')).map(cb => cb.value);
+            if (days.length > 0) {
+                cron = `${minute} ${hour} * * ${days.join(',')}`;
+            } else {
+                cron = `${minute} ${hour} * * 1`; // Default to Monday
+            }
+        } else if (frequency === 'monthly') {
+            const dayType = document.getElementById('schedule-day-type').value;
+            if (dayType === 'specific') {
+                const days = Array.from(document.querySelectorAll('input[name="days"]:checked')).map(cb => cb.value);
+                if (days.length > 0) {
+                    cron = `${minute} ${hour} ${days[0]} * *`;
+                }
+            } else {
+                const lastDay = document.getElementById('schedule-last-day').value || '1';
+                cron = `${minute} ${hour} ${lastDay} * *`;
+            }
+        }
+        
+        document.getElementById('schedule-cron-preview').value = cron;
+    }
+
+    // Add event listeners to all form inputs
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('#create-schedule-form input, #create-schedule-form select');
+        inputs.forEach(input => {
+            input.addEventListener('change', function() {
+                if (input.id === 'schedule-frequency') {
+                    updateScheduleFields();
+                } else if (input.id === 'schedule-day-type') {
+                    updateDayFields();
+                } else {
+                    generateCronExpression();
+                }
+            });
+        });
+    });
 
     document.getElementById('create-schedule-form').addEventListener('submit', async function(e) {
         e.preventDefault();
