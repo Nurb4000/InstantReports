@@ -67,6 +67,14 @@ elif settings.MODE == "runner":
     app.include_router(admin.router, prefix="/admin", tags=["admin"])
 
 
+@app.on_event("startup")
+async def startup_event():
+    if settings.MODE == "runner":
+        from app.runner import run_scheduler
+        import asyncio
+        asyncio.create_task(run_scheduler())
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "mode": settings.MODE}

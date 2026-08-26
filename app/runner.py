@@ -1,0 +1,167 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+import uuid
+from datetime import datetime, timedelta
+
+from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.database import async_session_factory
+from app.models.connection import Delivery, DeliveryRecipient, Schedule
+from app.models.report import Report, ReportOutput
+from app.models.user import User
+from app.services.delivery import send_email, send_sftp, send_smb, send_webhook
+from app.services.engine.renderer import ReportRenderer
+from app.services.exporters.pdf import PDFExporter
+
+logger = logging.getLogger(__name__)
+
+
+async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput | None:
+    """Execute a scheduled report and return the output."""
+    try:
+        report_result = await db.execute(select(Report).where(Report.id == schedule.report_id))
+        report = report_result.scalar_one_or_none()
+
+        if not report:
+            logger.error(f"Report {schedule.report_id} not found")
+            return None
+
+        renderer = ReportRenderer()
+        exporter = PDFExporter()
+
+        rendered = renderer.render(report.definition, {})
+        pdf_bytes = exporter.export(rendered)
+
+        output = ReportOutput(
+            report_id=report.id,
+            schedule_id=schedule.id,
+            format="pdf",
+            file_name=f"{report.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf",
+            file_data=pdf_bytes,
+            file_size=len(pdf_bytes),
+            mime_type="application/pdf",
+            parameters_used=schedule.parameters or {},
+        )
+        db.add(output)
+        await db.commit()
+        await db.refresh(output)
+
+        logger.info(f"Report {report.name} generated: {output.file_name}")
+        return output
+
+    except Exception as e:
+        logger.error(f"Failed to execute report: {e}")
+        return None
+
+
+async def deliver_report(
+    output: ReportOutput,
+    deliveries: list[Delivery],
+    recipients: list[DeliveryRecipient],
+) -> bool:
+    """Deliver a report output via configured delivery methods."""
+    success = True
+
+    for delivery in deliveries:
+        config = delivery.config
+        delivery_type = delivery.delivery_type
+
+        if delivery_type == "email":
+            to_emails = [r.email for r in recipients if r.delivery_id == delivery.id]
+            if not to_emails:
+                continue
+
+            sent = await send_email(
+                smtp_host=settings.SMTP_HOST,
+                smtp_port=settings.SMTP_PORT,
+                smtp_user=settings.SMTP_USER,
+                smtp_password=settings.SMTP_PASSWORD,
+                smtp_from=settings.SMTP_FROM,
+                to_emails=to_emails,
+                subject=f"Report: {output.file_name}",
+                body="Please find the attached report.",
+                attachment=output.file_data,
+                attachment_filename=output.file_name,
+            )
+            if not sent:
+                success = False
+
+        elif delivery_type == "sftp":
+            sent = await send_sftp(
+                host=config.get("host", ""),
+                port=config.get("port", 22),
+                username=config.get("username", ""),
+                password=config.get("password"),
+                remote_path=config.get("remote_path", "/"),
+                file_data=output.file_data,
+                filename=output.file_name,
+            )
+            if not sent:
+                success = False
+
+        elif delivery_type == "smb":
+            sent = await send_smb(
+                server=config.get("server", ""),
+                share=config.get("share", ""),
+                username=config.get("username", ""),
+                password=config.get("password", ""),
+                remote_path=config.get("remote_path", "/"),
+                file_data=output.file_data,
+                filename=output.file_name,
+            )
+            if not sent:
+                success = False
+
+        elif delivery_type == "webhook":
+            payload = {
+                "report_id": str(output.report_id),
+                "schedule_id": str(output.schedule_id),
+                "file_name": output.file_name,
+                "format": output.format,
+            }
+            sent = await send_webhook(
+                url=config.get("url", ""),
+                payload=payload,
+                secret=config.get("secret"),
+            )
+            if not sent:
+                success = False
+
+    return success
+
+
+async def cleanup_old_outputs(retention_days: int = 90) -> int:
+    """Delete report outputs older than retention period."""
+    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+
+    async with async_session_factory() as db:
+        result = await db.execute(
+            delete(ReportOutput).where(ReportOutput.generated_at < cutoff)
+        )
+        await db.commit()
+        return result.rowcount
+
+
+async def run_scheduler():
+    """Main entry point for runner mode."""
+    from app.services.scheduler.engine import ReportScheduler
+
+    scheduler = ReportScheduler(settings.DATABASE_URL)
+    scheduler.start()
+
+    logger.info("Runner mode started")
+
+    try:
+        while True:
+            await asyncio.sleep(60)
+    except KeyboardInterrupt:
+        logger.info("Shutting down runner...")
+        scheduler.shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_scheduler())
