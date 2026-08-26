@@ -32,8 +32,9 @@ cd InstantReports
 docker compose up --build
 
 # Access the application
-# Designer: http://localhost:8000
+# Designer: http://localhost:8080
 # Mokapi UI: http://localhost:5580
+# PostgreSQL: localhost:5433 (internal: 5432)
 ```
 
 ### Default Admin Credentials
