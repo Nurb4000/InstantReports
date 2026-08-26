@@ -7,7 +7,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.routes.auth import get_current_user_optional
+from app.auth import get_current_user_optional
+from app.config import settings
 from app.database import get_db
 from app.models.report import Report
 from app.models.user import User
@@ -23,8 +24,8 @@ async def designer_index(
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    from app.config import settings
-    return request.app.state.templates.TemplateResponse(
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
         "designer/index.html",
         {"request": request, "current_user": current_user, "mode": settings.MODE},
     )

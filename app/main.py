@@ -39,8 +39,8 @@ templates_dir = Path(settings.TEMPLATES_DIR)
 
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-templates = Jinja2Templates(directory=str(templates_dir))
-templates.env.globals["mode"] = settings.MODE
+app.state.templates = Jinja2Templates(directory=str(templates_dir))
+app.state.templates.env.globals["mode"] = settings.MODE
 
 
 @app.get("/", response_class=HTMLResponse)
