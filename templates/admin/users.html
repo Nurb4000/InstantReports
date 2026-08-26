@@ -60,6 +60,44 @@
     </div>
 </div>
 
+<div id="edit-user-modal" class="modal" style="display: none;">
+    <div class="modal-content card">
+        <h2>Edit User</h2>
+        <form id="edit-user-form">
+            <input type="hidden" id="edit-user-id" name="id">
+            <div class="form-group">
+                <label for="edit-user-name">Name</label>
+                <input type="text" id="edit-user-name" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-user-email">Email</label>
+                <input type="email" id="edit-user-email" name="email" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-user-password">New Password (leave blank to keep current)</label>
+                <input type="password" id="edit-user-password" name="password" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="edit-user-role">Role</label>
+                <select id="edit-user-role" name="role" class="form-control">
+                    <option value="viewer">Viewer</option>
+                    <option value="designer">Designer</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-user-active" name="is_active"> Active
+                </label>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="hideEditUserModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     async function loadUsers() {
         try {
@@ -94,10 +132,49 @@
 
     function showCreateUserModal() {
         document.getElementById('create-user-modal').style.display = 'block';
+        document.getElementById('create-user-form').reset();
     }
 
     function hideCreateUserModal() {
         document.getElementById('create-user-modal').style.display = 'none';
+    }
+
+    async function editUser(userId) {
+        try {
+            const response = await fetch(`/admin/api/users/${userId}`);
+            if (!response.ok) throw new Error('Failed to fetch user');
+            
+            // For now, just show the edit modal with current data
+            // In a full implementation, you'd fetch the user details first
+            document.getElementById('edit-user-id').value = userId;
+            document.getElementById('edit-user-modal').style.display = 'block';
+        } catch (error) {
+            console.error('Error editing user:', error);
+            alert('Failed to load user details');
+        }
+    }
+
+    function hideEditUserModal() {
+        document.getElementById('edit-user-modal').style.display = 'none';
+    }
+
+    async function deleteUser(userId) {
+        if (!confirm('Are you sure you want to delete this user?')) return;
+        
+        try {
+            const response = await fetch(`/admin/api/users/${userId}`, {
+                method: 'DELETE',
+            });
+            
+            if (response.ok) {
+                loadUsers();
+            } else {
+                const error = await response.json();
+                alert('Failed to delete user: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error);
+        }
     }
 
     document.getElementById('create-user-form').addEventListener('submit', async function(e) {
@@ -119,6 +196,30 @@
             }
         } catch (error) {
             console.error('Error creating user:', error);
+        }
+    });
+
+    document.getElementById('edit-user-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const userId = document.getElementById('edit-user-id').value;
+        const formData = new FormData(this);
+        formData.delete('id'); // Don't send ID in form data
+        
+        try {
+            const response = await fetch(`/admin/api/users/${userId}`, {
+                method: 'PUT',
+                body: formData,
+            });
+            
+            if (response.ok) {
+                hideEditUserModal();
+                loadUsers();
+            } else {
+                const error = await response.json();
+                alert('Failed to update user: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error updating user:', error);
         }
     });
 

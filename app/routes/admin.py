@@ -268,10 +268,10 @@ async def list_users(
 
 @router.post("/api/users")
 async def create_user(
-    name: str = None,
-    email: str = None,
-    password: str = None,
-    role: str = "viewer",
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    role: str = Form("viewer"),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -291,10 +291,11 @@ async def create_user(
 @router.put("/api/users/{user_id}")
 async def update_user(
     user_id: uuid.UUID,
-    name: str = None,
-    email: str = None,
-    role: str = None,
-    is_active: bool = None,
+    name: str = Form(None),
+    email: str = Form(None),
+    password: str = Form(None),
+    role: str = Form(None),
+    is_active: bool = Form(None),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -312,6 +313,47 @@ async def update_user(
         user.name = name
     if email:
         user.email = email
+    if password:
+        from app.auth import hash_password
+        user.password_hash = hash_password(password)
+    if role:
+        user.role = role
+    if is_active is not None:
+        user.is_active = is_active
+
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/api/users/{user_id}/change-password")
+async def change_password(
+    user_id: uuid.UUID,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change a user's password (self-service or admin)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Allow users to change their own password, or admins to change any password
+    is_admin = get_role_value(current_user) == "admin"
+    is_self = current_user.id == user_id
+
+    if not is_admin and not is_self:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from app.auth import verify_password
+    if not verify_password(current_password, user.password_hash or ""):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    user.password_hash = __import__("app.auth").hash_password(new_password)
+    await db.commit()
+    return {"status": "ok"}
     if role:
         user.role = role
     if is_active is not None:
