@@ -45,7 +45,7 @@ app.state.templates.env.globals["mode"] = settings.MODE
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return request.app.state.templates.TemplateResponse("login.html", {"request": request})
 
 
 if settings.MODE == "designer":

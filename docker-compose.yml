@@ -45,7 +45,7 @@ services:
   mokapi:
     image: mokapi/mokapi
     ports:
-      - "5580:5580"
+      - "5580:8080"
     volumes:
       - ./testing/mokapi/config.json:/etc/mokapi/config.json
 
