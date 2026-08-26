@@ -137,18 +137,32 @@ d10763e - feat: report engine and exporters (PDF, Excel, CSV, HTML)
 ## Commands to Run
 
 ```bash
-# Start development (designer mode)
-MODE=designer docker-compose up --build
+# Start development (designer mode with scheduler)
+docker compose up --build
 
-# Start runner mode
-MODE=runner docker-compose up --build
+# Start runner mode only
+MODE=runner docker compose up --build
+
+# Start both designer and runner in same container (dev mode)
+SEPARATE_MODE=false docker compose up --build
 
 # Run Alembic migrations
 alembic upgrade head
 
 # Create new migration
 alembic revision -m "description"
+
+# Seed initial admin user (if not created automatically)
+python scripts/seed_admin.py
 ```
+
+## Default Credentials
+
+**Admin User:**
+- Email: `admin@example.com`
+- Password: `admin`
+
+Created automatically on first run if no users exist.
 
 ---
 
