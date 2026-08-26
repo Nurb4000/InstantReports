@@ -16,12 +16,27 @@ from app.models.user import User
 router = APIRouter()
 
 
+def get_role_value(user):
+    """Safely get role value from user (handles Enum or string)."""
+    if hasattr(user.role, 'value'):
+        return user.role.value
+    return user.role
+
+
+def get_auth_source_value(user):
+    """Safely get auth_source value from user (handles Enum or string)."""
+    if hasattr(user.auth_source, 'value'):
+        return user.auth_source.value
+    return user.auth_source
+
+
 @router.get("/users", response_class=HTMLResponse)
 async def admin_users(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
 ):
-    if not current_user or current_user.role.value != "admin":
+    role = get_role_value(current_user) if hasattr(current_user.role, 'value') else current_user.role
+    if not current_user or role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return request.app.state.templates.TemplateResponse(
@@ -35,7 +50,8 @@ async def admin_schedules(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    role = get_role_value(current_user) if hasattr(current_user.role, 'value') else current_user.role
+    if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return request.app.state.templates.TemplateResponse(
@@ -50,7 +66,8 @@ async def admin_audit_log(
     current_user: User | None = Depends(get_current_user_optional),
     limit: int = Query(50, ge=1, le=200),
 ):
-    if not current_user or current_user.role.value != "admin":
+    role = get_role_value(current_user) if hasattr(current_user.role, 'value') else current_user.role
+    if not current_user or role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return request.app.state.templates.TemplateResponse(
@@ -69,7 +86,7 @@ async def create_schedule(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    if not current_user or get_role_value(current_user) not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     schedule = Schedule(
@@ -120,7 +137,7 @@ async def update_schedule(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    if not current_user or get_role_value(current_user) not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(Schedule).where(Schedule.id == schedule_id))
@@ -146,7 +163,7 @@ async def delete_schedule(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(Schedule).where(Schedule.id == schedule_id))
@@ -167,7 +184,7 @@ async def get_audit_log(
     db: AsyncSession = Depends(get_db),
 ):
     """Get audit log entries (API endpoint)."""
-    if not current_user or current_user.role.value != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     from app.models.connection import AuditLog
@@ -198,7 +215,7 @@ async def list_schedules(
     db: AsyncSession = Depends(get_db),
 ):
     """Get all schedules (API endpoint)."""
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    if not current_user or get_role_value(current_user) not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(
@@ -226,7 +243,7 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
 ):
     """Get all users (API endpoint)."""
-    if not current_user or current_user.role.value != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(
@@ -258,7 +275,7 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new user (API endpoint)."""
-    if not current_user or current_user.role.value != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     from app.auth import create_local_user
@@ -281,7 +298,7 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a user (API endpoint)."""
-    if not current_user or current_user.role.value != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(User).where(User.id == user_id))
@@ -310,7 +327,7 @@ async def delete_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a user (API endpoint)."""
-    if not current_user or current_user.role.value != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(User).where(User.id == user_id))
