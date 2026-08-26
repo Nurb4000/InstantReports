@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     )
 
     MODE: Literal["designer", "runner"] = "designer"
+    SEPARATE_MODE: bool = False  # If True, scheduler only runs in runner mode
     DATABASE_URL: str = "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"

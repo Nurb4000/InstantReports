@@ -71,7 +71,8 @@ elif settings.MODE == "runner":
 
 @app.on_event("startup")
 async def startup_event():
-    if settings.MODE == "runner":
+    # Start scheduler in runner mode OR if SEPARATE_MODE is disabled (dev mode)
+    if settings.MODE == "runner" or not settings.SEPARATE_MODE:
         from app.runner import run_scheduler
         import asyncio
         asyncio.create_task(run_scheduler())
