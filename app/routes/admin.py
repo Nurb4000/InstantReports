@@ -288,6 +288,32 @@ async def create_user(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/api/users/{user_id}")
+async def get_user(
+    user_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single user (API endpoint)."""
+    if not current_user or get_role_value(current_user) != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": str(user.id),
+        "name": user.name,
+        "email": user.email,
+        "role": get_role_value(user),
+        "auth_source": get_auth_source_value(user),
+        "is_active": user.is_active,
+    }
+
+
 @router.put("/api/users/{user_id}")
 async def update_user(
     user_id: uuid.UUID,

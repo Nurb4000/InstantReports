@@ -144,13 +144,19 @@
             const response = await fetch(`/admin/api/users/${userId}`);
             if (!response.ok) throw new Error('Failed to fetch user');
             
-            // For now, just show the edit modal with current data
-            // In a full implementation, you'd fetch the user details first
-            document.getElementById('edit-user-id').value = userId;
+            const user = await response.json();
+            
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('edit-user-name').value = user.name;
+            document.getElementById('edit-user-email').value = user.email;
+            document.getElementById('edit-user-role').value = user.role;
+            document.getElementById('edit-user-active').checked = user.is_active;
+            document.getElementById('edit-user-password').value = ''; // Clear password field
+            
             document.getElementById('edit-user-modal').style.display = 'block';
         } catch (error) {
             console.error('Error editing user:', error);
-            alert('Failed to load user details');
+            alert('Failed to load user details: ' + error.message);
         }
     }
 
