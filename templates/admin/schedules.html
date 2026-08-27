@@ -3,6 +3,9 @@
 {% block title %}Schedules - InstantReports{% endblock %}
 
 {% block content %}
+<script>
+    window.currentUserId = {{ current_user_id | tojson }};
+</script>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Schedules</h1>
     <button class="btn btn-primary" onclick="showCreateScheduleModal()">+ New Schedule</button>
@@ -495,29 +498,17 @@
             const response = await fetch('/admin/api/users');
             if (!response.ok) {
                 console.error('Failed to fetch users:', response.status, response.statusText);
-                alert('Failed to load users: ' + response.status);
                 return;
             }
             const users = await response.json();
-            console.log('Loaded users:', users);
             
-            // Get current user ID from cookie
-            const cookies = document.cookie.split(';');
-            let currentUserId = null;
-            for (let cookie of cookies) {
-                const [name, value] = cookie.trim().split('=');
-                if (name === 'current_user_id') {
-                    currentUserId = value;
-                    break;
-                }
-            }
-            console.log('Current user ID:', currentUserId);
+            // Get current user ID from a global variable set by server
+            const currentUserId = window.currentUserId || null;
             
             const ownerSelect = document.getElementById('schedule-owner');
             const editOwnerSelect = document.getElementById('edit-schedule-owner');
             
             if (!ownerSelect && !editOwnerSelect) {
-                console.error('Owner select elements not found');
                 return;
             }
             
@@ -527,17 +518,10 @@
                 optionsHtml += `<option value="${u.id}" ${selected}>${u.name} (${u.email}) - ${u.role}</option>`;
             });
             
-            if (ownerSelect) {
-                ownerSelect.innerHTML = optionsHtml;
-                console.log('Populated create owner dropdown');
-            }
-            if (editOwnerSelect) {
-                editOwnerSelect.innerHTML = optionsHtml;
-                console.log('Populated edit owner dropdown');
-            }
+            if (ownerSelect) ownerSelect.innerHTML = optionsHtml;
+            if (editOwnerSelect) editOwnerSelect.innerHTML = optionsHtml;
         } catch (error) {
             console.error('Error loading users:', error);
-            alert('Error loading users: ' + error.message);
         }
     }
 

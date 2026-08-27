@@ -57,7 +57,12 @@ async def admin_schedules(
 
     return request.app.state.templates.TemplateResponse(
         "admin/schedules.html",
-        {"request": request, "current_user": current_user, "mode": settings.MODE},
+        {
+            "request": request,
+            "current_user": current_user,
+            "mode": settings.MODE,
+            "current_user_id": str(current_user.id) if current_user else None,
+        },
     )
 
 
