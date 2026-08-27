@@ -10,26 +10,31 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
     {% if current_user %}
-    <nav class="navbar">
-        <div class="container">
-            <a href="/" class="navbar-brand">InstantReports</a>
-            <ul class="navbar-nav">
-                {% if mode == 'designer' %}
-                <li><a href="/designer" class="nav-link">Designer</a></li>
-                {% endif %}
-                <li><a href="/portal" class="nav-link">My Reports</a></li>
-                {% if current_user.role in ['admin', 'designer'] %}
-                <li><a href="/admin/schedules" class="nav-link">Schedules</a></li>
-                {% endif %}
-                {% if current_user.role == 'admin' %}
-                <li><a href="/admin/users" class="nav-link">Users</a></li>
-                <li><a href="/admin/audit" class="nav-link">Audit Log</a></li>
-                <li><a href="/admin/settings" class="nav-link">Settings</a></li>
-                {% endif %}
-            </ul>
-            <div class="navbar-user">
-                <span>{{ current_user.name }}</span>
-                <a href="/auth/logout" class="nav-link">Logout</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">InstantReports</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    {% if mode == 'designer' %}
+                    <li class="nav-item"><a class="nav-link" href="/designer/">Designer</a></li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="/portal/">My Reports</a></li>
+                    {% if current_user.role in ['admin', 'designer'] %}
+                    <li class="nav-item"><a class="nav-link" href="/admin/schedules/">Schedules</a></li>
+                    {% endif %}
+                    {% if current_user.role == 'admin' %}
+                    <li class="nav-item"><a class="nav-link" href="/admin/users/">Users</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin/audit/">Audit Log</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin/settings/">Settings</a></li>
+                    {% endif %}
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span class="navbar-text me-3">{{ current_user.name }}</span>
+                    <a href="/auth/logout" class="btn btn-outline-light btn-sm">Logout</a>
+                </div>
             </div>
         </div>
     </nav>
