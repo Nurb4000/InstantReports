@@ -114,6 +114,43 @@
     </div>
 </div>
 
+<!-- AI/LLM Settings -->
+<div class="card mb-4 collapsible-section">
+    <div class="section-header" onclick="toggleSection(this)">
+        <h2>AI/LLM Configuration</h2>
+        <span class="toggle-icon">▼</span>
+    </div>
+    <div class="section-content" style="display: none;">
+    <form method="post" action="/admin/settings">
+        <div class="form-group">
+            <label for="ai_enabled">
+                <input type="checkbox" id="ai_enabled" name="ai_enabled" value="True" {% if ai_enabled %}checked{% endif %}>
+                Enable AI Features
+            </label>
+            <small class="text-muted">Required for natural language report generation, SQL generation, and layout assistance</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="ai_base_url">AI Backend URL</label>
+            <input type="url" id="ai_base_url" name="ai_base_url" class="form-control" value="{{ ai_base_url }}" placeholder="http://localhost:8080/v1">
+            <small class="text-muted">OpenAI-compatible API endpoint (llama.cpp, OpenAI, etc.)</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="ai_api_key">API Key</label>
+            <input type="password" id="ai_api_key" name="ai_api_key" class="form-control" value="{{ ai_api_key }}" placeholder="sk-... or 'none' for local models">
+        </div>
+        
+        <div class="form-group">
+            <label for="ai_model">Model Name</label>
+            <input type="text" id="ai_model" name="ai_model" class="form-control" value="{{ ai_model }}" placeholder="local-model or gpt-4o">
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Save AI Settings</button>
+    </form>
+    </div>
+</div>
+
 <!-- Testing Note -->
 <div class="card collapsible-section">
     <div class="section-header" onclick="toggleSection(this)">

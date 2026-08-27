@@ -22,7 +22,7 @@ async def admin_settings(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
 ):
-    """Admin settings page for SMTP and LDAP configuration."""
+    """Admin settings page for SMTP, LDAP, and AI configuration."""
     if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -42,6 +42,10 @@ async def admin_settings(
             "ldap_url": settings.LDAP_URL,
             "ldap_bind_dn": settings.LDAP_BIND_DN,
             "ldap_search_base": settings.LDAP_SEARCH_BASE,
+            "ai_enabled": settings.AI_ENABLED,
+            "ai_base_url": settings.AI_BASE_URL,
+            "ai_api_key": settings.AI_API_KEY,
+            "ai_model": settings.AI_MODEL,
         },
     )
 
@@ -60,13 +64,17 @@ async def update_settings(
     ldap_url: str = Form(""),
     ldap_bind_dn: str = Form(""),
     ldap_search_base: str = Form(""),
+    ai_enabled: bool = Form(False),
+    ai_base_url: str = Form("http://localhost:8080/v1"),
+    ai_api_key: str = Form("none"),
+    ai_model: str = Form("local-model"),
     current_user: User | None = Depends(get_current_user_optional),
 ):
-    """Update SMTP and LDAP settings."""
+    """Update SMTP, LDAP, and AI settings."""
     if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # Update settings (in production, these would be persisted to a config table)
+    # Update SMTP settings
     settings.SMTP_HOST = smtp_host
     settings.SMTP_PORT = smtp_port
     settings.SMTP_USER = smtp_user
@@ -75,9 +83,17 @@ async def update_settings(
     settings.SMTP_USE_TLS = smtp_use_tls
     settings.SMTP_SUBJECT_TEMPLATE = smtp_subject_template
     settings.SMTP_BODY_TEMPLATE = smtp_body_template
+    
+    # Update LDAP settings
     settings.LDAP_URL = ldap_url
     settings.LDAP_BIND_DN = ldap_bind_dn
     settings.LDAP_SEARCH_BASE = ldap_search_base
+    
+    # Update AI settings
+    settings.AI_ENABLED = ai_enabled
+    settings.AI_BASE_URL = ai_base_url
+    settings.AI_API_KEY = ai_api_key
+    settings.AI_MODEL = ai_model
 
     return RedirectResponse(url="/admin/settings", status_code=status.HTTP_303_SEE_OTHER)
 
