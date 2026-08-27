@@ -84,7 +84,7 @@ async def index(request: Request):
 
 
 if app_settings.MODE == "designer":
-    from app.routes import auth, designer, datasources, preview, ai, admin, versions, api_keys, portal  # noqa: F401
+    from app.routes import auth, designer, datasources, preview, ai, admin, versions, api_keys, portal, settings  # noqa: F401
 
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(designer.router, prefix="/designer", tags=["designer"])
@@ -95,6 +95,7 @@ if app_settings.MODE == "designer":
     app.include_router(versions.router, prefix="/designer/reports", tags=["versions"])
     app.include_router(api_keys.router, tags=["api-keys"])
     app.include_router(portal.router, prefix="/portal", tags=["portal"])
+    app.include_router(settings.router, prefix="/admin", tags=["settings"])
 
 elif app_settings.MODE == "runner":
     from app.routes import auth, portal, admin, api_keys  # noqa: F401
