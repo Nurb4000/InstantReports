@@ -32,14 +32,27 @@ def _check_role(user, *allowed):
 async def designer_index(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
 ):
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
+    # Fetch reports for the index page
+    if _check_role(current_user, "admin", "designer"):
+        result = await db.execute(
+            select(Report).order_by(Report.updated_at.desc()).limit(50)
+        )
+    else:
+        result = await db.execute(
+            select(Report).where(Report.is_active == True).order_by(Report.updated_at.desc()).limit(50)
+        )
+    
+    reports = result.scalars().all()
+
     templates = request.app.state.templates
     return templates.TemplateResponse(
         "designer/index.html",
-        {"request": request, "current_user": current_user, "mode": app_settings.MODE},
+        {"request": request, "current_user": current_user, "reports": reports, "mode": app_settings.MODE},
     )
 
 
@@ -172,7 +185,7 @@ async def update_report(
         report.definition = definition
 
     await db.commit()
-    return {"status": "ok"}
+    return RedirectResponse(url=f"/designer/reports/{report_id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.delete("/reports/{report_id}")

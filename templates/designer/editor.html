@@ -485,8 +485,8 @@
                 const errorText = await response.text();
                 let errorMessage = 'Unknown error';
                 try {
-                    const error = JSON.parse(errorText);
-                    errorMessage = error.detail || error.message || 'Unknown error';
+                    const errorData = JSON.parse(errorText);
+                    errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
                 } catch {
                     errorMessage = errorText || 'Unknown error';
                 }
