@@ -247,6 +247,13 @@
 
     document.getElementById('create-schedule-form').addEventListener('submit', async function(e) {
         e.preventDefault();
+        
+        // Ensure cron expression is generated before submission
+        const frequency = document.getElementById('schedule-frequency').value;
+        if (frequency !== 'custom') {
+            generateCronExpression();
+        }
+        
         const formData = new FormData(this);
         
         try {
