@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,8 @@ from app.database import get_db
 from app.models.report import Report
 from app.models.user import User
 from app.routes.admin import get_role_value
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -121,13 +124,16 @@ async def edit_report_page(
 @router.post("/reports")
 async def create_report(
     request: Request,
-    name: str = None,
-    description: str = None,
+    name: str = Form(None),
+    description: str = Form(None),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
     if not current_user or not _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Debug: Log received values
+    logger.info(f"Creating report with name={name}, description={description}")
 
     report = Report(
         name=name or "Untitled Report",
@@ -138,6 +144,8 @@ async def create_report(
     db.add(report)
     await db.commit()
     await db.refresh(report)
+
+    logger.info(f"Report created: {report.id}, name={report.name}")
 
     return RedirectResponse(url=f"/designer/reports/{report.id}", status_code=status.HTTP_303_SEE_OTHER)
 
