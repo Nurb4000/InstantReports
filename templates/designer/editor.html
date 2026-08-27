@@ -131,17 +131,19 @@
 {% endblock %}
 
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div class="flex-grow-1">
             {% if report %}
-            <h1>{{ report.name }}</h1>
+            <h1 class="mb-2">{{ report.name }}</h1>
             <p class="text-muted mb-0">
                 Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }} | 
                 ID: <code>{{ report.id }}</code>
             </p>
             {% else %}
-            <input type="text" id="report-name" class="form-control form-control-lg mb-3" 
+            <input type="text" id="report-name" name="name" class="form-control form-control-lg mb-2" 
                    placeholder="Enter report name..." value="{{ report.name if report else '' }}">
+            <input type="text" id="report-description" name="description" class="form-control mb-2" 
+                   placeholder="Report description (optional)..." value="">
             <p class="text-muted mb-0">
                 Report ID: <code id="report-id">{{ report.id if report else 'Will be assigned on save' }}</code>
             </p>
@@ -397,13 +399,14 @@
     function addSection(type) {
         // Add section directly to canvas
         const canvasContent = document.getElementById('canvas-content');
+        const sectionIndex = canvasContent.children.length;
         const sectionHtml = `
-            <div class="section-preview" data-section-index="${canvasContent.children.length}">
+            <div class="section-preview" data-section-index="${sectionIndex}">
                 <div class="section-header d-flex justify-content-between align-items-center">
-                    <strong>${type|capitalize}</strong>
+                    <strong>${type.charAt(0).toUpperCase() + type.slice(1)}</strong>
                     <div>
-                        <button class="btn btn-sm btn-secondary" onclick="editSection(${canvasContent.children.length})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteSection(${canvasContent.children.length})">Delete</button>
+                        <button class="btn btn-sm btn-secondary" onclick="editSection(${sectionIndex})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSection(${sectionIndex})">Delete</button>
                     </div>
                 </div>
                 <div class="section-body mt-2">
@@ -448,16 +451,16 @@
         const reportId = '{{ report.id if report else "" }}';
         const url = reportId ? `/designer/reports/${reportId}` : '/designer/reports';
         
-        // Get report name from input if new report
-        let reportName = '{{ report.name if report else "Untitled Report" }}';
+        // Get form values
         const nameInput = document.getElementById('report-name');
-        if (nameInput && nameInput.value.trim()) {
-            reportName = nameInput.value.trim();
-        }
+        const descInput = document.getElementById('report-description');
+        const reportName = nameInput ? nameInput.value.trim() || 'Untitled Report' : 'Untitled Report';
+        const reportDesc = descInput ? descInput.value.trim() : '';
 
         try {
             const formData = new FormData();
             formData.append('name', reportName);
+            formData.append('description', reportDesc);
             formData.append('definition', JSON.stringify({}));
 
             const response = await fetch(url, {
