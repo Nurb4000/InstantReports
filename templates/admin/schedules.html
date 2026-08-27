@@ -435,10 +435,25 @@
     }
 
     async function showCreateScheduleModal() {
-        console.log('Opening create schedule modal');
-        document.getElementById('create-schedule-modal').style.display = 'block';
-        await loadUsersForOwner();
-        console.log('After loading users');
+        try {
+            const modal = document.getElementById('create-schedule-modal');
+            if (!modal) {
+                console.error('Create schedule modal not found');
+                return;
+            }
+            modal.style.display = 'block';
+            
+            // Load users with error handling
+            try {
+                await loadUsersForOwner();
+            } catch (error) {
+                console.error('Error loading users:', error);
+                // Don't block modal opening if users fail to load
+            }
+        } catch (error) {
+            console.error('Error opening modal:', error);
+            alert('Failed to open schedule form: ' + error.message);
+        }
     }
 
     function hideCreateScheduleModal() {
@@ -637,86 +652,109 @@
 
     async function editSchedule(scheduleId) {
         try {
-            const response = await fetch(`/admin/api/schedules/${scheduleId}`);
-            if (!response.ok) throw new Error('Failed to fetch schedule');
-            
-            const schedule = await response.json();
-            
-            document.getElementById('edit-schedule-id').value = schedule.id;
-            document.getElementById('edit-schedule-name').value = schedule.name;
-            document.getElementById('edit-schedule-report').value = schedule.report_id;
-            document.getElementById('edit-schedule-timezone').value = schedule.timezone;
-            document.getElementById('edit-schedule-output-format').value = schedule.output_format || 'pdf';
-            document.getElementById('edit-schedule-delivery-type').value = schedule.delivery_type || 'email';
-            
-            // Set owner
-            if (schedule.owner_id) {
-                document.getElementById('edit-schedule-owner').value = schedule.owner_id;
+            const modal = document.getElementById('edit-schedule-modal');
+            if (!modal) {
+                console.error('Edit schedule modal not found');
+                return;
             }
             
-            // Set delivery-specific fields
-            const config = schedule.delivery_config || {};
+            // Show modal first, then load data
+            modal.style.display = 'block';
             
-            if (schedule.delivery_type === 'email') {
-                document.getElementById('edit-schedule-recipient-emails').value = schedule.recipient_emails || '';
-            } else if (schedule.delivery_type === 'sftp') {
-                document.getElementById('edit-sftp-host').value = config.host || '';
-                document.getElementById('edit-sftp-port').value = config.port || 22;
-                document.getElementById('edit-sftp-username').value = config.username || '';
-                document.getElementById('edit-sftp-password').value = config.password || '';
-                document.getElementById('edit-sftp-remote-path').value = config.remote_path || '/';
-            } else if (schedule.delivery_type === 'smb') {
-                document.getElementById('edit-smb-server').value = config.server || '';
-                document.getElementById('edit-smb-share').value = config.share || '';
-                document.getElementById('edit-smb-username').value = config.username || '';
-                document.getElementById('edit-smb-password').value = config.password || '';
-                document.getElementById('edit-smb-remote-path').value = config.remote_path || '/';
-            } else if (schedule.delivery_type === 'webhook') {
-                document.getElementById('edit-webhook-url').value = config.url || '';
-                document.getElementById('edit-webhook-secret').value = config.secret || '';
-            }
-            
-            document.getElementById('edit-schedule-is-active').checked = schedule.is_active;
-            
-            // Parse cron expression to set frequency and time
-            if (schedule.cron_expression) {
-                const parts = schedule.cron_expression.split(' ');
-                if (parts.length === 5) {
-                    const [minute, hour, day, month, dow] = parts;
-                    
-                    // Determine frequency
-                    if (dow !== '*' && dow.includes(',')) {
-                        document.getElementById('edit-schedule-frequency').value = 'weekly';
-                        // Check which days are selected
-                        const selectedDays = dow.split(',').map(d => d.trim());
-                        document.querySelectorAll('input[name="edit_days"]').forEach(cb => {
-                            cb.checked = selectedDays.includes(cb.value);
-                        });
-                    } else if (day !== '*' && month === '*') {
-                        document.getElementById('edit-schedule-frequency').value = 'monthly';
-                        if (day === '1') {
-                            document.getElementById('edit-schedule-day-type').value = 'first';
-                        } else if (day === '28' || day === '29' || day === '30' || day === '31') {
-                            document.getElementById('edit-schedule-day-type').value = 'last';
-                            document.getElementById('edit-schedule-last-day').value = day;
-                        } else {
-                            document.getElementById('edit-schedule-day-type').value = 'specific';
-                        }
-                    } else {
-                        document.getElementById('edit-schedule-frequency').value = 'daily';
-                    }
-                    
-                    document.getElementById('edit-schedule-hour').value = hour;
-                    document.getElementById('edit-schedule-minute').value = minute;
+            try {
+                const response = await fetch(`/admin/api/schedules/${scheduleId}`);
+                if (!response.ok) {
+                    console.error('Failed to fetch schedule:', response.status);
+                    return;
                 }
+                
+                const schedule = await response.json();
+                
+                document.getElementById('edit-schedule-id').value = schedule.id;
+                document.getElementById('edit-schedule-name').value = schedule.name;
+                document.getElementById('edit-schedule-report').value = schedule.report_id;
+                document.getElementById('edit-schedule-timezone').value = schedule.timezone;
+                document.getElementById('edit-schedule-output-format').value = schedule.output_format || 'pdf';
+                document.getElementById('edit-schedule-delivery-type').value = schedule.delivery_type || 'email';
+                
+                // Set owner (default to current user if not set)
+                const ownerSelect = document.getElementById('edit-schedule-owner');
+                if (ownerSelect && schedule.owner_id) {
+                    ownerSelect.value = schedule.owner_id;
+                }
+                
+                // Set delivery-specific fields
+                const config = schedule.delivery_config || {};
+                
+                if (schedule.delivery_type === 'email') {
+                    document.getElementById('edit-schedule-recipient-emails').value = schedule.recipient_emails || '';
+                } else if (schedule.delivery_type === 'sftp') {
+                    document.getElementById('edit-sftp-host').value = config.host || '';
+                    document.getElementById('edit-sftp-port').value = config.port || 22;
+                    document.getElementById('edit-sftp-username').value = config.username || '';
+                    document.getElementById('edit-sftp-password').value = config.password || '';
+                    document.getElementById('edit-sftp-remote-path').value = config.remote_path || '/';
+                } else if (schedule.delivery_type === 'smb') {
+                    document.getElementById('edit-smb-server').value = config.server || '';
+                    document.getElementById('edit-smb-share').value = config.share || '';
+                    document.getElementById('edit-smb-username').value = config.username || '';
+                    document.getElementById('edit-smb-password').value = config.password || '';
+                    document.getElementById('edit-smb-remote-path').value = config.remote_path || '/';
+                } else if (schedule.delivery_type === 'webhook') {
+                    document.getElementById('edit-webhook-url').value = config.url || '';
+                    document.getElementById('edit-webhook-secret').value = config.secret || '';
+                }
+                
+                document.getElementById('edit-schedule-is-active').checked = schedule.is_active;
+                
+                // Parse cron expression to set frequency and time
+                if (schedule.cron_expression) {
+                    const parts = schedule.cron_expression.split(' ');
+                    if (parts.length === 5) {
+                        const [minute, hour, day, month, dow] = parts;
+                        
+                        // Determine frequency
+                        if (dow !== '*' && dow.includes(',')) {
+                            document.getElementById('edit-schedule-frequency').value = 'weekly';
+                            // Check which days are selected
+                            const selectedDays = dow.split(',').map(d => d.trim());
+                            document.querySelectorAll('input[name="edit_days"]').forEach(cb => {
+                                cb.checked = selectedDays.includes(cb.value);
+                            });
+                        } else if (day !== '*' && month === '*') {
+                            document.getElementById('edit-schedule-frequency').value = 'monthly';
+                            if (day === '1') {
+                                document.getElementById('edit-schedule-day-type').value = 'first';
+                            } else if (day === '28' || day === '29' || day === '30' || day === '31') {
+                                document.getElementById('edit-schedule-day-type').value = 'last';
+                                document.getElementById('edit-schedule-last-day').value = day;
+                            } else {
+                                document.getElementById('edit-schedule-day-type').value = 'specific';
+                            }
+                        } else {
+                            document.getElementById('edit-schedule-frequency').value = 'daily';
+                        }
+                        
+                        document.getElementById('edit-schedule-hour').value = hour;
+                        document.getElementById('edit-schedule-minute').value = minute;
+                    }
+                }
+                
+                updateEditScheduleFields();
+                
+                // Load users (non-blocking)
+                try {
+                    await loadUsersForOwner();
+                } catch (error) {
+                    console.error('Error loading users for edit:', error);
+                }
+            } catch (error) {
+                console.error('Error in editSchedule:', error);
+                alert('Failed to load schedule: ' + error.message);
             }
-            
-            updateEditScheduleFields();
-            await loadUsersForOwner();
-            document.getElementById('edit-schedule-modal').style.display = 'block';
         } catch (error) {
-            console.error('Error editing schedule:', error);
-            alert('Failed to load schedule details: ' + error.message);
+            console.error('Error opening edit modal:', error);
+            alert('Failed to open schedule editor: ' + error.message);
         }
     }
 
