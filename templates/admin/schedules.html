@@ -494,11 +494,13 @@
             const response = await fetch('/admin/api/users');
             if (!response.ok) {
                 console.error('Failed to fetch users:', response.status, response.statusText);
+                alert('Failed to load users: ' + response.status);
                 return;
             }
             const users = await response.json();
+            console.log('Loaded users:', users);
             
-            // Get current user ID from cookie or session
+            // Get current user ID from cookie
             const cookies = document.cookie.split(';');
             let currentUserId = null;
             for (let cookie of cookies) {
@@ -508,20 +510,33 @@
                     break;
                 }
             }
+            console.log('Current user ID:', currentUserId);
             
             const ownerSelect = document.getElementById('schedule-owner');
             const editOwnerSelect = document.getElementById('edit-schedule-owner');
             
+            if (!ownerSelect && !editOwnerSelect) {
+                console.error('Owner select elements not found');
+                return;
+            }
+            
             let optionsHtml = '<option value="">-- Select User --</option>';
             users.forEach(u => {
                 const selected = currentUserId === u.id ? 'selected' : '';
-                optionsHtml += `<option value="${u.id}" ${selected}>${u.name} (${u.email})</option>`;
+                optionsHtml += `<option value="${u.id}" ${selected}>${u.name} (${u.email}) - ${u.role}</option>`;
             });
             
-            if (ownerSelect) ownerSelect.innerHTML = optionsHtml;
-            if (editOwnerSelect) editOwnerSelect.innerHTML = optionsHtml;
+            if (ownerSelect) {
+                ownerSelect.innerHTML = optionsHtml;
+                console.log('Populated create owner dropdown');
+            }
+            if (editOwnerSelect) {
+                editOwnerSelect.innerHTML = optionsHtml;
+                console.log('Populated edit owner dropdown');
+            }
         } catch (error) {
             console.error('Error loading users:', error);
+            alert('Error loading users: ' + error.message);
         }
     }
 
