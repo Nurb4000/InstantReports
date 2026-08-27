@@ -80,10 +80,10 @@ async def admin_audit_log(
 @router.post("/schedules")
 async def create_schedule(
     request: Request,
-    report_id: uuid.UUID = None,
-    name: str = None,
-    cron_expression: str = None,
-    timezone: str = "UTC",
+    report_id: uuid.UUID = Form(...),
+    name: str = Form(...),
+    cron_expression: str = Form(...),
+    timezone: str = Form("UTC"),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
