@@ -48,7 +48,7 @@ class Schedule(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     report: Mapped["Report"] = relationship(back_populates="schedules", lazy="selectin")
-    owner: Mapped["User"] = relationship(backref="owned_schedules", lazy="selectin")
+    owner: Mapped["User"] = relationship(backref="owned_schedules", foreign_keys=[owner_id], lazy="selectin")
 
 
 class Delivery(Base):

@@ -21,8 +21,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Add columns without foreign key first
     op.add_column('schedules', sa.Column('delivery_type', sa.String(50), nullable=False, server_default='email'))
-    op.add_column('schedules', sa.Column('owner_id', sa.UUID(), nullable=False, server_default='00000000-0000-0000-0000-000000000000'))
+    op.add_column('schedules', sa.Column('owner_id', sa.UUID(), nullable=True))
+    
+    # Update existing records to use created_by as owner_id
+    op.execute("""
+        UPDATE schedules 
+        SET owner_id = created_by 
+        WHERE owner_id IS NULL
+    """)
+    
+    # Make owner_id NOT NULL now that all records have a value
+    op.alter_column('schedules', 'owner_id', nullable=False)
+    
+    # Now add the foreign key constraint
     op.create_foreign_key('fk_schedules_owner_id', 'schedules', 'users', ['owner_id'], ['id'])
 
 
