@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.routes.auth import get_current_user_optional
-from app.config import settings
+from app.config import settings as app_settings
 from app.database import get_db
 from app.models.report import Report
 from app.models.user import User
@@ -36,7 +36,7 @@ async def designer_index(
     templates = request.app.state.templates
     return templates.TemplateResponse(
         "designer/index.html",
-        {"request": request, "current_user": current_user, "mode": settings.MODE},
+        {"request": request, "current_user": current_user, "mode": app_settings.MODE},
     )
 
 
@@ -61,7 +61,12 @@ async def list_reports(
     reports = result.scalars().all()
     return request.app.state.templates.TemplateResponse(
         "designer/index.html",
-        {"request": request, "current_user": current_user, "reports": reports, "mode": settings.MODE},
+        {
+            "request": request,
+            "current_user": current_user,
+            "reports": reports,
+            "mode": app_settings.MODE,
+        },
     )
 
 
@@ -79,8 +84,8 @@ async def new_report_page(
             "request": request,
             "current_user": current_user,
             "report": None,
-            "mode": settings.MODE,
-            "ai_enabled": settings.AI_ENABLED,
+            "mode": app_settings.MODE,
+            "ai_enabled": app_settings.AI_ENABLED,
         },
     )
 
@@ -107,8 +112,8 @@ async def edit_report_page(
             "request": request,
             "current_user": current_user,
             "report": report,
-            "mode": settings.MODE,
-            "ai_enabled": settings.AI_ENABLED,
+            "mode": app_settings.MODE,
+            "ai_enabled": app_settings.AI_ENABLED,
         },
     )
 

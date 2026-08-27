@@ -134,7 +134,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="flex-grow-1">
             {% if report %}
-            <h1 class="mb-2">{{ report.name }}</h1>
+            <h1>{{ report.name }}</h1>
             <p class="text-muted mb-0">
                 Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }} | 
                 ID: <code>{{ report.id }}</code>
@@ -147,6 +147,11 @@
             </p>
             {% endif %}
         </div>
+        <div class="d-flex gap-2">
+            <a href="/designer/reports" class="btn btn-secondary">Back to Reports</a>
+            <button id="save-btn" class="btn btn-success">Save Report</button>
+        </div>
+    </div>
         <div class="d-flex gap-2">
             <button id="save-btn" class="btn btn-success">Save Report</button>
             <a href="/designer" class="btn btn-secondary">Cancel</a>
@@ -463,10 +468,16 @@
             // Check if response is OK (2xx) or redirect (3xx)
             if (response.ok || response.status >= 300 && response.status < 400) {
                 alert('Report saved successfully!');
-                // Redirect to designer home after save
-                setTimeout(() => {
-                    window.location.href = '/designer/';
-                }, 1000);
+                // Stay on page - user can continue editing
+                // Optionally update the report ID display if new report
+                const location = response.headers.get('location');
+                if (location && !reportId) {
+                    const idMatch = location.match(/\/reports\/([a-f0-9-]+)/);
+                    if (idMatch && idMatch[1]) {
+                        document.getElementById('report-id').textContent = idMatch[1];
+                        if (nameInput) nameInput.value = reportName;
+                    }
+                }
             } else {
                 const errorText = await response.text();
                 let errorMessage = 'Unknown error';
