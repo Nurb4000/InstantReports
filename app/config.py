@@ -45,12 +45,17 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = "reports@example.com"
     SMTP_USE_TLS: bool = True
+    SMTP_SUBJECT_TEMPLATE: str = "Report: {{report_name}}"
+    SMTP_BODY_TEMPLATE: str = "Please find the attached report: {{report_name}}\n\nGenerated at: {{generated_at}}"
 
     # Timezone
     TIMEZONE: str = "America/New_York"  # EST/EDT
 
     # Report storage
     REPORT_RETENTION_DAYS: int = 90
+    
+    # Use mokapi for testing (set to false in production)
+    USE_MOKAPI: bool = False
 
     # Static files
     STATIC_DIR: Path = BASE_DIR / "static"

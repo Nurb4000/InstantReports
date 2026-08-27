@@ -42,8 +42,11 @@ services:
       timeout: 5s
       retries: 5
 
+  # Mokapi is only started when using 'docker compose --profile test up'
   mokapi:
     image: mokapi/mokapi
+    profiles:
+      - test
     ports:
       - "5580:8080"
     volumes:

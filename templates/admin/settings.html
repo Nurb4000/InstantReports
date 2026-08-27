@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Settings - InstantReports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Admin Settings</h1>
+</div>
+
+<!-- SMTP Settings -->
+<div class="card mb-4">
+    <h2>SMTP Email Settings</h2>
+    <form method="post" action="/admin/settings">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="smtp_host">SMTP Host</label>
+                    <input type="text" id="smtp_host" name="smtp_host" class="form-control" value="{{ smtp_host }}" placeholder="smtp.example.com">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label for="smtp_port">Port</label>
+                    <input type="number" id="smtp_port" name="smtp_port" class="form-control" value="{{ smtp_port }}" min="1" max="65535">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label for="smtp_use_tls">Use TLS</label>
+                    <select id="smtp_use_tls" name="smtp_use_tls" class="form-control">
+                        <option value="True" {% if smtp_use_tls %}selected{% endif %}>Yes</option>
+                        <option value="False" {% if not smtp_use_tls %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="smtp_user">Username (optional)</label>
+                    <input type="text" id="smtp_user" name="smtp_user" class="form-control" value="{{ smtp_user }}" placeholder="user@example.com">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="smtp_password">Password (optional)</label>
+                    <input type="password" id="smtp_password" name="smtp_password" class="form-control" placeholder="••••••••">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="smtp_from">From Address</label>
+                    <input type="email" id="smtp_from" name="smtp_from" class="form-control" value="{{ smtp_from }}" placeholder="reports@example.com">
+                </div>
+            </div>
+        </div>
+        
+        <h3 class="mt-4">Email Templates</h3>
+        <div class="form-group">
+            <label for="smtp_subject_template">Subject Template</label>
+            <input type="text" id="smtp_subject_template" name="smtp_subject_template" class="form-control" value="{{ smtp_subject_template }}">
+            <small class="text-muted">Use {{report_name}} and {{generated_at}} as variables</small>
+        </div>
+        <div class="form-group">
+            <label for="smtp_body_template">Body Template</label>
+            <textarea id="smtp_body_template" name="smtp_body_template" class="form-control" rows="4">{{ smtp_body_template }}</textarea>
+            <small class="text-muted">Use {{report_name}} and {{generated_at}} as variables</small>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Save SMTP Settings</button>
+    </form>
+    
+    <hr class="my-4">
+    
+    <h3>Test Email</h3>
+    <form method="post" action="/admin/settings/test-email">
+        <div class="form-group">
+            <label for="test_email">Send test email to:</label>
+            <input type="email" id="test_email" name="to_email" class="form-control" value="admin@example.com" required>
+        </div>
+        <button type="submit" class="btn btn-secondary">Send Test Email</button>
+    </form>
+</div>
+
+<!-- LDAP Settings -->
+<div class="card mb-4">
+    <h2>LDAP Configuration</h2>
+    <form method="post" action="/admin/settings">
+        <div class="form-group">
+            <label for="ldap_url">LDAP Server URL</label>
+            <input type="text" id="ldap_url" name="ldap_url" class="form-control" value="{{ ldap_url }}" placeholder="ldap://localhost:389">
+        </div>
+        <div class="form-group">
+            <label for="ldap_bind_dn">Bind DN</label>
+            <input type="text" id="ldap_bind_dn" name="ldap_bind_dn" class="form-control" value="{{ ldap_bind_dn }}" placeholder="cn=admin,dc=example,dc=com">
+        </div>
+        <div class="form-group">
+            <label for="ldap_search_base">Search Base</label>
+            <input type="text" id="ldap_search_base" name="ldap_search_base" class="form-control" value="{{ ldap_search_base }}" placeholder="ou=users,dc=example,dc=com">
+        </div>
+        <button type="submit" class="btn btn-primary">Save LDAP Settings</button>
+    </form>
+</div>
+
+<!-- Testing Note -->
+<div class="card">
+    <h2>Testing with Mokapi</h2>
+    <p>To use the built-in test server (Mokapi) for LDAP and SMTP testing, set <code>USE_MOKAPI=true</code> in your environment or docker-compose.yml.</p>
+    <p><strong>Note:</strong> Mokapi should not be used in production. It's designed for development and testing only.</p>
+    <code>USE_MOKAPI=true docker compose up</code>
+</div>
+{% endblock %}
