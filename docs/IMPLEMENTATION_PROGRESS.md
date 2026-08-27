@@ -131,12 +131,40 @@ feeb9ae - docs: update commands and default credentials
 
 ## Known Issues / TODOs
 
-- [ ] WebSocket preview endpoint needs full implementation
-- [ ] Some connector implementations may need error handling improvements
-- [ ] PDF exporter chart embedding needs testing with real data
-- [ ] Scheduler job execution logging needs audit trail integration
-- [ ] Docker Compose needs health checks for all services
-- [ ] AI client needs fallback/error handling for when backend is unavailable
+- [x] WebSocket preview endpoint needs full implementation
+- [x] Some connector implementations may need error handling improvements
+- [x] PDF exporter chart embedding needs testing with real data
+- [x] Scheduler job execution logging needs audit trail integration
+- [x] Docker Compose needs health checks for all services
+- [x] AI client needs fallback/error handling for when backend is unavailable
+
+## Debug Notes
+
+### Environment Variables
+- `DEBUG=true` - Enable detailed error messages (development only!)
+- `DEBUG=false` or unset - Hide sensitive errors (production)
+- `MODE=designer` - Designer mode with scheduler
+- `MODE=runner` - Runner mode only (scheduler)
+- `SEPARATE_MODE=true` - Run scheduler only in runner mode
+- `USE_MOKAPI=true` - Include mokapi test server (development only!)
+
+### Common Issues
+1. **Port conflicts**: PostgreSQL uses 5433, Mokapi uses 5580 to avoid conflicts
+2. **Cookie issues**: Use `docker compose logs` to debug authentication
+3. **Template errors**: Check `app/routes/` for correct template paths
+4. **Database migrations**: Run `alembic upgrade head` after schema changes
+
+### Testing Commands
+```bash
+# Test login
+curl -X POST http://localhost:8080/auth/login -d "email=admin@example.com&password=admin" -c cookies.txt
+
+# Test API
+curl http://localhost:8080/health -b cookies.txt
+
+# Check logs
+docker compose logs -f instantreports
+```
 
 ---
 
