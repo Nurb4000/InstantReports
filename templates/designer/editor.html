@@ -326,8 +326,42 @@
         canvas.addEventListener('drop', function(e) {
             e.preventDefault();
             const elementType = e.dataTransfer.getData('text/plain');
-            console.log('Dropped element:', elementType);
+            if (elementType) {
+                addElementToCanvas(elementType);
+            }
         });
+
+        // Function to add element to canvas
+        function addElementToCanvas(elementType) {
+            const canvasContent = document.getElementById('canvas-content');
+            // Find the last section or create a new one
+            let lastSection = canvasContent.lastElementChild;
+            if (!lastSection || !lastSection.classList.contains('section-preview')) {
+                // Create a new detail section
+                lastSection = document.createElement('div');
+                lastSection.className = 'section-preview';
+                lastSection.dataset.sectionIndex = canvasContent.children.length;
+                lastSection.innerHTML = `
+                    <div class="section-header d-flex justify-content-between align-items-center">
+                        <strong>Detail</strong>
+                        <div>
+                            <button class="btn btn-sm btn-secondary" onclick="editSection(${canvasContent.children.length})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSection(${canvasContent.children.length})">Delete</button>
+                        </div>
+                    </div>
+                    <div class="section-body mt-2"></div>
+                `;
+                canvasContent.appendChild(lastSection);
+            }
+            
+            const sectionBody = lastSection.querySelector('.section-body');
+            const elementHtml = `
+                <div class="element-preview" data-element-type="${elementType}" onclick="openProperties(${lastSection.dataset.sectionIndex})">
+                    ${elementType.charAt(0).toUpperCase() + elementType.slice(1)} Element
+                </div>
+            `;
+            sectionBody.insertAdjacentHTML('beforeend', elementHtml);
+        }
 
         {% if report %}
         loadVersions('{{ report.id }}');
