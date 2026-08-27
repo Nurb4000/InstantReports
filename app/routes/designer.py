@@ -132,9 +132,6 @@ async def create_report(
     if not current_user or not _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # Debug: Log received values
-    logger.info(f"Creating report with name={name}, description={description}")
-
     report = Report(
         name=name or "Untitled Report",
         description=description or "",
@@ -144,8 +141,6 @@ async def create_report(
     db.add(report)
     await db.commit()
     await db.refresh(report)
-
-    logger.info(f"Report created: {report.id}, name={report.name}")
 
     return RedirectResponse(url=f"/designer/reports/{report.id}", status_code=status.HTTP_303_SEE_OTHER)
 
