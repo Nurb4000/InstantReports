@@ -84,17 +84,26 @@ async def create_schedule(
     name: str = Form(...),
     cron_expression: str = Form(...),
     timezone: str = Form("UTC"),
+    output_format: str = Form("pdf"),
+    delivery_type: str = Form("email"),
+    recipient_emails: str = Form(""),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
     if not current_user or get_role_value(current_user) not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # Parse recipient emails
+    emails = [e.strip() for e in recipient_emails.split(",") if e.strip()] if recipient_emails else []
+
     schedule = Schedule(
         report_id=report_id,
         name=name or "Unnamed Schedule",
         cron_expression=cron_expression,
         timezone=timezone,
+        output_format=output_format,
+        delivery_config={"type": delivery_type, "emails": emails},
+        recipient_emails=recipient_emails,
         created_by=current_user.id,
     )
     db.add(schedule)
@@ -132,9 +141,13 @@ async def get_schedule(
 @router.put("/schedules/{schedule_id}")
 async def update_schedule(
     schedule_id: uuid.UUID,
-    name: str = None,
-    cron_expression: str = None,
-    is_active: bool = None,
+    name: str = Form(None),
+    cron_expression: str = Form(None),
+    timezone: str = Form(None),
+    output_format: str = Form(None),
+    delivery_type: str = Form(None),
+    recipient_emails: str = Form(None),
+    is_active: bool = Form(None),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -151,6 +164,14 @@ async def update_schedule(
         schedule.name = name
     if cron_expression is not None:
         schedule.cron_expression = cron_expression
+    if timezone:
+        schedule.timezone = timezone
+    if output_format:
+        schedule.output_format = output_format
+    if delivery_type:
+        emails = [e.strip() for e in (recipient_emails or "").split(",") if e.strip()] if recipient_emails else []
+        schedule.delivery_config = {"type": delivery_type, "emails": emails}
+        schedule.recipient_emails = recipient_emails
     if is_active is not None:
         schedule.is_active = is_active
 
@@ -231,11 +252,43 @@ async def list_schedules(
             "report_id": str(s.report_id),
             "cron_expression": s.cron_expression,
             "timezone": s.timezone,
+            "output_format": s.output_format or "pdf",
+            "delivery_type": s.delivery_config.get("type", "email") if s.delivery_config else "email",
+            "recipient_emails": s.recipient_emails or "",
             "is_active": s.is_active,
             "created_at": s.created_at.isoformat() if s.created_at else None,
         }
         for s in schedules
     ]
+
+
+@router.get("/api/schedules/{schedule_id}")
+async def get_schedule(
+    schedule_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single schedule (API endpoint)."""
+    if not current_user or get_role_value(current_user) not in ("admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(select(Schedule).where(Schedule.id == schedule_id))
+    schedule = result.scalar_one_or_none()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    return {
+        "id": str(schedule.id),
+        "name": schedule.name,
+        "report_id": str(schedule.report_id),
+        "cron_expression": schedule.cron_expression,
+        "timezone": schedule.timezone,
+        "output_format": schedule.output_format or "pdf",
+        "delivery_type": schedule.delivery_config.get("type", "email") if schedule.delivery_config else "email",
+        "recipient_emails": schedule.recipient_emails or "",
+        "is_active": schedule.is_active,
+    }
 
 
 @router.get("/api/users")

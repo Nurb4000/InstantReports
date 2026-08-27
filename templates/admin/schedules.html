@@ -63,11 +63,12 @@
                 <div class="form-group">
                     <label for="schedule-day-type">Day Type</label>
                     <select id="schedule-day-type" class="form-control" onchange="updateDayFields()">
+                        <option value="first">First Day of Month</option>
                         <option value="specific">Specific Day(s)</option>
                         <option value="last">Last Day of Month</option>
                     </select>
                 </div>
-                <div id="specific-days-fields">
+                <div id="specific-days-fields" style="display: none;">
                     <div class="form-group">
                         <label>Select Days</label>
                         <div class="d-flex flex-wrap gap-2">
@@ -106,10 +107,149 @@
                 <label for="schedule-cron-preview">Generated Cron Expression</label>
                 <input type="text" id="schedule-cron-preview" name="cron_expression" class="form-control" readonly placeholder="Will be generated automatically">
             </div>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create Schedule</button>
-                <button type="button" class="btn btn-secondary" onclick="hideCreateScheduleModal()">Cancel</button>
+            <div class="form-group">
+                <label for="schedule-output-format">Output Format</label>
+                <select id="schedule-output-format" name="output_format" class="form-control">
+                    <option value="pdf" selected>PDF</option>
+                    <option value="xlsx">Excel (XLSX)</option>
+                    <option value="csv">CSV</option>
+                    <option value="html">HTML</option>
+                </select>
             </div>
+            <div class="form-group">
+                <label for="schedule-delivery-type">Delivery Method</label>
+                <select id="schedule-delivery-type" name="delivery_type" class="form-control" onchange="updateDeliveryFields()">
+                    <option value="email" selected>Email</option>
+                    <option value="sftp">SFTP</option>
+                    <option value="smb">SMB/UNC Path</option>
+                    <option value="webhook">Webhook</option>
+                </select>
+            </div>
+            <div id="email-delivery-fields">
+                <div class="form-group">
+                    <label for="schedule-recipient-emails">Recipient Emails (comma-separated)</label>
+                    <input type="text" id="schedule-recipient-emails" name="recipient_emails" class="form-control" placeholder="user1@example.com, user2@example.com">
+                </div>
+            </div>
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Create Schedule</button>
+        <button type="button" class="btn btn-secondary" onclick="hideCreateScheduleModal()">Cancel</button>
+    </div>
+</div>
+</div>
+
+<div id="edit-schedule-modal" class="modal" style="display: none;">
+    <div class="modal-content card">
+        <h2>Edit Schedule</h2>
+        <form id="edit-schedule-form">
+            <input type="hidden" id="edit-schedule-id" name="id">
+            <div class="form-group">
+                <label for="edit-schedule-name">Schedule Name</label>
+                <input type="text" id="edit-schedule-name" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-schedule-report">Report ID</label>
+                <input type="text" id="edit-schedule-report" name="report_id" class="form-control" readonly>
+            </div>
+            <div class="form-group">
+                <label for="edit-schedule-frequency">Frequency</label>
+                <select id="edit-schedule-frequency" name="frequency" class="form-control" onchange="updateEditScheduleFields()">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="custom">Custom (Cron Expression)</option>
+                </select>
+            </div>
+            <div id="edit-schedule-time-fields">
+                <div class="form-group">
+                    <label for="edit-schedule-hour">Hour (0-23)</label>
+                    <input type="number" id="edit-schedule-hour" name="hour" class="form-control" min="0" max="23">
+                </div>
+                <div class="form-group">
+                    <label for="edit-schedule-minute">Minute (0-59)</label>
+                    <input type="number" id="edit-schedule-minute" name="minute" class="form-control" min="0" max="59">
+                </div>
+            </div>
+            <div id="edit-schedule-day-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="edit-schedule-day-type">Day Type</label>
+                    <select id="edit-schedule-day-type" class="form-control" onchange="updateEditDayFields()">
+                        <option value="first">First Day of Month</option>
+                        <option value="specific">Specific Day(s)</option>
+                        <option value="last">Last Day of Month</option>
+                    </select>
+                </div>
+                <div id="edit-specific-days-fields" style="display: none;">
+                    <div class="form-group">
+                        <label>Select Days</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <label class="checkbox-label"><input type="checkbox" name="edit_days" value="1"> Mon</label>
+                            <label class="checkbox-label"><input type="checkbox" name="edit_days" value="2"> Tue</label>
+                            <label class="checkbox-label"><input type="checkbox" name="edit_days" value="3"> Wed</label>
+                            <label class="checkbox-label"><input type="checkbox" name="edit_days" value="4"> Thu</label>
+                            <label class="checkbox-label"><input type="checkbox" name="edit_days" value="5"> Fri</label>
+                            <label class="checkbox-label"><input type="checkbox" name="edit_days" value="6"> Sat</label>
+                            <label class="checkbox-label"><input type="checkbox" name="edit_days" value="0"> Sun</label>
+                        </div>
+                    </div>
+                </div>
+                <div id="edit-last-day-field" style="display: none;">
+                    <div class="form-group">
+                        <label for="edit-schedule-last-day">Day of Month (1-28)</label>
+                        <input type="number" id="edit-schedule-last-day" name="last_day" class="form-control" min="1" max="28">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="display: none;">
+                <label for="edit-schedule-cron">Cron Expression (Custom Mode)</label>
+                <input type="text" id="edit-schedule-cron" name="cron_expression_custom" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="edit-schedule-timezone">Timezone</label>
+                <select id="edit-schedule-timezone" name="timezone" class="form-control">
+                    <option value="America/New_York">Eastern Time (EST/EDT)</option>
+                    <option value="America/Chicago">Central Time (CST/CDT)</option>
+                    <option value="America/Denver">Mountain Time (MST/MDT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PST/PDT)</option>
+                    <option value="UTC">UTC</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="edit-schedule-output-format">Output Format</label>
+                <select id="edit-schedule-output-format" name="output_format" class="form-control">
+                    <option value="pdf">PDF</option>
+                    <option value="xlsx">Excel (XLSX)</option>
+                    <option value="csv">CSV</option>
+                    <option value="html">HTML</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="edit-schedule-delivery-type">Delivery Method</label>
+                <select id="edit-schedule-delivery-type" name="delivery_type" class="form-control" onchange="updateEditDeliveryFields()">
+                    <option value="email">Email</option>
+                    <option value="sftp">SFTP</option>
+                    <option value="smb">SMB/UNC Path</option>
+                    <option value="webhook">Webhook</option>
+                </select>
+            </div>
+            <div id="edit-email-delivery-fields">
+                <div class="form-group">
+                    <label for="edit-schedule-recipient-emails">Recipient Emails (comma-separated)</label>
+                    <input type="text" id="edit-schedule-recipient-emails" name="recipient_emails" class="form-control">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-schedule-is-active" name="is_active"> Active
+                </label>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="hideEditScheduleModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
         </form>
     </div>
 </div>
@@ -133,6 +273,8 @@
                         <td><code>${schedule.report_id}</code></td>
                         <td><code>${schedule.cron_expression || 'One-shot'}</code></td>
                         <td>${schedule.timezone}</td>
+                        <td>${schedule.output_format || 'pdf'}</td>
+                        <td>${schedule.delivery_type || 'email'}</td>
                         <td>${schedule.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
                         <td>
                             <button class="btn btn-sm btn-secondary" onclick="editSchedule('${schedule.id}')">Edit</button>
@@ -192,12 +334,26 @@
         if (dayType === 'specific') {
             specificDays.style.display = 'block';
             lastDay.style.display = 'none';
+        } else if (dayType === 'first') {
+            specificDays.style.display = 'none';
+            lastDay.style.display = 'none';
         } else {
             specificDays.style.display = 'none';
             lastDay.style.display = 'block';
         }
         
         generateCronExpression();
+    }
+
+    function updateDeliveryFields() {
+        const deliveryType = document.getElementById('schedule-delivery-type').value;
+        const emailFields = document.getElementById('email-delivery-fields');
+        
+        if (deliveryType === 'email') {
+            emailFields.style.display = 'block';
+        } else {
+            emailFields.style.display = 'none';
+        }
     }
 
     function generateCronExpression() {
@@ -220,6 +376,8 @@
                 if (days.length > 0) {
                     cron = `${minute} ${hour} ${days[0]} * *`;
                 }
+            } else if (dayType === 'first') {
+                cron = `${minute} ${hour} 1 * *`;
             } else {
                 const lastDay = document.getElementById('schedule-last-day').value || '1';
                 cron = `${minute} ${hour} ${lastDay} * *`;
@@ -275,5 +433,168 @@
     });
 
     loadSchedules();
+
+    async function editSchedule(scheduleId) {
+        try {
+            const response = await fetch(`/admin/api/schedules/${scheduleId}`);
+            if (!response.ok) throw new Error('Failed to fetch schedule');
+            
+            const schedule = await response.json();
+            
+            document.getElementById('edit-schedule-id').value = schedule.id;
+            document.getElementById('edit-schedule-name').value = schedule.name;
+            document.getElementById('edit-schedule-report').value = schedule.report_id;
+            document.getElementById('edit-schedule-timezone').value = schedule.timezone;
+            document.getElementById('edit-schedule-output-format').value = schedule.output_format || 'pdf';
+            document.getElementById('edit-schedule-delivery-type').value = schedule.delivery_type || 'email';
+            document.getElementById('edit-schedule-recipient-emails').value = schedule.recipient_emails || '';
+            document.getElementById('edit-schedule-is-active').checked = schedule.is_active;
+            
+            // Parse cron expression to set frequency and time
+            if (schedule.cron_expression) {
+                const parts = schedule.cron_expression.split(' ');
+                if (parts.length === 5) {
+                    const [minute, hour, day, month, dow] = parts;
+                    
+                    // Determine frequency
+                    if (dow !== '*' && dow.includes(',')) {
+                        document.getElementById('edit-schedule-frequency').value = 'weekly';
+                        // Check which days are selected
+                        const selectedDays = dow.split(',').map(d => d.trim());
+                        document.querySelectorAll('input[name="edit_days"]').forEach(cb => {
+                            cb.checked = selectedDays.includes(cb.value);
+                        });
+                    } else if (day !== '*' && month === '*') {
+                        document.getElementById('edit-schedule-frequency').value = 'monthly';
+                        if (day === '1') {
+                            document.getElementById('edit-schedule-day-type').value = 'first';
+                        } else if (day === '28' || day === '29' || day === '30' || day === '31') {
+                            document.getElementById('edit-schedule-day-type').value = 'last';
+                            document.getElementById('edit-schedule-last-day').value = day;
+                        } else {
+                            document.getElementById('edit-schedule-day-type').value = 'specific';
+                        }
+                    } else {
+                        document.getElementById('edit-schedule-frequency').value = 'daily';
+                    }
+                    
+                    document.getElementById('edit-schedule-hour').value = hour;
+                    document.getElementById('edit-schedule-minute').value = minute;
+                }
+            }
+            
+            updateEditScheduleFields();
+            document.getElementById('edit-schedule-modal').style.display = 'block';
+        } catch (error) {
+            console.error('Error editing schedule:', error);
+            alert('Failed to load schedule details: ' + error.message);
+        }
+    }
+
+    function hideEditScheduleModal() {
+        document.getElementById('edit-schedule-modal').style.display = 'none';
+    }
+
+    function updateEditScheduleFields() {
+        const frequency = document.getElementById('edit-schedule-frequency').value;
+        const timeFields = document.getElementById('edit-schedule-time-fields');
+        const dayFields = document.getElementById('edit-schedule-day-fields');
+        const customCronField = document.getElementById('edit-schedule-cron');
+        
+        if (frequency === 'custom') {
+            timeFields.style.display = 'none';
+            dayFields.style.display = 'none';
+            customCronField.parentElement.style.display = 'block';
+        } else {
+            timeFields.style.display = 'block';
+            customCronField.parentElement.style.display = 'none';
+            
+            if (frequency === 'weekly' || frequency === 'monthly') {
+                dayFields.style.display = 'block';
+            } else {
+                dayFields.style.display = 'none';
+            }
+        }
+    }
+
+    function updateEditDayFields() {
+        const dayType = document.getElementById('edit-schedule-day-type').value;
+        const specificDays = document.getElementById('edit-specific-days-fields');
+        const lastDay = document.getElementById('edit-last-day-field');
+        
+        if (dayType === 'specific') {
+            specificDays.style.display = 'block';
+            lastDay.style.display = 'none';
+        } else if (dayType === 'first') {
+            specificDays.style.display = 'none';
+            lastDay.style.display = 'none';
+        } else {
+            specificDays.style.display = 'none';
+            lastDay.style.display = 'block';
+        }
+    }
+
+    function updateEditDeliveryFields() {
+        const deliveryType = document.getElementById('edit-schedule-delivery-type').value;
+        const emailFields = document.getElementById('edit-email-delivery-fields');
+        
+        if (deliveryType === 'email') {
+            emailFields.style.display = 'block';
+        } else {
+            emailFields.style.display = 'none';
+        }
+    }
+
+    document.getElementById('edit-schedule-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const scheduleId = document.getElementById('edit-schedule-id').value;
+        const formData = new FormData(this);
+        
+        // Remove hidden fields that shouldn't be sent
+        formData.delete('id');
+        formData.delete('frequency');
+        formData.delete('hour');
+        formData.delete('minute');
+        formData.delete('day_type');
+        formData.delete('last_day');
+        formData.delete('edit_days');
+        formData.delete('cron_expression_custom');
+        
+        try {
+            const response = await fetch(`/admin/schedules/${scheduleId}`, {
+                method: 'PUT',
+                body: formData,
+            });
+            
+            if (response.ok) {
+                hideEditScheduleModal();
+                loadSchedules();
+            } else {
+                const error = await response.json();
+                alert('Failed to update schedule: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error updating schedule:', error);
+        }
+    });
+
+    async function deleteSchedule(scheduleId) {
+        if (!confirm('Are you sure you want to delete this schedule?')) return;
+        
+        try {
+            const response = await fetch(`/admin/schedules/${scheduleId}`, {
+                method: 'DELETE',
+            });
+            
+            if (response.ok) {
+                loadSchedules();
+            } else {
+                const error = await response.json();
+                alert('Failed to delete schedule: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+        }
+    }
 </script>
 {% endblock %}
