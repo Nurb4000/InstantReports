@@ -8,8 +8,12 @@
 </div>
 
 <!-- SMTP Settings -->
-<div class="card mb-4">
-    <h2>SMTP Email Settings</h2>
+<div class="card mb-4 collapsible-section">
+    <div class="section-header" onclick="toggleSection(this)">
+        <h2>SMTP Email Settings</h2>
+        <span class="toggle-icon">▼</span>
+    </div>
+    <div class="section-content" style="display: none;">
     <form method="post" action="/admin/settings">
         <div class="row">
             <div class="col-md-6">
@@ -82,11 +86,16 @@
         </div>
         <button type="submit" class="btn btn-secondary">Send Test Email</button>
     </form>
+    </div>
 </div>
 
 <!-- LDAP Settings -->
-<div class="card mb-4">
-    <h2>LDAP Configuration</h2>
+<div class="card mb-4 collapsible-section">
+    <div class="section-header" onclick="toggleSection(this)">
+        <h2>LDAP Configuration</h2>
+        <span class="toggle-icon">▼</span>
+    </div>
+    <div class="section-content" style="display: none;">
     <form method="post" action="/admin/settings">
         <div class="form-group">
             <label for="ldap_url">LDAP Server URL</label>
@@ -102,13 +111,34 @@
         </div>
         <button type="submit" class="btn btn-primary">Save LDAP Settings</button>
     </form>
+    </div>
 </div>
 
 <!-- Testing Note -->
-<div class="card">
-    <h2>Testing with Mokapi</h2>
+<div class="card collapsible-section">
+    <div class="section-header" onclick="toggleSection(this)">
+        <h2>Testing with Mokapi</h2>
+        <span class="toggle-icon">▼</span>
+    </div>
+    <div class="section-content" style="display: none;">
     <p>To use the built-in test server (Mokapi) for LDAP and SMTP testing, set <code>USE_MOKAPI=true</code> in your environment or docker-compose.yml.</p>
     <p><strong>Note:</strong> Mokapi should not be used in production. It's designed for development and testing only.</p>
     <code>USE_MOKAPI=true docker compose up</code>
+    </div>
 </div>
+
+<script>
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('.toggle-icon');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+}
+</script>
 {% endblock %}

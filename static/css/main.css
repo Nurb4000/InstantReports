@@ -207,6 +207,36 @@ main {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* Collapsible sections */
+.collapsible-section {
+    margin-bottom: 1rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.section-header:hover {
+    background: #e9ecef;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.toggle-icon {
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
