@@ -434,14 +434,14 @@ async function loadSchedules() {
         }
     }
 
-async function showCreateScheduleModal() {
+    async function showCreateScheduleModal() {
         try {
             const modal = document.getElementById('create-schedule-modal');
             if (!modal) {
                 console.error('Create schedule modal not found');
                 return;
             }
-            modal.style.display = 'block';
+            modal.classList.add('active');
             
             // Load users with error handling
             try {
@@ -456,8 +456,11 @@ async function showCreateScheduleModal() {
         }
     }
 
-function hideCreateScheduleModal() {
-        document.getElementById('create-schedule-modal').style.display = 'none';
+    function hideCreateScheduleModal() {
+        const modal = document.getElementById('create-schedule-modal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
     }
 
 function updateScheduleFields() {
@@ -659,7 +662,7 @@ async function editSchedule(scheduleId) {
             }
             
             // Show modal first, then load data
-            modal.style.display = 'block';
+            modal.classList.add('active');
             
             try {
                 const response = await fetch(`/admin/api/schedules/${scheduleId}`);
@@ -759,7 +762,10 @@ async function editSchedule(scheduleId) {
     }
 
 function hideEditScheduleModal() {
-        document.getElementById('edit-schedule-modal').style.display = 'none';
+        const modal = document.getElementById('edit-schedule-modal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
     }
 
 function updateEditScheduleFields() {
