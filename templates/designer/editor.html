@@ -458,22 +458,10 @@
             const response = await fetch(url, {
                 method: 'POST',
                 body: formData,
-                redirect: 'manual',  // Don't follow redirects automatically
             });
 
-            if (response.status === 303 || response.ok) {
-                // Handle redirect (303 See Other)
-                if (response.status === 303) {
-                    const location = response.headers.get('location');
-                    if (location && !reportId) {
-                        // Extract report ID from redirect URL
-                        const idMatch = location.match(/\/reports\/([a-f0-9-]+)/);
-                        if (idMatch && idMatch[1]) {
-                            document.getElementById('report-id').textContent = idMatch[1];
-                            if (nameInput) nameInput.value = reportName;
-                        }
-                    }
-                }
+            // Check if response is OK (2xx) or redirect (3xx)
+            if (response.ok || response.status >= 300 && response.status < 400) {
                 alert('Report saved successfully!');
                 // Redirect to designer home after save
                 setTimeout(() => {
@@ -481,13 +469,14 @@
                 }, 1000);
             } else {
                 const errorText = await response.text();
-                let error;
+                let errorMessage = 'Unknown error';
                 try {
-                    error = JSON.parse(errorText);
+                    const error = JSON.parse(errorText);
+                    errorMessage = error.detail || error.message || 'Unknown error';
                 } catch {
-                    error = {detail: errorText || 'Unknown error'};
+                    errorMessage = errorText || 'Unknown error';
                 }
-                alert('Failed to save report: ' + (error.detail || 'Unknown error'));
+                alert('Failed to save report: ' + errorMessage);
             }
         } catch (error) {
             console.error('Error saving report:', error);
