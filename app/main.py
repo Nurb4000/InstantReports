@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings
 from app.database import engine
 from app.models import *  # noqa: F401,F403 - ensure all models are imported for Alembic
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -24,6 +28,7 @@ app = FastAPI(
     description="Report design, scheduling, and delivery platform",
     version="0.1.0",
     lifespan=lifespan,
+    debug=settings.MODE == "designer",  # Enable debug only in designer mode
 )
 
 app.add_middleware(
@@ -33,6 +38,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Custom exception handler to hide sensitive error details
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    logger.error(f"HTTP Error {exc.status_code}: {exc.detail}")
+    if settings.MODE == "runner" or not settings.DEBUG:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": "An error occurred"},
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    if settings.MODE == "runner" or not settings.DEBUG:
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "An internal error occurred"},
+        )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
 
 static_dir = Path(settings.STATIC_DIR)
 templates_dir = Path(settings.TEMPLATES_DIR)
