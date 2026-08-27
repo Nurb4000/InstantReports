@@ -22,7 +22,7 @@
     }
     .elements-grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 0.5rem;
     }
     .palette-section h4 {
@@ -193,9 +193,6 @@
                     {% endfor %}
                 {% endif %}
             </div>
-            <button id="add-section-btn" class="btn btn-primary btn-sm mt-2" onclick="showAddSectionModal()">
-                + Add Section
-            </button>
         </div>
         
         <div class="palette-section">
@@ -282,27 +279,7 @@
     </div>
 </div>
 
-<!-- Add Section Modal -->
-<div id="add-section-modal" class="modal">
-    <div class="modal-content card">
-        <h2>Add Section</h2>
-        <form id="add-section-form">
-            <div class="form-group">
-                <label for="new-section-type">Section Type</label>
-                <select id="new-section-type" name="type" class="form-control" required>
-                    <option value="header">Header</option>
-                    <option value="detail">Detail</option>
-                    <option value="summary">Summary</option>
-                    <option value="footer">Footer</option>
-                </select>
-            </div>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Add Section</button>
-                <button type="button" class="btn btn-secondary" onclick="closeAddSectionModal()">Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
+
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -403,28 +380,12 @@
     }
 
     function addSection(type) {
-        document.getElementById('new-section-type').value = type;
-        document.getElementById('add-section-modal').classList.add('active');
-    }
-
-    function showAddSectionModal() {
-        document.getElementById('add-section-modal').classList.add('active');
-    }
-
-    function closeAddSectionModal() {
-        document.getElementById('add-section-modal').classList.remove('active');
-    }
-
-    document.getElementById('add-section-form').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const sectionType = document.getElementById('new-section-type').value;
-        
-        // Add section to canvas (simplified for now)
+        // Add section directly to canvas
         const canvasContent = document.getElementById('canvas-content');
         const sectionHtml = `
             <div class="section-preview" data-section-index="${canvasContent.children.length}">
                 <div class="section-header d-flex justify-content-between align-items-center">
-                    <strong>${sectionType|capitalize}</strong>
+                    <strong>${type|capitalize}</strong>
                     <div>
                         <button class="btn btn-sm btn-secondary" onclick="editSection(${canvasContent.children.length})">Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteSection(${canvasContent.children.length})">Delete</button>
@@ -436,8 +397,7 @@
             </div>
         `;
         canvasContent.insertAdjacentHTML('beforeend', sectionHtml);
-        closeAddSectionModal();
-    });
+    }
 
     function editSection(index) {
         console.log('Editing section:', index);
