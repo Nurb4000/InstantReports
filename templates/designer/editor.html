@@ -24,7 +24,8 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 0.5rem;
-        justify-content: center;
+        max-width: 400px;
+        margin: 0 auto;
     }
     .palette-section h4 {
         margin-bottom: 0.5rem;
@@ -131,10 +132,19 @@
 
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1>{% if report %}{{ report.name }}{% else %}New Report{% endif %}</h1>
+        <div class="flex-grow-1">
             {% if report %}
-            <p class="text-muted">Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }}</p>
+            <h1>{{ report.name }}</h1>
+            <p class="text-muted mb-0">
+                Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }} | 
+                ID: <code>{{ report.id }}</code>
+            </p>
+            {% else %}
+            <input type="text" id="report-name" class="form-control form-control-lg mb-2" 
+                   placeholder="Enter report name..." value="{{ report.name if report else '' }}">
+            <p class="text-muted mb-0">
+                Report ID: <code id="report-id">{{ report.id if report else 'Will be assigned on save' }}</code>
+            </p>
             {% endif %}
         </div>
         <div class="d-flex gap-2">
@@ -432,23 +442,37 @@
     document.getElementById('save-btn').addEventListener('click', async function() {
         const reportId = '{{ report.id if report else "" }}';
         const url = reportId ? `/designer/reports/${reportId}` : '/designer/reports';
-        const method = reportId ? 'POST' : 'POST';
+        
+        // Get report name from input if new report
+        let reportName = '{{ report.name if report else "Untitled Report" }}';
+        const nameInput = document.getElementById('report-name');
+        if (nameInput && nameInput.value.trim()) {
+            reportName = nameInput.value.trim();
+        }
 
         try {
             const formData = new FormData();
-            formData.append('name', '{{ report.name if report else "Untitled Report" }}');
+            formData.append('name', reportName);
             formData.append('definition', JSON.stringify({}));
 
             const response = await fetch(url, {
-                method: method,
+                method: 'POST',
                 body: formData,
             });
 
             if (response.ok) {
-                alert('Report saved successfully!');
-                window.location.href = '/designer';
+                const data = await response.json();
+                // Update the report ID display if new report
+                if (!reportId && data.id) {
+                    document.getElementById('report-id').textContent = data.id;
+                    document.getElementById('report-name').value = reportName;
+                    alert('Report saved successfully! ID: ' + data.id);
+                } else {
+                    alert('Report saved successfully!');
+                }
             } else {
-                alert('Failed to save report');
+                const error = await response.json();
+                alert('Failed to save report: ' + (error.detail || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error saving report:', error);
