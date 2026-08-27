@@ -97,7 +97,7 @@ async def create_schedule(
     # Parse recipient emails
     emails = [e.strip() for e in recipient_emails.split(",") if e.strip()] if recipient_emails else []
 
-    # Use owner_id if provided, otherwise default to the creating user
+    # Use owner_id if provided, otherwise default to the creating user (admin)
     schedule_owner_id = owner_id or current_user.id
 
     # Build delivery config based on type

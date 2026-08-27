@@ -75,6 +75,14 @@ async def login(
         max_age=60 * 60 * 8,
         samesite="lax",
     )
+    # Set current user ID cookie for owner selection
+    response.set_cookie(
+        key="current_user_id",
+        value=str(user.id),
+        httponly=False,
+        max_age=60 * 60 * 8,
+        samesite="lax",
+    )
     return response
 
 

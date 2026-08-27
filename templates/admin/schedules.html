@@ -492,12 +492,34 @@
     async function loadUsersForOwner() {
         try {
             const response = await fetch('/admin/api/users');
-            if (response.ok) {
-                const users = await response.json();
-                const ownerSelect = document.getElementById('schedule-owner');
-                ownerSelect.innerHTML = '<option value="">-- Select User --</option>' + 
-                    users.map(u => `<option value="${u.id}">${u.name} (${u.email})</option>`).join('');
+            if (!response.ok) {
+                console.error('Failed to fetch users:', response.status, response.statusText);
+                return;
             }
+            const users = await response.json();
+            
+            // Get current user ID from cookie or session
+            const cookies = document.cookie.split(';');
+            let currentUserId = null;
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'current_user_id') {
+                    currentUserId = value;
+                    break;
+                }
+            }
+            
+            const ownerSelect = document.getElementById('schedule-owner');
+            const editOwnerSelect = document.getElementById('edit-schedule-owner');
+            
+            let optionsHtml = '<option value="">-- Select User --</option>';
+            users.forEach(u => {
+                const selected = currentUserId === u.id ? 'selected' : '';
+                optionsHtml += `<option value="${u.id}" ${selected}>${u.name} (${u.email})</option>`;
+            });
+            
+            if (ownerSelect) ownerSelect.innerHTML = optionsHtml;
+            if (editOwnerSelect) editOwnerSelect.innerHTML = optionsHtml;
         } catch (error) {
             console.error('Error loading users:', error);
         }
