@@ -87,6 +87,7 @@ async def create_schedule(
     output_format: str = Form("pdf"),
     delivery_type: str = Form("email"),
     recipient_emails: str = Form(""),
+    owner_id: uuid.UUID = Form(None),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -96,14 +97,48 @@ async def create_schedule(
     # Parse recipient emails
     emails = [e.strip() for e in recipient_emails.split(",") if e.strip()] if recipient_emails else []
 
+    # Use owner_id if provided, otherwise default to the creating user
+    schedule_owner_id = owner_id or current_user.id
+
+    # Build delivery config based on type
+    delivery_config = {
+        "type": delivery_type,
+        "emails": emails if delivery_type == "email" else [],
+    }
+
+    # Add SFTP/SMB/Webhook specific config if provided
+    if delivery_type == "sftp":
+        delivery_config.update({
+            "host": Form("host", default=""),
+            "port": Form("port", default=22),
+            "username": Form("username", default=""),
+            "password": Form("password", default=""),
+            "remote_path": Form("remote_path", default="/"),
+        })
+    elif delivery_type == "smb":
+        delivery_config.update({
+            "server": Form("server", default=""),
+            "share": Form("share", default=""),
+            "username": Form("smb_username", default=""),
+            "password": Form("smb_password", default=""),
+            "remote_path": Form("smb_remote_path", default="/"),
+        })
+    elif delivery_type == "webhook":
+        delivery_config.update({
+            "url": Form("webhook_url", default=""),
+            "secret": Form("webhook_secret", default=""),
+        })
+
     schedule = Schedule(
         report_id=report_id,
         name=name or "Unnamed Schedule",
         cron_expression=cron_expression,
         timezone=timezone,
         output_format=output_format,
-        delivery_config={"type": delivery_type, "emails": emails},
-        recipient_emails=recipient_emails,
+        delivery_type=delivery_type,
+        delivery_config=delivery_config,
+        recipient_emails=recipient_emails if delivery_type == "email" else None,
+        owner_id=schedule_owner_id,
         created_by=current_user.id,
     )
     db.add(schedule)
@@ -147,7 +182,23 @@ async def update_schedule(
     output_format: str = Form(None),
     delivery_type: str = Form(None),
     recipient_emails: str = Form(None),
+    owner_id: uuid.UUID = Form(None),
     is_active: bool = Form(None),
+    # SFTP fields
+    sftp_host: str = Form(None),
+    sftp_port: int = Form(None),
+    sftp_username: str = Form(None),
+    sftp_password: str = Form(None),
+    sftp_remote_path: str = Form(None),
+    # SMB fields
+    smb_server: str = Form(None),
+    smb_share: str = Form(None),
+    smb_username: str = Form(None),
+    smb_password: str = Form(None),
+    smb_remote_path: str = Form(None),
+    # Webhook fields
+    webhook_url: str = Form(None),
+    webhook_secret: str = Form(None),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -169,9 +220,40 @@ async def update_schedule(
     if output_format:
         schedule.output_format = output_format
     if delivery_type:
-        emails = [e.strip() for e in (recipient_emails or "").split(",") if e.strip()] if recipient_emails else []
-        schedule.delivery_config = {"type": delivery_type, "emails": emails}
-        schedule.recipient_emails = recipient_emails
+        schedule.delivery_type = delivery_type
+        
+        # Build delivery config based on type
+        delivery_config = {"type": delivery_type}
+        
+        if delivery_type == "email":
+            emails = [e.strip() for e in (recipient_emails or "").split(",") if e.strip()] if recipient_emails else []
+            delivery_config["emails"] = emails
+            schedule.recipient_emails = recipient_emails
+        elif delivery_type == "sftp":
+            delivery_config.update({
+                "host": sftp_host,
+                "port": sftp_port or 22,
+                "username": sftp_username,
+                "password": sftp_password,
+                "remote_path": sftp_remote_path or "/",
+            })
+        elif delivery_type == "smb":
+            delivery_config.update({
+                "server": smb_server,
+                "share": smb_share,
+                "username": smb_username,
+                "password": smb_password,
+                "remote_path": smb_remote_path or "/",
+            })
+        elif delivery_type == "webhook":
+            delivery_config.update({
+                "url": webhook_url,
+                "secret": webhook_secret,
+            })
+        
+        schedule.delivery_config = delivery_config
+    if owner_id:
+        schedule.owner_id = owner_id
     if is_active is not None:
         schedule.is_active = is_active
 
@@ -253,8 +335,10 @@ async def list_schedules(
             "cron_expression": s.cron_expression,
             "timezone": s.timezone,
             "output_format": s.output_format or "pdf",
-            "delivery_type": s.delivery_config.get("type", "email") if s.delivery_config else "email",
+            "delivery_type": s.delivery_type or "email",
+            "delivery_config": s.delivery_config or {},
             "recipient_emails": s.recipient_emails or "",
+            "owner_id": str(s.owner_id) if s.owner_id else None,
             "is_active": s.is_active,
             "created_at": s.created_at.isoformat() if s.created_at else None,
         }
@@ -285,8 +369,10 @@ async def get_schedule(
         "cron_expression": schedule.cron_expression,
         "timezone": schedule.timezone,
         "output_format": schedule.output_format or "pdf",
-        "delivery_type": schedule.delivery_config.get("type", "email") if schedule.delivery_config else "email",
+        "delivery_type": schedule.delivery_type or "email",
+        "delivery_config": schedule.delivery_config or {},
         "recipient_emails": schedule.recipient_emails or "",
+        "owner_id": str(schedule.owner_id) if schedule.owner_id else None,
         "is_active": schedule.is_active,
     }
 

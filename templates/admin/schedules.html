@@ -126,11 +126,82 @@
                     <option value="webhook">Webhook</option>
                 </select>
             </div>
+            
+            <!-- Email Delivery Fields -->
             <div id="email-delivery-fields">
                 <div class="form-group">
                     <label for="schedule-recipient-emails">Recipient Emails (comma-separated)</label>
                     <input type="text" id="schedule-recipient-emails" name="recipient_emails" class="form-control" placeholder="user1@example.com, user2@example.com">
                 </div>
+            </div>
+            
+            <!-- SFTP Delivery Fields -->
+            <div id="sftp-delivery-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="schedule-sftp-host">SFTP Host</label>
+                    <input type="text" id="schedule-sftp-host" name="sftp_host" class="form-control" placeholder="sftp.example.com">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-sftp-port">Port</label>
+                    <input type="number" id="schedule-sftp-port" name="sftp_port" class="form-control" value="22" min="1" max="65535">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-sftp-username">Username</label>
+                    <input type="text" id="schedule-sftp-username" name="sftp_username" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-sftp-password">Password</label>
+                    <input type="password" id="schedule-sftp-password" name="sftp_password" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-sftp-remote-path">Remote Path</label>
+                    <input type="text" id="schedule-sftp-remote-path" name="sftp_remote_path" class="form-control" value="/" placeholder="/path/to/folder">
+                </div>
+            </div>
+            
+            <!-- SMB Delivery Fields -->
+            <div id="smb-delivery-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="schedule-smb-server">Server</label>
+                    <input type="text" id="schedule-smb-server" name="smb_server" class="form-control" placeholder="fileserver.example.com">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-smb-share">Share Name</label>
+                    <input type="text" id="schedule-smb-share" name="smb_share" class="form-control" placeholder="reports">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-smb-username">Username</label>
+                    <input type="text" id="schedule-smb-username" name="smb_username" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-smb-password">Password</label>
+                    <input type="password" id="schedule-smb-password" name="smb_password" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-smb-remote-path">Remote Path</label>
+                    <input type="text" id="schedule-smb-remote-path" name="smb_remote_path" class="form-control" value="/" placeholder="/path/to/folder">
+                </div>
+            </div>
+            
+            <!-- Webhook Delivery Fields -->
+            <div id="webhook-delivery-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="schedule-webhook-url">Webhook URL</label>
+                    <input type="url" id="schedule-webhook-url" name="webhook_url" class="form-control" placeholder="https://api.example.com/webhook">
+                </div>
+                <div class="form-group">
+                    <label for="schedule-webhook-secret">Secret (optional, for HMAC signing)</label>
+                    <input type="password" id="schedule-webhook-secret" name="webhook_secret" class="form-control">
+                </div>
+            </div>
+            
+            <!-- Owner Selection -->
+            <div class="form-group">
+                <label for="schedule-owner">Report Owner (sees in portal)</label>
+                <select id="schedule-owner" name="owner_id" class="form-control">
+                    <option value="">-- Select User --</option>
+                </select>
+                <small class="text-muted">The user who will see this report in their portal</small>
             </div>
     <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary">Create Schedule</button>
@@ -233,11 +304,82 @@
                     <option value="webhook">Webhook</option>
                 </select>
             </div>
+            
+            <!-- Email Delivery Fields -->
             <div id="edit-email-delivery-fields">
                 <div class="form-group">
                     <label for="edit-schedule-recipient-emails">Recipient Emails (comma-separated)</label>
                     <input type="text" id="edit-schedule-recipient-emails" name="recipient_emails" class="form-control">
                 </div>
+            </div>
+            
+            <!-- SFTP Delivery Fields -->
+            <div id="edit-sftp-delivery-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="edit-sftp-host">SFTP Host</label>
+                    <input type="text" id="edit-sftp-host" name="sftp_host" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-sftp-port">Port</label>
+                    <input type="number" id="edit-sftp-port" name="sftp_port" class="form-control" value="22">
+                </div>
+                <div class="form-group">
+                    <label for="edit-sftp-username">Username</label>
+                    <input type="text" id="edit-sftp-username" name="sftp_username" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-sftp-password">Password</label>
+                    <input type="password" id="edit-sftp-password" name="sftp_password" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-sftp-remote-path">Remote Path</label>
+                    <input type="text" id="edit-sftp-remote-path" name="sftp_remote_path" class="form-control" value="/">
+                </div>
+            </div>
+            
+            <!-- SMB Delivery Fields -->
+            <div id="edit-smb-delivery-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="edit-smb-server">Server</label>
+                    <input type="text" id="edit-smb-server" name="smb_server" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-smb-share">Share Name</label>
+                    <input type="text" id="edit-smb-share" name="smb_share" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-smb-username">Username</label>
+                    <input type="text" id="edit-smb-username" name="smb_username" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-smb-password">Password</label>
+                    <input type="password" id="edit-smb-password" name="smb_password" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-smb-remote-path">Remote Path</label>
+                    <input type="text" id="edit-smb-remote-path" name="smb_remote_path" class="form-control" value="/">
+                </div>
+            </div>
+            
+            <!-- Webhook Delivery Fields -->
+            <div id="edit-webhook-delivery-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="edit-webhook-url">Webhook URL</label>
+                    <input type="url" id="edit-webhook-url" name="webhook_url" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit-webhook-secret">Secret (optional)</label>
+                    <input type="password" id="edit-webhook-secret" name="webhook_secret" class="form-control">
+                </div>
+            </div>
+            
+            <!-- Owner Selection -->
+            <div class="form-group">
+                <label for="edit-schedule-owner">Report Owner (sees in portal)</label>
+                <select id="edit-schedule-owner" name="owner_id" class="form-control">
+                    <option value="">-- Select User --</option>
+                </select>
+                <small class="text-muted">The user who will see this report in their portal</small>
             </div>
             <div class="form-group">
                 <label>
@@ -289,8 +431,9 @@
         }
     }
 
-    function showCreateScheduleModal() {
+    async function showCreateScheduleModal() {
         document.getElementById('create-schedule-modal').style.display = 'block';
+        await loadUsersForOwner();
         updateScheduleFields();
     }
 
@@ -346,14 +489,38 @@
         generateCronExpression();
     }
 
+    async function loadUsersForOwner() {
+        try {
+            const response = await fetch('/admin/api/users');
+            if (response.ok) {
+                const users = await response.json();
+                const ownerSelect = document.getElementById('schedule-owner');
+                ownerSelect.innerHTML = '<option value="">-- Select User --</option>' + 
+                    users.map(u => `<option value="${u.id}">${u.name} (${u.email})</option>`).join('');
+            }
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    }
+
     function updateDeliveryFields() {
         const deliveryType = document.getElementById('schedule-delivery-type').value;
-        const emailFields = document.getElementById('email-delivery-fields');
         
+        // Hide all delivery fields first
+        document.getElementById('email-delivery-fields').style.display = 'none';
+        document.getElementById('sftp-delivery-fields').style.display = 'none';
+        document.getElementById('smb-delivery-fields').style.display = 'none';
+        document.getElementById('webhook-delivery-fields').style.display = 'none';
+        
+        // Show the selected delivery fields
         if (deliveryType === 'email') {
-            emailFields.style.display = 'block';
-        } else {
-            emailFields.style.display = 'none';
+            document.getElementById('email-delivery-fields').style.display = 'block';
+        } else if (deliveryType === 'sftp') {
+            document.getElementById('sftp-delivery-fields').style.display = 'block';
+        } else if (deliveryType === 'smb') {
+            document.getElementById('smb-delivery-fields').style.display = 'block';
+        } else if (deliveryType === 'webhook') {
+            document.getElementById('webhook-delivery-fields').style.display = 'block';
         }
     }
 
@@ -459,7 +626,34 @@
             document.getElementById('edit-schedule-timezone').value = schedule.timezone;
             document.getElementById('edit-schedule-output-format').value = schedule.output_format || 'pdf';
             document.getElementById('edit-schedule-delivery-type').value = schedule.delivery_type || 'email';
-            document.getElementById('edit-schedule-recipient-emails').value = schedule.recipient_emails || '';
+            
+            // Set owner
+            if (schedule.owner_id) {
+                document.getElementById('edit-schedule-owner').value = schedule.owner_id;
+            }
+            
+            // Set delivery-specific fields
+            const config = schedule.delivery_config || {};
+            
+            if (schedule.delivery_type === 'email') {
+                document.getElementById('edit-schedule-recipient-emails').value = schedule.recipient_emails || '';
+            } else if (schedule.delivery_type === 'sftp') {
+                document.getElementById('edit-sftp-host').value = config.host || '';
+                document.getElementById('edit-sftp-port').value = config.port || 22;
+                document.getElementById('edit-sftp-username').value = config.username || '';
+                document.getElementById('edit-sftp-password').value = config.password || '';
+                document.getElementById('edit-sftp-remote-path').value = config.remote_path || '/';
+            } else if (schedule.delivery_type === 'smb') {
+                document.getElementById('edit-smb-server').value = config.server || '';
+                document.getElementById('edit-smb-share').value = config.share || '';
+                document.getElementById('edit-smb-username').value = config.username || '';
+                document.getElementById('edit-smb-password').value = config.password || '';
+                document.getElementById('edit-smb-remote-path').value = config.remote_path || '/';
+            } else if (schedule.delivery_type === 'webhook') {
+                document.getElementById('edit-webhook-url').value = config.url || '';
+                document.getElementById('edit-webhook-secret').value = config.secret || '';
+            }
+            
             document.getElementById('edit-schedule-is-active').checked = schedule.is_active;
             
             // Parse cron expression to set frequency and time
@@ -496,6 +690,7 @@
             }
             
             updateEditScheduleFields();
+            await loadUsersForOwner();
             document.getElementById('edit-schedule-modal').style.display = 'block';
         } catch (error) {
             console.error('Error editing schedule:', error);
@@ -548,12 +743,22 @@
 
     function updateEditDeliveryFields() {
         const deliveryType = document.getElementById('edit-schedule-delivery-type').value;
-        const emailFields = document.getElementById('edit-email-delivery-fields');
         
+        // Hide all delivery fields first
+        document.getElementById('edit-email-delivery-fields').style.display = 'none';
+        document.getElementById('edit-sftp-delivery-fields').style.display = 'none';
+        document.getElementById('edit-smb-delivery-fields').style.display = 'none';
+        document.getElementById('edit-webhook-delivery-fields').style.display = 'none';
+        
+        // Show the selected delivery fields
         if (deliveryType === 'email') {
-            emailFields.style.display = 'block';
-        } else {
-            emailFields.style.display = 'none';
+            document.getElementById('edit-email-delivery-fields').style.display = 'block';
+        } else if (deliveryType === 'sftp') {
+            document.getElementById('edit-sftp-delivery-fields').style.display = 'block';
+        } else if (deliveryType === 'smb') {
+            document.getElementById('edit-smb-delivery-fields').style.display = 'block';
+        } else if (deliveryType === 'webhook') {
+            document.getElementById('edit-webhook-delivery-fields').style.display = 'block';
         }
     }
 

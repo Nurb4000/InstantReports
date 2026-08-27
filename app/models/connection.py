@@ -40,12 +40,15 @@ class Schedule(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     parameters: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     output_format: Mapped[str | None] = mapped_column(String(20), nullable=True)  # pdf, xlsx, csv, html
+    delivery_type: Mapped[str] = mapped_column(String(50), default="email")  # email, sftp, smb, webhook
     delivery_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # {type: email/sftp/smb/webhook, config: {...}}
-    recipient_emails: Mapped[str | None] = mapped_column(Text, nullable=True)  # Comma-separated emails
+    recipient_emails: Mapped[str | None] = mapped_column(Text, nullable=True)  # Comma-separated emails for email delivery
+    owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Who owns/sees this in portal
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     report: Mapped["Report"] = relationship(back_populates="schedules", lazy="selectin")
+    owner: Mapped["User"] = relationship(backref="owned_schedules", lazy="selectin")
 
 
 class Delivery(Base):
