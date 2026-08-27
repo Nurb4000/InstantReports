@@ -109,24 +109,24 @@ async def create_schedule(
     # Add SFTP/SMB/Webhook specific config if provided
     if delivery_type == "sftp":
         delivery_config.update({
-            "host": Form("host", default=""),
-            "port": Form("port", default=22),
-            "username": Form("username", default=""),
-            "password": Form("password", default=""),
-            "remote_path": Form("remote_path", default="/"),
+            "host": request.form.get("sftp_host", ""),
+            "port": int(request.form.get("sftp_port", 22)),
+            "username": request.form.get("sftp_username", ""),
+            "password": request.form.get("sftp_password", ""),
+            "remote_path": request.form.get("sftp_remote_path", "/"),
         })
     elif delivery_type == "smb":
         delivery_config.update({
-            "server": Form("server", default=""),
-            "share": Form("share", default=""),
-            "username": Form("smb_username", default=""),
-            "password": Form("smb_password", default=""),
-            "remote_path": Form("smb_remote_path", default="/"),
+            "server": request.form.get("smb_server", ""),
+            "share": request.form.get("smb_share", ""),
+            "username": request.form.get("smb_username", ""),
+            "password": request.form.get("smb_password", ""),
+            "remote_path": request.form.get("smb_remote_path", "/"),
         })
     elif delivery_type == "webhook":
         delivery_config.update({
-            "url": Form("webhook_url", default=""),
-            "secret": Form("webhook_secret", default=""),
+            "url": request.form.get("webhook_url", ""),
+            "secret": request.form.get("webhook_secret", ""),
         })
 
     schedule = Schedule(
