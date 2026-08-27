@@ -24,6 +24,7 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 0.5rem;
+        justify-content: center;
     }
     .palette-section h4 {
         margin-bottom: 0.5rem;
@@ -182,7 +183,6 @@
     <!-- Palette Row -->
     <div class="designer-palette">
         <div class="palette-section">
-            <h4>Sections</h4>
             <div id="sections-list" data-sortable="true">
                 {% if report and report.definition.get('layout', {}).get('sections') %}
                     {% for section in report.definition.layout.sections %}
