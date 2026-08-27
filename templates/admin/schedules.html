@@ -105,7 +105,8 @@
             </div>
             <div class="form-group">
                 <label for="schedule-cron-preview">Generated Cron Expression</label>
-                <input type="text" id="schedule-cron-preview" name="cron_expression" class="form-control" readonly placeholder="Will be generated automatically">
+                <input type="text" id="schedule-cron-preview" class="form-control" readonly placeholder="Will be generated automatically">
+                <input type="hidden" id="schedule-cron-hidden" name="cron_expression" value="">
             </div>
             <div class="form-group">
                 <label for="schedule-output-format">Output Format</label>
@@ -385,6 +386,7 @@
         }
         
         document.getElementById('schedule-cron-preview').value = cron;
+        document.getElementById('schedule-cron-hidden').value = cron;
     }
 
     // Add event listeners to all form inputs
@@ -413,6 +415,16 @@
         }
         
         const formData = new FormData(this);
+        
+        // Ensure cron_expression is set (required by backend)
+        const cronPreview = document.getElementById('schedule-cron-preview');
+        if (!cronPreview.value && frequency !== 'custom') {
+            alert('Please select a valid schedule configuration');
+            return;
+        }
+        
+        // Explicitly set cron_expression in form data
+        formData.set('cron_expression', cronPreview.value);
         
         try {
             const response = await fetch('/admin/schedules', {
