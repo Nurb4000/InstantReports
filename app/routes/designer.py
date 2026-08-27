@@ -60,7 +60,7 @@ async def list_reports(
 
     reports = result.scalars().all()
     return request.app.state.templates.TemplateResponse(
-        "designer/reports.html",
+        "designer/index.html",
         {"request": request, "current_user": current_user, "reports": reports, "mode": settings.MODE},
     )
 
