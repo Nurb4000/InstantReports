@@ -432,9 +432,10 @@
     }
 
     async function showCreateScheduleModal() {
+        console.log('Opening create schedule modal');
         document.getElementById('create-schedule-modal').style.display = 'block';
         await loadUsersForOwner();
-        updateScheduleFields();
+        console.log('After loading users');
     }
 
     function hideCreateScheduleModal() {
