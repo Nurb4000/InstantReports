@@ -134,13 +134,13 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="flex-grow-1">
             {% if report %}
-            <h1>{{ report.name }}</h1>
+            <h1 class="mb-2">{{ report.name }}</h1>
             <p class="text-muted mb-0">
                 Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }} | 
                 ID: <code>{{ report.id }}</code>
             </p>
             {% else %}
-            <input type="text" id="report-name" class="form-control form-control-lg mb-2" 
+            <input type="text" id="report-name" class="form-control form-control-lg mb-3" 
                    placeholder="Enter report name..." value="{{ report.name if report else '' }}">
             <p class="text-muted mb-0">
                 Report ID: <code id="report-id">{{ report.id if report else 'Will be assigned on save' }}</code>
@@ -460,23 +460,31 @@
                 body: formData,
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                // Update the report ID display if new report
-                if (!reportId && data.id) {
-                    document.getElementById('report-id').textContent = data.id;
-                    document.getElementById('report-name').value = reportName;
-                    alert('Report saved successfully! ID: ' + data.id);
-                } else {
-                    alert('Report saved successfully!');
+            if (response.ok || response.status === 303) {
+                // Handle redirect (303 See Other)
+                if (response.status === 303) {
+                    const location = response.headers.get('location');
+                    if (location && !reportId) {
+                        // Extract report ID from redirect URL
+                        const idMatch = location.match(/\/reports\/([a-f0-9-]+)/);
+                        if (idMatch && idMatch[1]) {
+                            document.getElementById('report-id').textContent = idMatch[1];
+                            if (nameInput) nameInput.value = reportName;
+                        }
+                    }
                 }
+                alert('Report saved successfully!');
+                // Redirect to designer home after save
+                setTimeout(() => {
+                    window.location.href = '/designer/';
+                }, 1000);
             } else {
-                const error = await response.json();
+                const error = await response.json().catch(() => ({detail: 'Unknown error'}));
                 alert('Failed to save report: ' + (error.detail || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error saving report:', error);
-            alert('An error occurred while saving');
+            alert('An error occurred while saving: ' + error.message);
         }
     });
 </script>
