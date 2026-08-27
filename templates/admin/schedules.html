@@ -833,31 +833,29 @@ function updateEditDeliveryFields() {
         const scheduleId = document.getElementById('edit-schedule-id').value;
         const formData = new FormData(this);
         
-        // Remove hidden fields that shouldn't be sent
-        formData.delete('id');
-        formData.delete('frequency');
-        formData.delete('hour');
-        formData.delete('minute');
-        formData.delete('day_type');
-        formData.delete('last_day');
-        formData.delete('edit_days');
-        formData.delete('cron_expression_custom');
-        
         try {
             const response = await fetch(`/admin/schedules/${scheduleId}`, {
                 method: 'PUT',
                 body: formData,
             });
             
-            if (response.ok) {
+            if (response.ok || response.status === 303) {
                 hideEditScheduleModal();
                 loadSchedules();
             } else {
-                const error = await response.json();
-                alert('Failed to update schedule: ' + (error.detail || 'Unknown error'));
+                const errorText = await response.text();
+                let errorMessage = 'Unknown error';
+                try {
+                    const errorData = JSON.parse(errorText);
+                    errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
+                } catch {
+                    errorMessage = errorText || 'Unknown error';
+                }
+                alert('Failed to update schedule: ' + errorMessage);
             }
         } catch (error) {
             console.error('Error updating schedule:', error);
+            alert('Error updating schedule: ' + error.message);
         }
     });
 

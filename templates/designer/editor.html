@@ -313,9 +313,10 @@
             });
         }
 
-        document.querySelectorAll('.section-item[draggable="true"]').forEach(item => {
+        // Add drag handlers to both section items and element items
+        document.querySelectorAll('[draggable="true"]').forEach(item => {
             item.addEventListener('dragstart', function(e) {
-                e.dataTransfer.setData('text/plain', this.dataset.elementType);
+                e.dataTransfer.setData('text/plain', this.dataset.elementType || this.dataset.sectionType);
             });
         });
 
