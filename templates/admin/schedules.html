@@ -401,7 +401,7 @@
 </div>
 
 <script>
-    async function loadSchedules() {
+async function loadSchedules() {
         try {
             const response = await fetch('/admin/api/schedules');
             if (response.ok) {
@@ -434,7 +434,7 @@
         }
     }
 
-    async function showCreateScheduleModal() {
+async function showCreateScheduleModal() {
         try {
             const modal = document.getElementById('create-schedule-modal');
             if (!modal) {
@@ -456,11 +456,11 @@
         }
     }
 
-    function hideCreateScheduleModal() {
+function hideCreateScheduleModal() {
         document.getElementById('create-schedule-modal').style.display = 'none';
     }
 
-    function updateScheduleFields() {
+function updateScheduleFields() {
         const frequency = document.getElementById('schedule-frequency').value;
         const timeFields = document.getElementById('schedule-time-fields');
         const dayFields = document.getElementById('schedule-day-fields');
@@ -489,7 +489,7 @@
         }
     }
 
-    function updateDayFields() {
+function updateDayFields() {
         const dayType = document.getElementById('schedule-day-type').value;
         const specificDays = document.getElementById('specific-days-fields');
         const lastDay = document.getElementById('last-day-field');
@@ -508,7 +508,7 @@
         generateCronExpression();
     }
 
-    async function loadUsersForOwner() {
+async function loadUsersForOwner() {
         try {
             const response = await fetch('/admin/api/users');
             if (!response.ok) {
@@ -540,7 +540,7 @@
         }
     }
 
-    function updateDeliveryFields() {
+function updateDeliveryFields() {
         const deliveryType = document.getElementById('schedule-delivery-type').value;
         
         // Hide all delivery fields first
@@ -561,7 +561,7 @@
         }
     }
 
-    function generateCronExpression() {
+function generateCronExpression() {
         const frequency = document.getElementById('schedule-frequency').value;
         const hour = document.getElementById('schedule-hour').value || '0';
         const minute = document.getElementById('schedule-minute').value || '0';
@@ -594,7 +594,7 @@
     }
 
     // Add event listeners to all form inputs
-    document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
         const inputs = document.querySelectorAll('#create-schedule-form input, #create-schedule-form select');
         inputs.forEach(input => {
             input.addEventListener('change', function() {
@@ -650,7 +650,7 @@
 
     loadSchedules();
 
-    async function editSchedule(scheduleId) {
+async function editSchedule(scheduleId) {
         try {
             const modal = document.getElementById('edit-schedule-modal');
             if (!modal) {
@@ -758,11 +758,11 @@
         }
     }
 
-    function hideEditScheduleModal() {
+function hideEditScheduleModal() {
         document.getElementById('edit-schedule-modal').style.display = 'none';
     }
 
-    function updateEditScheduleFields() {
+function updateEditScheduleFields() {
         const frequency = document.getElementById('edit-schedule-frequency').value;
         const timeFields = document.getElementById('edit-schedule-time-fields');
         const dayFields = document.getElementById('edit-schedule-day-fields');
@@ -784,7 +784,7 @@
         }
     }
 
-    function updateEditDayFields() {
+function updateEditDayFields() {
         const dayType = document.getElementById('edit-schedule-day-type').value;
         const specificDays = document.getElementById('edit-specific-days-fields');
         const lastDay = document.getElementById('edit-last-day-field');
@@ -801,7 +801,7 @@
         }
     }
 
-    function updateEditDeliveryFields() {
+function updateEditDeliveryFields() {
         const deliveryType = document.getElementById('edit-schedule-delivery-type').value;
         
         // Hide all delivery fields first
@@ -855,7 +855,7 @@
         }
     });
 
-    async function deleteSchedule(scheduleId) {
+async function deleteSchedule(scheduleId) {
         if (!confirm('Are you sure you want to delete this schedule?')) return;
         
         try {
