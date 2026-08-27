@@ -15,11 +15,15 @@
         padding: 1rem;
         background: #f8f9fa;
         border-radius: 8px;
-        flex-wrap: wrap;
     }
     .palette-section {
         flex: 1;
         min-width: 200px;
+    }
+    .elements-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
     }
     .palette-section h4 {
         margin-bottom: 0.5rem;
@@ -196,7 +200,7 @@
         
         <div class="palette-section">
             <h4>Elements</h4>
-            <div id="elements-palette">
+            <div id="elements-palette" class="elements-grid">
                 <div class="element-item" draggable="true" data-element-type="text">
                     <span class="element-handle">☰</span> Text
                 </div>
