@@ -80,30 +80,34 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design" type="button" role="tab">Design</button>
             </li>
+            {% if report %}
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">History</button>
             </li>
+            {% endif %}
+            {% if mode == 'designer' and ai_enabled %}
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="ai-tab" data-bs-toggle="tab" data-bs-target="#ai" type="button" role="tab">AI Assistant</button>
             </li>
+            {% endif %}
         </ul>
         <div class="tab-content" id="designerTabContent">
             <div class="tab-pane fade show active" id="design" role="tabpanel">
                 <!-- Designer content goes here -->
             </div>
+            {% if report %}
             <div class="tab-pane fade" id="history" role="tabpanel">
-                {% if report %}
                 <div id="version-history">
                     <h3>Version History</h3>
                     <div id="versions-list"></div>
                 </div>
-                {% else %}
-                <p class="text-muted">Save the report first to view version history.</p>
-                {% endif %}
             </div>
+            {% endif %}
+            {% if mode == 'designer' and ai_enabled %}
             <div class="tab-pane fade" id="ai" role="tabpanel">
                 {% include "designer/ai_chat.html" %}
             </div>
+            {% endif %}
         </div>
     </div>
 

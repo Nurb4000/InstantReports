@@ -75,7 +75,13 @@ async def new_report_page(
 
     return request.app.state.templates.TemplateResponse(
         "designer/editor.html",
-        {"request": request, "current_user": current_user, "report": None, "mode": settings.MODE},
+        {
+            "request": request,
+            "current_user": current_user,
+            "report": None,
+            "mode": settings.MODE,
+            "ai_enabled": settings.AI_ENABLED,
+        },
     )
 
 
@@ -97,7 +103,13 @@ async def edit_report_page(
 
     return request.app.state.templates.TemplateResponse(
         "designer/editor.html",
-        {"request": request, "current_user": current_user, "report": report, "mode": settings.MODE},
+        {
+            "request": request,
+            "current_user": current_user,
+            "report": report,
+            "mode": settings.MODE,
+            "ai_enabled": settings.AI_ENABLED,
+        },
     )
 
 
