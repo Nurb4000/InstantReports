@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.routes.auth import get_current_user_optional
 from app.config import settings as app_settings
 from app.database import get_db
-from app.models.report import Report
+from app.models.report import Report, ReportTemplate
+from app.services.report.definition import normalize_report_definition
 from app.models.user import User
 from app.routes.admin import get_role_value
 
@@ -139,6 +140,148 @@ async def list_reports(
             },
         },
     )
+
+
+@router.post("/reports/templates")
+async def save_report_template(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(None),
+    definition: str = Form(None),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Save a report definition as a reusable template."""
+    if not current_user or not _check_role(current_user, "admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    name = (name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Template name is required")
+
+    report_def = normalize_report_definition(
+        json.loads(definition) if definition else None
+    )
+
+    template = ReportTemplate(
+        name=name,
+        description=description or "",
+        definition=report_def,
+        created_by=current_user.id,
+    )
+    db.add(template)
+    await db.commit()
+    await db.refresh(template)
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={"id": str(template.id), "name": template.name},
+    )
+
+
+@router.get("/reports/templates")
+async def list_report_templates(
+    request: Request,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """List available report templates."""
+    if not current_user or not _check_role(current_user, "admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(
+        select(ReportTemplate).order_by(ReportTemplate.updated_at.desc())
+    )
+    templates = result.scalars().all()
+
+    return [
+        {
+            "id": str(t.id),
+            "name": t.name,
+            "description": t.description,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        }
+        for t in templates
+    ]
+
+
+@router.get("/reports/templates/{template_id}")
+async def get_report_template(
+    template_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch a single report template with its full definition."""
+    if not current_user or not _check_role(current_user, "admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    template = await db.get(ReportTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Report template not found")
+
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "description": template.description,
+        "definition": template.definition,
+        "created_at": template.created_at.isoformat() if template.created_at else None,
+    }
+
+
+@router.post("/reports/from-template/{template_id}")
+async def create_report_from_template(
+    template_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new report from a saved template and open it in the editor."""
+    if not current_user or not _check_role(current_user, "admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    template = await db.get(ReportTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Report template not found")
+
+    report = Report(
+        name=f"{template.name} (copy)",
+        description=template.description or "",
+        definition=json.loads(json.dumps(template.definition)),
+        created_by=current_user.id,
+    )
+    db.add(report)
+    await db.commit()
+    await db.refresh(report)
+
+    from app.services.versioning import save_version
+
+    commit_msg = f"Created from template '{template.name}'"
+    if current_user:
+        commit_msg = f"{current_user.name} - {commit_msg}"
+    await save_version(db, report.id, report.definition, commit_msg, current_user.id)
+
+    return RedirectResponse(
+        url=f"/designer/reports/{report.id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.delete("/reports/templates/{template_id}")
+async def delete_report_template(
+    template_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a saved report template."""
+    if not current_user or not _check_role(current_user, "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    template = await db.get(ReportTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Report template not found")
+
+    await db.delete(template)
+    await db.commit()
+    return {"status": "ok"}
 
 
 @router.get("/reports/new")
@@ -421,3 +564,4 @@ async def export_report(
         if os.path.exists(path):
             os.unlink(path)
         raise
+

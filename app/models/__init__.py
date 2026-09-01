@@ -3,6 +3,7 @@ from app.models.report import (
     Report,
     ReportComment,
     ReportOutput,
+    ReportTemplate,
     ReportTag,
     ReportVersion,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "Report",
     "ReportComment",
     "ReportOutput",
+    "ReportTemplate",
     "ReportTag",
     "ReportVersion",
     "User",
