@@ -352,6 +352,22 @@
     .element-hidden:hover {
         opacity: 0.6;
     }
+    .diagram-node {
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .diagram-arrow, .diagram-arrow-left, .diagram-arrow-right {
+        font-size: 16px;
+        line-height: 1;
+        color: #495057;
+    }
+    .diagram-arrow-left, .diagram-arrow-right {
+        color: #dc3545;
+    }
+    .diagram-join {
+        color: #495057;
+    }
 </style>
 {% endblock %}
 
@@ -2060,6 +2076,7 @@
     // ===== QUERY BUILDER =====
     let queryBuilderModal = null;
     let currentQueryBuilderType = null;
+    let qbSchema = null;
 
     function openQueryBuilder(elementType) {
         currentQueryBuilderType = elementType;
@@ -2095,6 +2112,7 @@
                                 <button class="btn btn-sm btn-outline-primary" onclick="qbAddStep('orderby')">➕ ORDER BY</button>
                             </div>
                             
+                            <div id="qb-join-diagram" class="mb-3" style="background:#f8f9fa; border:1px dashed #ccc; border-radius:4px; padding:8px; margin-bottom:12px;"></div>
                             <div id="qb-query-steps">
                                 <!-- Steps will be dynamically added here -->
                             </div>
@@ -2150,7 +2168,8 @@
             if (!response.ok) throw new Error('Failed to load schema');
             
             const schema = await response.json();
-            
+            qbSchema = schema;
+
             container.innerHTML = schema.tables.map(table => `
                 <div class="schema-table mb-2">
                     <div class="table-header d-flex align-items-center gap-2 p-2 bg-light rounded" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
@@ -2362,7 +2381,62 @@
         }
         
         stepsContainer.insertAdjacentHTML('beforeend', stepHtml);
+        qbPopulateJoinTables();
         qbRegenerateSQL();
+    }
+
+    function qbPopulateJoinTables() {
+        if (!qbSchema || !qbSchema.tables) return;
+        const options = qbSchema.tables.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+        document.querySelectorAll('.qb-join-table').forEach(select => {
+            const current = select.value;
+            select.innerHTML = '<option value="">Select table...</option>' + options;
+            if (current) select.value = current;
+        });
+    }
+
+    function qbRenderJoinDiagram() {
+        const diagram = document.getElementById('qb-join-diagram');
+        if (!diagram) return;
+        const stepsContainer = document.getElementById('qb-query-steps');
+        if (!stepsContainer) return;
+
+        const joinSteps = Array.from(stepsContainer.querySelectorAll('[data-step-type="join"]'));
+        if (joinSteps.length === 0) {
+            diagram.innerHTML = '<small class="text-muted">Add a JOIN step to visualize the table graph.</small>';
+            return;
+        }
+
+        let html = '<div class="d-flex align-items-center flex-wrap gap-2">';
+
+        // Base node(s) from FROM step
+        const fromTags = stepsContainer.querySelectorAll('[data-step-type="from"] .qb-table-tag');
+        if (fromTags.length === 0) {
+            html += '<span class="diagram-node btn-sm btn-outline-secondary rounded">FROM (select tables)</span>';
+        } else {
+            fromTags.forEach((tag, i) => {
+                html += `<span class="diagram-node btn-sm btn-primary">${tag.textContent.trim()}</span>`;
+                if (i < fromTags.length - 1) html += '<span class="diagram-join">,</span>';
+            });
+        }
+
+        joinSteps.forEach(step => {
+            const tableSel = step.querySelector('.qb-join-table');
+            const typeSel = step.querySelector('.qb-join-type');
+            const condInput = step.querySelector('.qb-join-condition');
+            const joinedTable = tableSel ? tableSel.value : '';
+            const joinType = typeSel ? typeSel.value : 'INNER';
+            const condition = condInput ? condInput.value : '';
+
+            const arrowClass = joinType === 'LEFT' ? 'diagram-arrow-left' : joinType === 'RIGHT' ? 'diagram-arrow-right' : 'diagram-arrow';
+            const title = condition ? `${joinType} JOIN ${joinedTable} ON ${condition}` : `${joinType} JOIN ${joinedTable}`;
+
+            html += `<span class="${arrowClass}" title="${title}">➜</span>`;
+            html += `<span class="diagram-node btn-sm btn-outline-info">${joinedTable || '???'}</span>`;
+        });
+
+        html += '</div>';
+        diagram.innerHTML = html;
     }
 
     function qbRegenerateSQL() {
@@ -2468,6 +2542,8 @@
         if (sqlOutput) {
             sqlOutput.textContent = sql || '-- Select tables and columns to build your query';
         }
+
+        qbRenderJoinDiagram();
     }
 
     async function qbTestQuery() {
