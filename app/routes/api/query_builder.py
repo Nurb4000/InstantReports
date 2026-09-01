@@ -20,6 +20,7 @@ from app.services.query_builder.history import (
     list_snapshots,
     save_snapshot,
 )
+from app.services.query_builder.optimizer import analyze_query
 from app.services.query_builder.schema import get_schema
 
 logger = logging.getLogger(__name__)
@@ -404,3 +405,29 @@ async def delete_query_history(
         raise HTTPException(status_code=404, detail="History snapshot not found")
 
     return {"message": f"History snapshot {snapshot_id} deleted", "id": str(snapshot_id)}
+
+
+@router.post("/optimize")
+async def optimize_query_endpoint(
+    query_config: QueryConfig,
+    connection_id: Optional[str] = Query(None),
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Analyze a query configuration and return optimization suggestions."""
+    schema = None
+    if connection_id:
+        try:
+            uuid.UUID(connection_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid connection_id")
+        schema = await get_schema(db, connection_id)
+
+    sql = query_config.to_sql()
+    suggestions = analyze_query(query_config, schema)
+
+    return {
+        "sql": sql,
+        "suggestions": suggestions,
+        "score": max(0, 100 - len(suggestions) * 15),
+    }
