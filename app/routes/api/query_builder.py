@@ -20,6 +20,7 @@ from app.services.query_builder.history import (
     list_snapshots,
     save_snapshot,
 )
+from app.services.query_builder.adapter import execute_query
 from app.services.query_builder.optimizer import analyze_query
 from app.services.query_builder.schema import get_schema
 
@@ -87,63 +88,40 @@ async def test_query_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Test a query against the database."""
-    import asyncpg
-    
     # Validate configuration first
     is_valid, errors = validate_query(query_config)
     if not is_valid:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Invalid query configuration: {errors}"
         )
 
     # Generate SQL
     sql = query_config.to_sql()
-    
-    # Add LIMIT clause
-    if limit:
-        sql += f"\nLIMIT {limit}"
 
-    # Get connection config
-    from sqlalchemy import text
-    result = await db.execute(
-        text("SELECT config FROM data_connections WHERE id = :id"),
-        {"id": connection_id}
-    )
-    row = result.fetchone()
-    
-    if not row:
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Connection {connection_id} not found"
-        )
-    
-    config = row[0] if isinstance(row[0], dict) else eval(row[0])
-    
+    # Load the connection to determine connector type + config
     try:
-        # Connect to database and execute query
-        conn = await asyncpg.connect(
-            host=config["host"],
-            port=int(config["port"]),
-            user=config["user"],
-            password=config["password"],
-            database=config["database"],
+        conn_uuid = uuid.UUID(connection_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid connection_id")
+
+    result = await db.execute(
+        select(DataConnection).where(DataConnection.id == conn_uuid)
+    )
+    connection = result.scalar_one_or_none()
+
+    if not connection:
+        raise HTTPException(
+            status_code=404, detail=f"Connection {connection_id} not found"
         )
-        
-        # Execute the query
-        result = await conn.fetch(sql)
-        rows = [dict(row) for row in result]
-        
-        await conn.close()
-        
-        return {
-            "success": True,
-            "sql": sql,
-            "row_count": len(rows),
-            "preview": rows[:10],  # Return first 10 rows as preview
-            "message": f"Query executed successfully. Returned {len(rows)} rows.",
-        }
-        
+
+    try:
+        rows = await execute_query(
+            connection.connector_type,
+            connection.config,
+            sql,
+            limit=limit,
+        )
     except Exception as e:
         logger.error(f"Query execution error: {e}")
         return {
