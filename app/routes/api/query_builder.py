@@ -9,10 +9,12 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.connection import DataConnection, QueryTemplate
 from app.models.user import User
-from app.services.query_builder.config import QueryConfig, SchemaResponse
+from app.services.ai.client import AIClient, AISQLGenerator
+from app.services.query_builder.config import QueryConfig
 from app.services.query_builder.generator import validate_query
 from app.services.query_builder.history import (
     delete_snapshot,
@@ -23,6 +25,7 @@ from app.services.query_builder.history import (
 from app.services.query_builder.adapter import execute_query
 from app.services.query_builder.optimizer import analyze_query
 from app.services.query_builder.schema import get_schema
+from app.services.query_builder.sql_parser import parse_sql_to_config
 
 logger = logging.getLogger(__name__)
 
@@ -408,4 +411,56 @@ async def optimize_query_endpoint(
         "sql": sql,
         "suggestions": suggestions,
         "score": max(0, 100 - len(suggestions) * 15),
+    }
+
+
+@router.post("/nl-to-query")
+async def nl_to_query_endpoint(
+    request: Request,
+    connection_id: str = Query(...),
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a QueryConfig from a natural-language prompt for a connection."""
+    body = await request.json()
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    try:
+        conn_uuid = uuid.UUID(connection_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid connection_id")
+
+    connection = (
+        await db.execute(select(DataConnection).where(DataConnection.id == conn_uuid))
+    ).scalar_one_or_none()
+    if not connection:
+        raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
+
+    if not settings.AI_ENABLED:
+        raise HTTPException(
+            status_code=503, detail="AI is not configured. Set AI_ENABLED=true."
+        )
+
+    schema = await get_schema(db, connection_id)
+    if not schema:
+        raise HTTPException(
+            status_code=500, detail=f"Unable to fetch schema for connection {connection_id}"
+        )
+
+    client = AIClient(
+        base_url=settings.AI_BASE_URL,
+        api_key=settings.AI_API_KEY,
+        model=settings.AI_MODEL,
+    )
+    generator = AISQLGenerator(client)
+    sql = await generator.generate_sql(
+        prompt, schema.model_dump(mode="json"), connection.connector_type
+    )
+
+    query_config = parse_sql_to_config(sql)
+    return {
+        "sql": sql,
+        "query_config": query_config.model_dump(mode="json"),
     }
