@@ -585,6 +585,40 @@
                         <h6>Query Results Preview</h6>
                         <div id="query-results-table" class="table-responsive"></div>
                     </div>
+
+                    <!-- Calculated Fields Section -->
+                    <div class="mt-4 pt-3 border-top">
+                        <h6>Calculated Fields</h6>
+                        <p class="text-muted small mb-2">
+                            Derive new columns from your source fields using expressions like
+                            <code>{{revenue}} - {{cost}}</code>. These fields become available to add to tables and charts.
+                        </p>
+                        <div class="card mb-3" style="background:#f8f9fa;">
+                            <div class="card-body" style="padding:12px;">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-1">Field Name</label>
+                                        <input type="text" id="calc-field-name" class="form-control form-control-sm" placeholder="e.g., Profit">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label small mb-1">Expression</label>
+                                        <input type="text" id="calc-field-expr" class="form-control form-control-sm" placeholder="{{amount}} * {{rate}}" list="calc-field-datalist">
+                                        <datalist id="calc-field-datalist"></datalist>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-sm btn-outline-secondary w-100 mb-1" onclick="testCalculatedField()">Test</button>
+                                        <div id="calc-test-result" class="small mt-1"></div>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-primary w-100" onclick="addCalculatedField()">➕ Add Calculated Field</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="calculated-fields-list">
+                            <p class="text-muted small text-center py-2" id="calc-empty-hint">No calculated fields yet.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -734,7 +768,11 @@
                 if (savedDef.selected_fields) {
                     selectedFieldsList = savedDef.selected_fields;
                 }
+                if (savedDef.calculated_fields && Array.isArray(savedDef.calculated_fields)) {
+                    calculatedFieldsList = savedDef.calculated_fields.map(cf => ({ name: cf.name, expression: cf.expression }));
+                }
             }
+            renderCalculatedFields();
         } catch (e) {
             console.error('Error initializing designer:', e);
         }
@@ -747,7 +785,7 @@
             table: { query: '', columns: [], showHeader: true },
             chart: { type: 'bar', title: 'Chart', xField: '', yField: '' },
             crosstab: { rowField: '', columnField: '', valueField: '', aggregation: 'sum' },
-            subreport: { reportId: '', parameters: {} }
+            subreport: { reportId: '', render_mode: 'inline', pass_parameters: {} }
         };
         return defaults[type] || {};
     }
@@ -1328,10 +1366,33 @@
                 </div>
             `;
         } else if (type === 'subreport') {
+            var pp = (elementData.properties && elementData.properties.pass_parameters) || {};
+            var paramEntries = Object.keys(pp).map(function (k) { return [k, pp[k] || '']; });
+            var paramRows = paramEntries.length ? paramEntries.map(function (entry) {
+                return '<div class="param-row d-flex justify-content-between align-items-center mb-2">' +
+                    '<input type="text" class="form-control form-control-sm param-name me-2" placeholder="Parameter name" value="' + escapeAttr(entry[0]) + '">' +
+                    '<input type="text" class="form-control form-control-sm param-field me-2" placeholder="Source field" value="' + escapeAttr(entry[1]) + '">' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm" onclick="this.parentElement.remove()">Remove</button>' +
+                    '</div>';
+            }).join('') : '<p class="text-muted small mb-2">No parameters configured.</p>';
             formHtml += `
                 <div class="mb-3">
                     <label class="form-label">Sub-report ID</label>
                     <input type="text" class="form-control" id="prop-reportId" value="${elementData.properties.reportId || ''}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Render Mode</label>
+                    <select class="form-control" id="prop-renderMode">
+                        <option value="inline" ${elementData.properties.render_mode === 'inline' ? 'selected' : ''}>Inline (within flow)</option>
+                        <option value="page" ${elementData.properties.render_mode === 'page' ? 'selected' : ''}>Start on New Page</option>
+                        <option value="detached" ${elementData.properties.render_mode === 'detached' ? 'selected' : ''}>Detached (separate document)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Pass Parameters</label>
+                    <p class="text-muted small mb-2">Map parent fields to sub-report parameters.</p>
+                    <div id="prop-params-container">${paramRows}</div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addSubreportParamRow()">➕ Add Parameter</button>
                 </div>
             `;
         } else {
@@ -1580,8 +1641,21 @@
                 aggregation: document.getElementById('prop-aggregation')?.value || 'sum'
             };
         } else if (type === 'subreport') {
+            var renderModeEl = document.getElementById('prop-renderMode');
+            var params = {};
+            var rows = document.querySelectorAll('#prop-params-container .param-row');
+            rows.forEach(function (row) {
+                var nameEl = row.querySelector('.param-name');
+                var fieldEl = row.querySelector('.param-field');
+                var n = nameEl ? nameEl.value.trim() : '';
+                if (n) {
+                    params[n] = fieldEl ? fieldEl.value.trim() : '';
+                }
+            });
             properties = {
-                reportId: document.getElementById('prop-reportId')?.value || ''
+                reportId: document.getElementById('prop-reportId')?.value || '',
+                render_mode: renderModeEl ? renderModeEl.value : 'inline',
+                pass_parameters: params
             };
         }
         
@@ -1697,6 +1771,7 @@
     let availableSchema = {};
     let selectedFieldsList = [];
     let currentConnectorFields = [];
+    let calculatedFieldsList = [];
 
     async function loadAllConnections() {
         try {
@@ -2131,6 +2206,7 @@
                 `).join('')}
             </div>
         `).join('');
+        getCalculatedFieldDatalist();
     }
 
     function removeField(table, field) {
@@ -2185,6 +2261,160 @@
             el.select();
             document.execCommand('copy');
         });
+    }
+
+    // ===== CALCULATED FIELDS =====
+    function getCalculatedFieldDatalist() {
+        const dl = document.getElementById('calc-field-datalist');
+        if (!dl) return;
+        const names = Array.from(new Set(selectedFieldsList.map(f => f.field)));
+        dl.innerHTML = names.map(n => `<option value="${n}">`).join('');
+    }
+
+    function renderCalculatedFields() {
+        getCalculatedFieldDatalist();
+        const listEl = document.getElementById('calculated-fields-list');
+        const emptyHint = document.getElementById('calc-empty-hint');
+        listEl.innerHTML = '';
+        if (!calculatedFieldsList.length) {
+            listEl.innerHTML = '<p class="text-muted small text-center py-2" id="calc-empty-hint">No calculated fields yet.</p>';
+            return;
+        }
+        calculatedFieldsList.forEach((cf, index) => {
+            const row = document.createElement('div');
+            row.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white';
+            row.innerHTML =
+                '<span><strong>' + escapeHtml(cf.name) + '</strong> &nbsp; <code class="text-muted">' + escapeHtml(cf.expression) + '</code></span>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeCalculatedField(' + index + ')">Remove</button>';
+            listEl.appendChild(row);
+        });
+    }
+
+    function addCalculatedField() {
+        const nameEl = document.getElementById('calc-field-name');
+        const exprEl = document.getElementById('calc-field-expr');
+        const name = nameEl ? nameEl.value.trim() : '';
+        const expression = exprEl ? exprEl.value.trim() : '';
+
+        if (!name) {
+            alert('Please enter a name for the calculated field.');
+            return;
+        }
+        if (!expression) {
+            alert('Please enter an expression for the calculated field.');
+            return;
+        }
+        if (calculatedFieldsList.find(cf => cf.name.toLowerCase() === name.toLowerCase())) {
+            alert('A calculated field with that name already exists.');
+            return;
+        }
+        const isValid = validateCalculatedField(expression);
+        if (!isValid) {
+            alert('Expression is not valid: ' + isValid);
+            return;
+        }
+        calculatedFieldsList.push({ name, expression });
+        if (nameEl) nameEl.value = '';
+        if (exprEl) exprEl.value = '';
+        document.getElementById('calc-test-result').innerHTML = '';
+        renderCalculatedFields();
+    }
+
+    function removeCalculatedField(index) {
+        calculatedFieldsList.splice(index, 1);
+        renderCalculatedFields();
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function escapeAttr(value) {
+        return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function addSubreportParamRow() {
+        var container = document.getElementById('prop-params-container');
+        if (!container) return;
+        var row = document.createElement('div');
+        row.className = 'param-row d-flex justify-content-between align-items-center mb-2';
+        row.innerHTML =
+            '<input type="text" class="form-control form-control-sm param-name me-2" placeholder="Parameter name">' +
+            '<input type="text" class="form-control form-control-sm param-field me-2" placeholder="Source field">' +
+            '<button type="button" class="btn btn-outline-danger btn-sm" onclick="this.parentElement.remove()">Remove</button>';
+        container.appendChild(row);
+    }
+
+    function validateCalculatedField(expression) {
+        if (!expression) return 'Expression cannot be empty';
+        if ((expression.match(/\{/g) || []).length !== (expression.match(/\}/g) || []).length) {
+            return 'Unbalanced braces';
+        }
+        const forbidden = [/\bimport\b/, /\bexec\b/, /\beval\b/, /\bos\./, /\bsubprocess/];
+        for (const pattern of forbidden) {
+            if (pattern.test(expression)) {
+                return 'Expression contains forbidden pattern: ' + pattern;
+            }
+        }
+        return true;
+    }
+
+    function buildCalculatedFieldQuery() {
+        if (!selectedFieldsList.length) return '';
+        const byTable = {};
+        selectedFieldsList.forEach(f => {
+            if (!byTable[f.table]) byTable[f.table] = [];
+            if (!byTable[f.table].includes(f.field)) byTable[f.table].push(f.field);
+        });
+        const tables = Object.keys(byTable);
+        if (!tables.length) return '';
+        const selects = tables.map(t => byTable[t].map(c => t + '.' + c).join(', '));
+        let query = 'SELECT\n  ' + selects.join(',\n  ') + '\nFROM\n  ' + tables[0];
+        for (let i = 1; i < tables.length; i++) {
+            query += '\n  INNER JOIN ' + tables[i] + ' ON ...';
+        }
+        return query;
+    }
+
+    async function testCalculatedField() {
+        const exprEl = document.getElementById('calc-field-expr');
+        const expression = exprEl ? exprEl.value.trim() : '';
+        const resultEl = document.getElementById('calc-test-result');
+        if (!resultEl) return;
+        if (!expression) {
+            resultEl.innerHTML = '<span class="text-warning">Enter an expression to test.</span>';
+            return;
+        }
+        const validation = validateCalculatedField(expression);
+        if (validation !== true) {
+            resultEl.innerHTML = '<span class="text-danger">Invalid: ' + escapeHtml(String(validation)) + '</span>';
+            return;
+        }
+        resultEl.innerHTML = '<span class="text-info">Checking…</span>';
+        const connId = document.getElementById('fields-connection-select').value;
+        if (!connId) {
+            resultEl.innerHTML = '<span class="text-muted">Expression syntax OK — select a connection to preview values.</span>';
+            return;
+        }
+        try {
+            const query = buildCalculatedFieldQuery();
+            const res = await fetch(`/datasources/${connId}/calculate`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ expression, query, limit: 50 }),
+            });
+            const payload = await res.json();
+            if (!res.ok) {
+                resultEl.innerHTML = '<span class="text-danger">' + escapeHtml(payload.detail || 'Evaluation failed') + '</span>';
+                return;
+            }
+            const preview = (payload.preview || []).map(v => v === null || v === undefined ? 'null' : v);
+            resultEl.innerHTML = '<span class="text-success">Sample output: [' + escapeHtml(preview.join(', ')) + ']</span>';
+        } catch (e) {
+            resultEl.innerHTML = '<span class="text-danger">Could not evaluate: ' + escapeHtml(String(e)) + '</span>';
+        }
     }
 
     async function testQuery() {
@@ -2253,6 +2483,7 @@
         });
         def.selected_fields = selectedFieldsList;
         def.query = buildQuery();
+        def.calculated_fields = calculatedFieldsList.map(cf => ({ name: cf.name, expression: cf.expression }));
         return def;
     };
 

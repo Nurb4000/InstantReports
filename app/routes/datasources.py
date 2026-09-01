@@ -289,3 +289,53 @@ async def test_query(
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Query error: {str(e)}")
+
+
+@router.post("/{connection_id}/calculate")
+async def calculate_field(
+    connection_id: uuid.UUID,
+    data: dict = Body(...),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Evaluate a calculated-field expression against sample data from a connection."""
+    _require_designer(current_user)
+
+    expression = (data.get("expression") or "").strip()
+    if not expression:
+        raise HTTPException(status_code=400, detail="Expression is required")
+
+    result = await db.execute(select(DataConnection).where(DataConnection.id == connection_id))
+    connection = result.scalar_one_or_none()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    from app.services.connectors.base import get_connector
+
+    connector = get_connector(connection.connector_type)
+    query = (data.get("query") or "").strip()
+    limit = data.get("limit", 50)
+
+    try:
+        if not query:
+            schema = await connector.get_schema(connection.config)
+            tables = schema.get("tables", []) if isinstance(schema, dict) else []
+            if not tables:
+                raise HTTPException(status_code=400, detail="No tables available to sample from this connection")
+            first_table = tables[0].get("name") if isinstance(tables[0], dict) else tables[0]
+            query = f"SELECT * FROM {first_table}"
+            if limit:
+                query += f" LIMIT {int(limit)}"
+
+        df = await connector.execute_query(connection.config, query)
+        df = df.head(limit) if limit and len(df) > limit else df
+
+        from app.services.engine.calculated_fields import CalculatedFieldEvaluator
+        evaluator = CalculatedFieldEvaluator()
+        series = evaluator.evaluate(expression, df)
+        preview = [None if v is None else (float(v) if isinstance(v, (int, float)) else v) for v in list(series)]
+        return {"status": "ok", "expression": expression, "preview": preview[:int(limit or 50)]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Calculation error: {str(e)}")

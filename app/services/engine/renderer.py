@@ -101,7 +101,7 @@ class ReportRenderer:
         elif element_type == "image":
             return self._render_image(element_def)
         elif element_type == "subreport":
-            return self._render_subreport(element_def, data)
+            return self._render_subreport(element_def, data, element_label)
         else:
             return {"type": element_type, "error": f"Unknown element type: {element_type}"}
 
@@ -227,14 +227,15 @@ class ReportRenderer:
         }
 
     def _render_subreport(
-        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame]
+        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
     ) -> dict[str, Any]:
         """Render a subreport element."""
+        properties = element_def.get("properties") or {}
         return {
             "type": "subreport",
-            "data_source": element_def.get("data_source"),
+            "data_source": element_def.get("data_source") or properties.get("data_source"),
             "label": element_label,
-            "render_mode": element_def.get("render_mode", "inline"),
-            "pass_parameters": element_def.get("pass_parameters", {}),
-            "layout": element_def.get("layout", {}),
+            "render_mode": element_def.get("render_mode") or properties.get("render_mode") or "inline",
+            "pass_parameters": element_def.get("pass_parameters") or properties.get("pass_parameters") or {},
+            "layout": element_def.get("layout") or properties.get("layout") or {},
         }

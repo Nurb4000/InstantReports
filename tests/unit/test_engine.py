@@ -153,6 +153,51 @@ class TestReportRenderer:
 
         assert "formatting" not in table["data"][0]
 
+    def test_render_subreport_reads_nested_properties(self):
+        """Sub-report config stored under element.properties is honored."""
+        renderer = ReportRenderer()
+        definition = {
+            "name": "Test",
+            "layout": {
+                "sections": [
+                    {
+                        "type": "detail",
+                        "elements": [
+                            {
+                                "type": "subreport",
+                                "properties": {
+                                    "reportId": "child-123",
+                                    "render_mode": "page",
+                                    "pass_parameters": {"region": "region"},
+                                },
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+
+        result = renderer.render(definition, {})
+        subreport = result["sections"][0]["elements"][0]
+
+        assert subreport["type"] == "subreport"
+        assert subreport["render_mode"] == "page"
+        assert subreport["pass_parameters"] == {"region": "region"}
+
+    def test_render_subreport_defaults_when_no_properties(self):
+        """Sub-report falls back to inline mode and empty params."""
+        renderer = ReportRenderer()
+        definition = {
+            "name": "Test",
+            "layout": {"sections": [{"type": "detail", "elements": [{"type": "subreport"}]}]},
+        }
+
+        result = renderer.render(definition, {})
+        subreport = result["sections"][0]["elements"][0]
+
+        assert subreport["render_mode"] == "inline"
+        assert subreport["pass_parameters"] == {}
+
     def test_resolve_tokens(self):
         """Should resolve special tokens."""
         renderer = ReportRenderer()
@@ -206,6 +251,52 @@ class TestDataProcessor:
         
         assert len(result) == 1
         assert result.iloc[0]["name"] == "Alice Smith"
+
+    def test_process_adds_calculated_fields(self):
+        """Should append calculated fields defined at the report level."""
+        processor = DataProcessor()
+        df = pd.DataFrame({"revenue": [100, 200], "cost": [40, 50]})
+
+        definition = {
+            "calculated_fields": [
+                {"name": "profit", "expression": "{{revenue}} - {{cost}}"},
+            ],
+        }
+
+        result = processor.process(df, definition)
+
+        assert "profit" in result.columns
+        assert list(result["profit"]) == [60, 150]
+
+    def test_process_calculated_field_with_multiple_refs(self):
+        """Should support expressions referencing several source fields."""
+        processor = DataProcessor()
+        df = pd.DataFrame({"amount": [10, 20], "rate": [1.5, 2.5]})
+
+        definition = {
+            "calculated_fields": [
+                {"name": "total", "expression": "{{amount}} * {{rate}}"},
+            ],
+        }
+
+        result = processor.process(df, definition)
+
+        assert list(result["total"]) == [15.0, 50.0]
+
+    def test_process_missing_calculated_field_is_null(self):
+        """Should leave a calculated field null when its expression fails."""
+        processor = DataProcessor()
+        df = pd.DataFrame({"a": [1, 2]})
+
+        definition = {
+            "calculated_fields": [
+                {"name": "bad", "expression": "{{missing}} + 1"},
+            ],
+        }
+
+        result = processor.process(df, definition)
+
+        assert result["bad"].isna().all()
 
 
 class TestConditionalFormatting:

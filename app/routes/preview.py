@@ -106,6 +106,8 @@ async def render_report_with_data(definition: dict, title: str, description: str
     
     import asyncio
     
+    from app.services.engine.data_processor import DataProcessor
+    
     # Get the first data source connection for query execution
     data_sources = definition.get("data_sources", [])
     connection_config = None
@@ -195,8 +197,14 @@ async def render_report_with_data(definition: dict, title: str, description: str
                         
                         # Commit after query to avoid transaction issues
                         await db.commit()
-                        
+
                         if df is not None and len(df) > 0:
+                            # Apply report-level calculated fields (and grouping) before rendering
+                            try:
+                                df = DataProcessor().process(df, definition)
+                            except Exception as processing_error:
+                                logger.warning(f"Calculated field processing failed: {processing_error}")
+
                             # Convert DataFrame to HTML table
                             columns = list(df.columns)
                             rows = df.head(50).to_dict('records')  # Limit to 50 rows
@@ -456,12 +464,22 @@ async def render_report_with_data(definition: dict, title: str, description: str
                 '''
             elif elem_type == "subreport":
                 report_id = props.get("reportId", "")
+                render_mode = props.get("render_mode", "inline")
+                pass_parameters = props.get("pass_parameters", {}) or {}
+                param_lines = ''.join(
+                    f'<div style="font-size: 11px; color: #555;">• {k}: <code>{v or '-'}</code></div>'
+                    for k, v in pass_parameters.items()
+                ) or '<div style="font-size: 11px; color: #999;">No parameters</div>'
                 elements_html += f'''
                 {label_html}
                 <div class="report-element subreport-element" style="padding: 10px; border: 1px dashed #ccc; margin: 5px 0;">
                     <div style="font-weight: bold; margin-bottom: 5px;">Sub-report</div>
-                    <div style="color: #666; font-size: 12px;">Report ID: {report_id or 'Not set'}</div>
-                    <div style="margin-top: 10px; padding: 20px; background: #f8f9fa; border: 1px solid #ddd; text-align: center; color: #999;">
+                    <div style="color: #666; font-size: 12px;">Report ID: {report_id or 'Not set'} &nbsp;|&nbsp; Render mode: {render_mode}</div>
+                    <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border: 1px solid #ddd; text-align: left;">
+                        <div style="font-size: 11px; font-weight: bold; color: #777; margin-bottom: 3px;">Pass parameters:</div>
+                        {param_lines}
+                    </div>
+                    <div style="margin-top: 10px; padding: 15px; background: #fffaf0; border: 1px dashed #eee; text-align: center; color: #999; font-size: 11px;">
                         Sub-report embedding requires report ID resolution
                     </div>
                 </div>
