@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-import aiosmtplib
 from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
@@ -64,6 +63,8 @@ async def send_email(
         True if sent successfully, False otherwise
     """
     try:
+        import aiosmtplib
+
         msg = EmailMessage()
         msg["From"] = smtp_from
         msg["To"] = ", ".join(to_emails)
@@ -118,3 +119,41 @@ def _get_mime_subtype(filename: str) -> str:
         return "html"
     else:
         return "octet-stream"
+
+
+async def test_connection(
+    smtp_host: str,
+    smtp_port: int,
+    smtp_user: str,
+    smtp_password: str,
+    smtp_from: str,
+    use_tls: bool = True,
+) -> tuple[bool, str]:
+    """Verify SMTP connectivity and authentication without sending any mail.
+
+    Returns a (success, message) tuple.
+    """
+    if not smtp_host:
+        return False, "SMTP host is required"
+
+    try:
+        import aiosmtplib
+
+        client = aiosmtplib.AiosMTPClient(
+            hostname=smtp_host,
+            port=smtp_port,
+            start_tls=use_tls,
+        )
+        await client.connect()
+        if smtp_user:
+            await client.login(smtp_user, smtp_password)
+        await client.quit()
+
+        logger.info(f"SMTP connection test succeeded for {smtp_host}:{smtp_port}")
+        return True, "Connected and authenticated successfully"
+
+    except ImportError:
+        return False, "aiosmtplib is not installed"
+    except Exception as e:
+        logger.error(f"SMTP connection test failed for {smtp_host}:{smtp_port}: {e}")
+        return False, f"Connection failed: {e}"

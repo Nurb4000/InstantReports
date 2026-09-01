@@ -313,7 +313,9 @@ async function loadSchedules() {
                 </select>
                 <small class="text-muted">The user who will see this report in their portal</small>
             </div>
+    <div id="delivery-test-result" class="mt-2 small" style="min-height: 1.2em;"></div>
     <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-info" onclick="testDeliveryConnection()">Test Connection</button>
                 <button type="button" class="btn btn-primary" onclick="submitCreateSchedule()">Create Schedule</button>
         <button type="button" class="btn btn-secondary" onclick="hideCreateScheduleModal()">Cancel</button>
     </div>
@@ -814,6 +816,64 @@ function generateCronExpression() {
         } catch (error) {
             console.error('Error creating schedule:', error);
             alert('Error creating schedule: ' + error.message);
+        }
+    }
+
+    async function testDeliveryConnection() {
+        const deliveryType = document.getElementById('schedule-delivery-type')?.value || '';
+        const data = { delivery_type: deliveryType };
+
+        if (deliveryType === 'sftp') {
+            data.sftp_host = document.getElementById('schedule-sftp-host')?.value?.trim() || '';
+            data.sftp_port = document.getElementById('schedule-sftp-port')?.value?.trim() || '';
+            data.sftp_username = document.getElementById('schedule-sftp-username')?.value?.trim() || '';
+            data.sftp_password = document.getElementById('schedule-sftp-password')?.value?.trim() || '';
+        } else if (deliveryType === 'smb') {
+            data.smb_server = document.getElementById('schedule-smb-server')?.value?.trim() || '';
+            data.smb_share = document.getElementById('schedule-smb-share')?.value?.trim() || '';
+            data.smb_username = document.getElementById('schedule-smb-username')?.value?.trim() || '';
+            data.smb_password = document.getElementById('schedule-smb-password')?.value?.trim() || '';
+        } else if (deliveryType === 'webhook') {
+            data.webhook_url = document.getElementById('schedule-webhook-url')?.value?.trim() || '';
+            data.webhook_secret = document.getElementById('schedule-webhook-secret')?.value?.trim() || '';
+        }
+
+        const resultEl = document.getElementById('delivery-test-result');
+        if (!resultEl) return;
+        resultEl.textContent = 'Testing connection...';
+        resultEl.style.color = '#856404';
+
+        try {
+            const response = await fetch('/admin/schedules/test-connection', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
+            });
+
+            if (response.ok) {
+                const payload = await response.json();
+                if (payload.success) {
+                    resultEl.textContent = '\u2713 ' + (payload.message || 'Connection successful');
+                    resultEl.style.color = '#155724';
+                } else {
+                    resultEl.textContent = '\u2717 ' + (payload.message || 'Connection test failed');
+                    resultEl.style.color = '#721c24';
+                }
+            } else {
+                const errorText = await response.text();
+                let errorMessage = 'Unknown error';
+                try {
+                    errorMessage = JSON.parse(errorText).detail || errorText || 'Unknown error';
+                } catch {
+                    errorMessage = errorText || 'Unknown error';
+                }
+                resultEl.textContent = '\u2717 ' + errorMessage;
+                resultEl.style.color = '#721c24';
+            }
+        } catch (error) {
+            console.error('Error testing delivery connection:', error);
+            resultEl.textContent = '\u2717 ' + (error.message || 'Network error');
+            resultEl.style.color = '#721c24';
         }
     }
 

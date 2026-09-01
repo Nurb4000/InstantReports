@@ -97,3 +97,81 @@ async def send_webhook(
     except Exception as e:
         logger.error(f"Failed to send webhook: {e}")
         return False
+
+
+async def test_smb_connection(
+    server: str,
+    share: str,
+    username: str,
+    password: str,
+    remote_path: str = "/",
+) -> tuple[bool, str]:
+    """Verify SMB connectivity and authentication without writing any files.
+
+    Returns a (success, message) tuple.
+    """
+    if not server or not share or not username:
+        return False, "Server, share, and username are required"
+
+    try:
+        import smbclient
+        import smbprotocol
+
+        smb_url = f"\\\\{server}\\{share}"
+        smbclient.register_session(smb_url, username=username, password=password)
+
+        remote_file = f"{smb_url}{remote_path.rstrip('/')}/." 
+        with smbprotocol.open_file(remote_file, mode="rb") as f:
+            f.read(0)
+
+        logger.info(f"SMB connection test succeeded for {smb_url}")
+        return True, "Connected and authenticated successfully"
+
+    except ImportError:
+        return False, "smbprotocol/smbclient are not installed"
+    except Exception as e:
+        logger.error(f"SMB connection test failed for {server}/{share}: {e}")
+        return False, f"Connection failed: {e}"
+
+
+async def test_webhook_connection(
+    url: str,
+    secret: str | None = None,
+    timeout: int = 10,
+) -> tuple[bool, str]:
+    """Verify a webhook endpoint is reachable by sending a lightweight probe.
+
+    Returns a (success, message) tuple.
+    """
+    if not url:
+        return False, "A webhook URL is required"
+
+    try:
+        import httpx
+        import hmac
+        import hashlib
+        from datetime import datetime, timezone
+
+        payload = {"test": True, "timestamp": datetime.now(timezone.utc).isoformat()}
+        body = __import__("json").dumps(payload).encode()
+
+        request_headers = {"Content-Type": "application/json"}
+        if secret:
+            timestamp = str(int(datetime.now(timezone.utc).timestamp()))
+            signature = hmac.new(
+                secret.encode(),
+                body,
+                hashlib.sha256,
+            ).hexdigest()
+            request_headers["X-Webhook-Signature"] = f"t={timestamp},v1={signature}"
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, content=body, headers=request_headers)
+            response.raise_for_status()
+
+        logger.info(f"Webhook connection test succeeded for {url}: {response.status_code}")
+        return True, f"Endpoint reachable (HTTP {response.status_code})"
+
+    except Exception as e:
+        logger.error(f"Webhook connection test failed for {url}: {e}")
+        return False, f"Connection failed: {e}"

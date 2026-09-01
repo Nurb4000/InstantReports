@@ -201,6 +201,55 @@ async def create_schedule(
     return {"status": "ok", "id": str(schedule.id)}
 
 
+@router.post("/schedules/test-connection")
+async def test_delivery_connection(
+    request: Request,
+    current_user: User | None = Depends(get_current_user_optional),
+):
+    """Test a delivery connection (SFTP/SMB/Webhook) without saving a schedule."""
+    if not current_user or get_role_value(current_user) not in ("admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if request.headers.get('content-type') == 'application/json':
+        body = await request.json()
+    else:
+        body = {}
+
+    delivery_type = (body.get('delivery_type') or '').strip().lower()
+    valid_types = ("sftp", "smb", "webhook")
+    if delivery_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid delivery type. Must be one of {valid_types}")
+
+    try:
+        if delivery_type == "sftp":
+            from app.services.delivery.sftp import test_connection as test_sftp
+            success, message = await test_sftp(
+                host=(body.get('sftp_host') or '').strip(),
+                port=int((body.get('sftp_port') or 22) or 22),
+                username=(body.get('sftp_username') or '').strip(),
+                password=(body.get('sftp_password') or None),
+            )
+        elif delivery_type == "smb":
+            from app.services.delivery.smb_webhook import test_smb_connection
+            success, message = await test_smb_connection(
+                server=(body.get('smb_server') or '').strip(),
+                share=(body.get('smb_share') or '').strip(),
+                username=(body.get('smb_username') or '').strip(),
+                password=(body.get('smb_password') or ''),
+                remote_path=(body.get('smb_remote_path') or '/'),
+            )
+        elif delivery_type == "webhook":
+            from app.services.delivery.smb_webhook import test_webhook_connection
+            success, message = await test_webhook_connection(
+                url=(body.get('webhook_url') or '').strip(),
+                secret=(body.get('webhook_secret') or None),
+            )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {e}")
+
+    return {"success": success, "message": message, "delivery_type": delivery_type}
+
+
 @router.get("/schedules/{schedule_id}")
 async def get_schedule(
     schedule_id: uuid.UUID,

@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import asyncssh
-
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +32,8 @@ async def send_sftp(
         True if successful, False otherwise
     """
     try:
+        import asyncssh
+
         connect_kwargs = {}
         if password:
             connect_kwargs["password"] = password
@@ -51,3 +51,37 @@ async def send_sftp(
     except Exception as e:
         logger.error(f"Failed to send SFTP file: {e}")
         return False
+
+
+async def test_connection(
+    host: str,
+    port: int,
+    username: str,
+    password: str | None = None,
+    key_filename: str | None = None,
+) -> tuple[bool, str]:
+    """Verify SFTP connectivity and authentication without transferring any files.
+
+    Returns a (success, message) tuple.
+    """
+    if not host or not username:
+        return False, "Host and username are required"
+
+    try:
+        import asyncssh
+
+        connect_kwargs = {}
+        if password:
+            connect_kwargs["password"] = password
+        if key_filename:
+            connect_kwargs["client_keys"] = [key_filename]
+
+        async with asyncssh.connect(host, port=port, username=username, **connect_kwargs):
+            logger.info(f"SFTP connection test succeeded for {host}:{port}")
+            return True, "Connected and authenticated successfully"
+
+    except ImportError:
+        return False, "asyncssh is not installed"
+    except Exception as e:
+        logger.error(f"SFTP connection test failed for {host}:{port}: {e}")
+        return False, f"Connection failed: {e}"
