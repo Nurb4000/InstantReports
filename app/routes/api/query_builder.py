@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -26,6 +26,7 @@ from app.services.query_builder.adapter import execute_query
 from app.services.query_builder.optimizer import analyze_query
 from app.services.query_builder.schema import get_schema
 from app.services.query_builder.sql_parser import parse_sql_to_config
+from app.services.query_builder.template_io import export_templates, parse_import_payload
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,14 @@ async def test_query_endpoint(
             "message": f"Query execution failed: {str(e)}",
             "error": str(e),
         }
+
+    return {
+        "success": True,
+        "sql": sql,
+        "row_count": len(rows),
+        "preview": rows[:10],
+        "message": f"Query executed successfully. Returned {len(rows)} rows.",
+    }
 
 
 @router.post("/save")
@@ -257,6 +266,83 @@ async def delete_query_template(
     await db.delete(template)
     await db.commit()
     return {"message": f"Template {template_id} deleted", "id": str(template_id)}
+
+
+@router.get("/templates/export")
+async def export_templates_endpoint(
+    ids: str = Query(..., description="Comma-separated template UUIDs to export"),
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export one or more templates as a portable JSON bundle."""
+    requested = [part.strip() for part in ids.split(",") if part.strip()]
+    if not requested:
+        raise HTTPException(status_code=400, detail="at least one template id is required")
+
+    templates: List[QueryTemplate] = []
+    for part in requested:
+        try:
+            tmpl_uuid = uuid.UUID(part)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"invalid template id: {part}")
+        template = await db.get(QueryTemplate, tmpl_uuid)
+        if not template:
+            raise HTTPException(status_code=404, detail=f"template {part} not found")
+        templates.append(template)
+
+    return export_templates(templates)
+
+
+@router.post("/templates/import")
+async def import_templates_endpoint(
+    payload: dict,
+    connection_id: str = Query(..., description="Connection to bind imported templates to"),
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import templates from a portable bundle, binding them to a connection.
+
+    New rows are created (fresh UUIDs) so the importer gets their own copy that
+    can be shared further. The original template's ``query_config`` is preserved;
+    the reference to the source connection is re-bound to ``connection_id``.
+    """
+    try:
+        bind_uuid = uuid.UUID(connection_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid connection_id")
+
+    existing = await db.get(DataConnection, bind_uuid)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
+
+    try:
+        items = parse_import_payload(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    created: List[QueryTemplate] = []
+    for item in items:
+        template = QueryTemplate(
+            name=item["name"],
+            description=item["description"],
+            query_config=item["query_config"],
+            connection_id=bind_uuid,
+            created_by=None,
+        )
+        db.add(template)
+        created.append(template)
+
+    await db.commit()
+    for template in created:
+        await db.refresh(template)
+
+    return {
+        "imported": len(created),
+        "templates": [
+            {"id": str(t.id), "name": t.name, "connection_id": str(t.connection_id)}
+            for t in created
+        ],
+    }
 
 
 @router.post("/history")

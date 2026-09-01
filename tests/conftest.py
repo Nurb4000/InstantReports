@@ -12,6 +12,26 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.database import Base, get_db
 from app.models.user import User, UserRole, AuthSource
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
+from sqlalchemy.ext.compiler import compiles
+
+
+# The test DB is SQLite, but the models declare Postgres-only types. Scope each
+# override to the sqlite dialect so the schema can be created locally; Postgres
+# compilation is unaffected.
+@compiles(JSONB, "sqlite")
+def _jsonb_sqlite(element, compiler, **kw):
+    return "JSON"
+
+
+@compiles(BYTEA, "sqlite")
+def _bytea_sqlite(element, compiler, **kw):
+    return "BLOB"
+
+
+@compiles(UUID, "sqlite")
+def _uuid_sqlite(element, compiler, **kw):
+    return "VARCHAR(36)"
 
 
 # Test database URL (uses SQLite for tests)
