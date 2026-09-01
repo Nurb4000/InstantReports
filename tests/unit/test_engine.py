@@ -1,6 +1,5 @@
 """Unit tests for report engine."""
 import pandas as pd
-import pytest
 
 from app.services.engine.renderer import ReportRenderer
 from app.services.engine.data_processor import DataProcessor
@@ -83,6 +82,76 @@ class TestReportRenderer:
         assert table_element["type"] == "table"
         assert len(table_element["data"]) == 2
         assert table_element["total_rows"] == 2
+
+    def test_render_table_applies_conditional_formatting(self):
+        """Should attach formatting to rows that match rules."""
+        renderer = ReportRenderer()
+        df = pd.DataFrame({"name": ["Alice", "Bob"], "score": [95, 60]})
+
+        definition = {
+            "name": "Test",
+            "layout": {
+                "sections": [
+                    {
+                        "type": "detail",
+                        "elements": [
+                            {
+                                "type": "table",
+                                "data_source": "ds1",
+                                "columns": [
+                                    {"field": "name", "header": "Name"},
+                                    {"field": "score", "header": "Score"},
+                                ],
+                                "formatting_rules": [
+                                    {
+                                        "target": "row",
+                                        "condition": {"field": "score", "operator": "<", "value": 70},
+                                        "format": {"background": "#ffcccc"},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+
+        result = renderer.render(definition, {"ds1": df})
+        table = result["sections"][0]["elements"][0]
+
+        assert table["data"][0]["formatting"]["row"] is None
+        assert table["data"][1]["formatting"]["row"] == {"background": "#ffcccc"}
+
+    def test_render_table_without_formatting_rules_has_no_formatting(self):
+        """Tables without rules render plain data."""
+        renderer = ReportRenderer()
+        df = pd.DataFrame({"name": ["Alice"], "score": [95]})
+
+        definition = {
+            "name": "Test",
+            "layout": {
+                "sections": [
+                    {
+                        "type": "detail",
+                        "elements": [
+                            {
+                                "type": "table",
+                                "data_source": "ds1",
+                                "columns": [
+                                    {"field": "name", "header": "Name"},
+                                    {"field": "score", "header": "Score"},
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+
+        result = renderer.render(definition, {"ds1": df})
+        table = result["sections"][0]["elements"][0]
+
+        assert "formatting" not in table["data"][0]
 
     def test_resolve_tokens(self):
         """Should resolve special tokens."""

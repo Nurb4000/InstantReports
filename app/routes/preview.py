@@ -200,13 +200,37 @@ async def render_report_with_data(definition: dict, title: str, description: str
                             # Convert DataFrame to HTML table
                             columns = list(df.columns)
                             rows = df.head(50).to_dict('records')  # Limit to 50 rows
-                            
+
+                            # Apply conditional formatting rules if defined
+                            formatting_rules = props.get("formatting_rules") or []
+                            formatted_rows = rows
+                            cf = None
+                            if formatting_rules:
+                                try:
+                                    from app.services.engine.conditional_formatting import ConditionalFormatter
+                                    cf = ConditionalFormatter()
+                                    formatted_rows = cf.apply_rules(rows, formatting_rules, df)
+                                except Exception as formatting_error:
+                                    logger.warning(f"Conditional formatting failed: {formatting_error}")
+                                    formatted_rows = rows
+
                             # Build table HTML
                             th_cells = ''.join('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">' + str(col) + '</th>' for col in columns)
                             td_rows = ''
-                            for row in rows:
-                                td_cells = ''.join('<td style="border: 1px solid #ddd; padding: 6px;">' + str(row.get(col, '')) + '</td>' for col in columns)
-                                td_rows += '<tr>' + td_cells + '</tr>\n'
+                            for row in formatted_rows:
+                                fmt = row.get("formatting") or {}
+                                row_css = cf.get_css_styles(fmt) if cf else ''
+                                tr_style = f' style="{row_css}"' if row_css else ''
+                                td_cells = ''
+                                for col in columns:
+                                    cell_fmt = fmt.get("cells", {}).get(col)
+                                    cell_style = ''
+                                    if cf is not None and cell_fmt:
+                                        cell_css = cf.get_css_styles({"row": None, "cells": {col: cell_fmt}})
+                                        if cell_css:
+                                            cell_style = f' style="{cell_css}"'
+                                    td_cells += '<td style="border: 1px solid #ddd; padding: 6px;"' + cell_style + str(row.get(col, '')) + '</td>'
+                                td_rows += '<tr' + tr_style + '>' + td_cells + '</tr>\n'
                             
                             table_html = f'''
                             <div class="report-element table-element" style="padding: 5px; border: 1px solid #ddd; margin: 5px 0; overflow-x: auto;">

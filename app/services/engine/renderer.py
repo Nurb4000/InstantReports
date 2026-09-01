@@ -4,6 +4,8 @@ from typing import Any
 
 import pandas as pd
 
+from app.services.engine.conditional_formatting import ConditionalFormatter
+
 
 class ReportRenderer:
     """Core report renderer that processes definitions into output."""
@@ -91,7 +93,7 @@ class ReportRenderer:
         if element_type == "text":
             return self._render_text(element_def)
         elif element_type == "table":
-            return self._render_table(element_def, data)
+            return self._render_table(element_def, data, element_label)
         elif element_type == "chart":
             return self._render_chart(element_def, data)
         elif element_type == "crosstab":
@@ -117,7 +119,7 @@ class ReportRenderer:
         }
 
     def _render_table(
-        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame]
+        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
     ) -> dict[str, Any]:
         """Render a table element with data."""
         data_source_id = element_def.get("data_source")
@@ -140,11 +142,16 @@ class ReportRenderer:
         if limit and not df.empty:
             df = df.head(limit)
 
+        records = df.to_dict(orient="records")
+        formatting_rules = element_def.get("formatting_rules") or (element_def.get("properties") or {}).get("formatting_rules")
+        if formatting_rules:
+            records = ConditionalFormatter().apply_rules(records, formatting_rules)
+
         return {
             "type": "table",
             "columns": columns,
-            "data": df.to_dict(orient="records"),
-            "total_rows": len(df),
+            "data": records,
+            "total_rows": len(records),
             "label": element_label,
         }
 

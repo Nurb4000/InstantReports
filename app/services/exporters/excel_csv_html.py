@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import io
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-import xlsxwriter
+
+from app.services.engine.conditional_formatting import ConditionalFormatter
+
+if TYPE_CHECKING:
+    import xlsxwriter
 
 
 class ExcelExporter:
@@ -19,6 +23,8 @@ class ExcelExporter:
         Returns:
             Excel file bytes
         """
+        import xlsxwriter
+
         buffer = io.BytesIO()
         workbook = xlsxwriter.Workbook(buffer)
 
@@ -41,15 +47,39 @@ class ExcelExporter:
             return
 
         worksheet = workbook.add_worksheet(element.get("name", "Sheet1")[:31])
+        format_cache: dict[tuple[str, Any], Any] = {}
 
         headers = [col.get("header", col.get("field", "")) for col in columns]
         worksheet.write_row(0, 0, headers)
 
         for row_idx, row_data in enumerate(data, start=1):
+            formatting = row_data.get("formatting") or {}
+            row_format = formatting.get("row") or {}
+            row_cell_format = self._get_xlsx_format(workbook, format_cache, row_format) if row_format else None
+
             for col_idx, col in enumerate(columns):
                 field = col.get("field", "")
                 value = row_data.get(field, "")
-                worksheet.write(row_idx, col_idx, value)
+                cell_format = formatting.get("cells", {}).get(field)
+                cell_cell_format = self._get_xlsx_format(workbook, format_cache, cell_format) if cell_format else None
+                worksheet.write(row_idx, col_idx, value, cell_cell_format or row_cell_format)
+
+    @staticmethod
+    def _get_xlsx_format(
+        workbook: Any, cache: dict[tuple[str, Any], Any], fmt: dict[str, Any]
+    ) -> Any:
+        """Return (creating on demand) an xlsxwriter format for a formatting dict."""
+        key = ("background", fmt.get("background"), "color", fmt.get("color"), "bold", fmt.get("bold"))
+        if key not in cache:
+            kwargs: dict[str, Any] = {}
+            if fmt.get("background"):
+                kwargs["bg_color"] = fmt["background"].lstrip("#").upper()
+            if fmt.get("color"):
+                kwargs["font_color"] = fmt["color"].lstrip("#").upper()
+            if fmt.get("bold"):
+                kwargs["bold"] = True
+            cache[key] = workbook.add_format(kwargs) if kwargs else workbook.add_format()
+        return cache[key]
 
 
 class CSVExporter:
@@ -82,6 +112,19 @@ class CSVExporter:
 
 class HTMLExporter:
     """Export reports to HTML for web viewing."""
+
+    def _row_style(self, row: dict[str, Any]) -> str:
+        """Return inline CSS for a row's conditional formatting."""
+        formatting = row.get("formatting") or {}
+        return ConditionalFormatter().get_css_styles(formatting)
+
+    def _cell_style(self, row: dict[str, Any], field: str) -> str:
+        """Return inline CSS for a single cell's conditional formatting."""
+        formatting = row.get("formatting") or {}
+        cell_format = formatting.get("cells", {}).get(field)
+        if not cell_format:
+            return ""
+        return ConditionalFormatter().get_css_styles({"row": None, "cells": {field: cell_format}})
 
     def export(self, rendered_report: dict[str, Any]) -> str:
         """Export a rendered report to HTML.
@@ -129,11 +172,15 @@ class HTMLExporter:
                         html_parts.append("</tr></thead>")
                         html_parts.append("<tbody>")
                         for row in data:
-                            html_parts.append("<tr>")
+                            row_style = self._row_style(row)
+                            row_open = '<tr style="{}">'.format(row_style) if row_style else "<tr>"
+                            html_parts.append(row_open)
                             for col in columns:
                                 field = col.get("field", "")
                                 value = row.get(field, "")
-                                html_parts.append("<td>{}</td>".format(value))
+                                cell_style = self._cell_style(row, field)
+                                tag_open = '<td style="{}">'.format(cell_style) if cell_style else "<td>"
+                                html_parts.append("{}{}</td>".format(tag_open, value))
                             html_parts.append("</tr>")
                         html_parts.append("</tbody>")
                         html_parts.append("</table>")

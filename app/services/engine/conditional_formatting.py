@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 import pandas as pd
@@ -28,10 +27,16 @@ class ConditionalFormatter:
         if not rules or not data:
             return data
 
+        cell_fields = [
+            rule.get("field")
+            for rule in rules
+            if rule.get("target") == "cell" and rule.get("field")
+        ]
+
         formatted_data = []
         for row_idx, row in enumerate(data):
             formatted_row = row.copy()
-            cell_formats = {}
+            cell_formats = {field: None for field in cell_fields}
             row_format = None
 
             for rule in rules:
@@ -68,7 +73,7 @@ class ConditionalFormatter:
         if not condition:
             return None
 
-        field = condition.get("field")
+        field = condition.get("field") or rule.get("field")
         operator = condition.get("operator", "==")
         value = condition.get("value")
 
@@ -126,17 +131,29 @@ class ConditionalFormatter:
 
         return False
 
-    def get_css_styles(self, formatting: dict[str, Any]) -> str:
-        """Convert formatting dict to CSS style string."""
+    @staticmethod
+    def _format_to_css(fmt: dict[str, Any]) -> str:
+        """Convert a single format dict (background/color/bold) to CSS."""
+        if not fmt:
+            return ""
         styles = []
-
-        row_format = formatting.get("row", {})
-        if row_format:
-            if row_format.get("background"):
-                styles.append(f"background-color: {row_format['background']};")
-            if row_format.get("color"):
-                styles.append(f"color: {row_format['color']};")
-            if row_format.get("bold"):
-                styles.append("font-weight: bold;")
-
+        if fmt.get("background"):
+            styles.append(f"background-color: {fmt['background']};")
+        if fmt.get("color"):
+            styles.append(f"color: {fmt['color']};")
+        if fmt.get("bold"):
+            styles.append("font-weight: bold;")
         return " ".join(styles)
+
+    def get_css_styles(self, formatting: dict[str, Any]) -> str:
+        """Convert formatting dict to CSS style string.
+
+        Combines the row-level format with every cell-level format so exporters
+        can render both row highlights and individual cell styling.
+        """
+        parts = [self._format_to_css(formatting.get("row") or {})]
+        parts.extend(
+            self._format_to_css(cell_format)
+            for cell_format in (formatting.get("cells") or {}).values()
+        )
+        return " ".join(part for part in parts if part)

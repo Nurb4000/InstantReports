@@ -189,8 +189,7 @@ class PDFExporter:
         headers = [col.get("header", col.get("field", "")) for col in columns]
         table_data = [headers] + [[str(row.get(col.get("field", ""), "")) for col in columns] for row in data]
 
-        table = Table(table_data)
-        table.setStyle(TableStyle([
+        table_style = TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -198,10 +197,42 @@ class PDFExporter:
             ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
             ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
             ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ]))
+        ])
+        self._apply_conditional_formatting(table_style, data, columns)
+
+        table = Table(table_data)
+        table.setStyle(table_style)
 
         story.append(table)
         story.append(Spacer(1, 0.25 * inch))
+
+    @staticmethod
+    def _apply_conditional_formatting(table_style: TableStyle, data: list[dict[str, Any]], columns: list[dict[str, Any]]) -> None:
+        """Append conditional-formatting directives to a table style."""
+        for row_idx, row in enumerate(data):
+            formatting = row.get("formatting") or {}
+            row_format = formatting.get("row") or {}
+            base_row = row_idx + 1  # row 0 is the header
+
+            if row_format:
+                if row_format.get("background"):
+                    table_style.add("BACKGROUND", (0, base_row), (-1, base_row), colors.HexColor(row_format["background"]))
+                if row_format.get("color"):
+                    table_style.add("TEXTCOLOR", (0, base_row), (-1, base_row), colors.HexColor(row_format["color"]))
+                if row_format.get("bold"):
+                    table_style.add("FONTNAME", (0, base_row), (-1, base_row), "Helvetica-Bold")
+
+            for col_idx, col in enumerate(columns):
+                field = col.get("field")
+                cell_format = formatting.get("cells", {}).get(field)
+                if not cell_format:
+                    continue
+                if cell_format.get("background"):
+                    table_style.add("BACKGROUND", (col_idx, base_row), (col_idx, base_row), colors.HexColor(cell_format["background"]))
+                if cell_format.get("color"):
+                    table_style.add("TEXTCOLOR", (col_idx, base_row), (col_idx, base_row), colors.HexColor(cell_format["color"]))
+                if cell_format.get("bold"):
+                    table_style.add("FONTNAME", (col_idx, base_row), (col_idx, base_row), "Helvetica-Bold")
 
     def _render_chart(self, story: list, element: dict[str, Any]) -> None:
         """Render a chart element."""

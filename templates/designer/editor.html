@@ -1270,6 +1270,7 @@
                     <label class="form-check-label" for="prop-showHeader">Show Header Row</label>
                 </div>
             `;
+            formHtml += buildConditionalFormattingUI(elementData);
         } else if (type === 'chart') {
             formHtml += `
                 <div class="mb-3">
@@ -1375,6 +1376,167 @@
         }
     }
 
+    var COND_OPERATOR_OPTS = [
+        ['==', 'equals'], ['!=', 'not equals'], ['>', 'greater than'], ['>=', 'greater or equal'],
+        ['<', 'less than'], ['<=', 'less or equal'], ['contains', 'contains'], ['not_contains', 'not contains'],
+        ['starts_with', 'starts with'], ['ends_with', 'ends with'], ['between', 'between'],
+        ['not_between', 'not between'], ['is_empty', 'is empty'], ['is_not_empty', 'is not empty']
+    ];
+
+    function condFormatPreview(fmt) {
+        if (!fmt) return '<span class="text-muted small">none</span>';
+        var parts = [];
+        if (fmt.background) parts.push('<span title="Background" style="display:inline-block;width:16px;height:16px;border:1px solid #aaa;background:' + fmt.background + ';vertical-align:middle;"></span>');
+        if (fmt.color) parts.push('<span title="Text color" style="display:inline-block;width:16px;height:16px;border:1px solid #aaa;color:' + fmt.color + ';text-align:center;line-height:16px;font-size:10px;vertical-align:middle;">A</span>');
+        if (fmt.bold) parts.push('<strong class="ms-1">B</strong>');
+        return parts.length ? parts.join(' ') : '<span class="text-muted small">none</span>';
+    }
+
+    function renderFormattingList(rules) {
+        if (!rules || !rules.length) return '<small class="text-muted">No formatting rules configured.</small>';
+        var html = '';
+        rules.forEach(function (rule, index) {
+            var target = (rule.target === 'cell' ? 'Cell' : 'Row');
+            var field = (rule.condition && rule.condition.field) || rule.field || '';
+            var op = (rule.condition && rule.condition.operator) || '==';
+            var labelOp = op;
+            COND_OPERATOR_OPTS.forEach(function (o) { if (o[0] === op) labelOp = o[1]; });
+            var value = rule.condition ? JSON.stringify(rule.condition.value) : '';
+            html += '<div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white">' +
+                '<span class="text-wrap">' + target + ': <strong>' + field + '</strong> ' + labelOp + ' ' + value + ' &rarr; ' + condFormatPreview(rule.format) + '</span>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFormattingRule(' + index + ')" title="Remove rule">&times;</button>' +
+                '</div>';
+        });
+        return html;
+    }
+
+    function condFieldOptions(elementData) {
+        var cols = (elementData.properties && elementData.properties.columns) || [];
+        return cols.map(function (c) { return '<option value="' + (c.field || '') + '"></option>'; }).join('');
+    }
+
+    function buildConditionalFormattingUI(elementData) {
+        var rules = (elementData.properties && elementData.properties.formatting_rules) || [];
+        var operatorOpts = COND_OPERATOR_OPTS.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
+        return '<div class="mb-3">' +
+            '<div class="d-flex justify-content-between align-items-center">' +
+                '<label class="form-label mb-0">Conditional Formatting</label>' +
+                '<button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleCondFormatForm()">+ Add Rule</button>' +
+            '</div>' +
+            '<small class="text-muted">Highlight entire rows or individual cells based on their values.</small>' +
+            '<div id="prop-formatting-list" class="mt-2">' + renderFormattingList(rules) + '</div>' +
+            '<div id="prop-cond-format-form" style="display:none;" class="border rounded p-2 mt-2 bg-light">' +
+                '<div class="row g-2">' +
+                    '<div class="col-6 col-md-3">' +
+                        '<label class="form-label small">Target</label>' +
+                        '<select id="prop-cond-target" class="form-control form-control-sm">' +
+                            '<option value="row">Row</option><option value="cell">Cell</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="col-6 col-md-3">' +
+                        '<label class="form-label small">Field</label>' +
+                        '<input list="prop-cond-field-list" id="prop-cond-field" class="form-control form-control-sm" placeholder="Column name">' +
+                        '<datalist id="prop-cond-field-list">' + condFieldOptions(elementData) + '</datalist>' +
+                    '</div>' +
+                    '<div class="col-6 col-md-2">' +
+                        '<label class="form-label small">Operator</label>' +
+                        '<select id="prop-cond-operator" class="form-control form-control-sm">' + operatorOpts + '</select>' +
+                    '</div>' +
+                    '<div class="col-3 col-md-1">' +
+                        '<label class="form-label small">Bg</label>' +
+                        '<input type="color" id="prop-cond-bg" class="form-control form-control-sm" value="#ffffff">' +
+                    '</div>' +
+                    '<div class="col-3 col-md-1">' +
+                        '<label class="form-label small">Text</label>' +
+                        '<input type="color" id="prop-cond-color" class="form-control form-control-sm" value="#000000">' +
+                    '</div>' +
+                    '<div class="col-6 col-md-1">' +
+                        '<label class="form-label small">Value</label>' +
+                        '<input type="text" id="prop-cond-value" class="form-control form-control-sm" placeholder="value">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="form-check mt-2">' +
+                    '<input type="checkbox" class="form-check-input" id="prop-cond-bold">' +
+                    '<label class="form-check-label small" for="prop-cond-bold">Bold</label>' +
+                '</div>' +
+                '<button type="button" class="btn btn-sm btn-primary mt-2" onclick="addFormattingRule()">Add Rule</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function toggleCondFormatForm() {
+        var form = document.getElementById('prop-cond-format-form');
+        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function getStoredElementData() {
+        try { return JSON.parse(currentElement.dataset.elementData); }
+        catch (e) { return { type: currentElement.dataset.elementType, properties: {} }; }
+    }
+
+    function getCurrentFormattingRules() {
+        var data = getStoredElementData();
+        return (data.properties && data.properties.formatting_rules) || [];
+    }
+
+    function persistFormattingRules(rules) {
+        var data = getStoredElementData();
+        if (!data.properties) data.properties = {};
+        data.properties.formatting_rules = rules;
+        currentElement.dataset.elementData = JSON.stringify(data);
+    }
+
+    function refreshFormattingList() {
+        var list = document.getElementById('prop-formatting-list');
+        if (list) list.innerHTML = renderFormattingList(getCurrentFormattingRules());
+        var dl = document.getElementById('prop-cond-field-list');
+        if (dl) dl.innerHTML = condFieldOptions(getStoredElementData());
+    }
+
+    function coerceCondValue(operator, raw) {
+        var trimmed = (raw || '').trim();
+        if (operator === 'between' || operator === 'not_between') {
+            return trimmed === '' ? [] : trimmed.split(',').map(function (v) { return Number(v.trim()); });
+        }
+        if (['==', '!=', '>', '>=', '<', '<='].indexOf(operator) !== -1) {
+            var n = Number(trimmed);
+            return trimmed === '' || isNaN(n) ? trimmed : n;
+        }
+        return trimmed;
+    }
+
+    function addFormattingRule() {
+        var fieldEl = document.getElementById('prop-cond-field');
+        var field = fieldEl ? fieldEl.value.trim() : '';
+        if (!field) { alert('Enter a field name for the formatting rule.'); return; }
+
+        var target = document.getElementById('prop-cond-target').value;
+        var operator = document.getElementById('prop-cond-operator').value;
+        var value = coerceCondValue(operator, document.getElementById('prop-cond-value') ? document.getElementById('prop-cond-value').value : '');
+
+        var format = {};
+        var bg = document.getElementById('prop-cond-bg').value;
+        var fg = document.getElementById('prop-cond-color').value;
+        if (bg && bg !== '#ffffff') format.background = bg;
+        if (fg && fg !== '#000000') format.color = fg;
+        if (document.getElementById('prop-cond-bold').checked) format.bold = true;
+
+        var rule = { target: target };
+        if (target === 'cell') rule.field = field;
+        rule.condition = { field: field, operator: operator, value: value };
+        if (Object.keys(format).length) rule.format = format;
+
+        persistFormattingRules(getCurrentFormattingRules().concat([rule]));
+        refreshFormattingList();
+    }
+
+    function removeFormattingRule(index) {
+        var rules = getCurrentFormattingRules();
+        rules.splice(index, 1);
+        persistFormattingRules(rules);
+        refreshFormattingList();
+    }
+
     function saveProperties() {
         if (!currentElement) return;
         
@@ -1396,9 +1558,12 @@
                 height: parseInt(document.getElementById('prop-height')?.value) || 150
             };
         } else if (type === 'table') {
+            var stored = getStoredElementData();
             properties = {
                 query: document.getElementById('prop-query')?.value || '',
-                showHeader: document.getElementById('prop-showHeader')?.checked !== false
+                showHeader: document.getElementById('prop-showHeader')?.checked !== false,
+                columns: (stored.properties && stored.properties.columns) || [],
+                formatting_rules: getCurrentFormattingRules()
             };
         } else if (type === 'chart') {
             properties = {
