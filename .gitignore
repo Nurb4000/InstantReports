@@ -63,3 +63,6 @@ docker-compose.override.yml
 
 # Alembic
 alembic/versions/.gitkeep
+
+# Internal / work-in-progress docs (kept locally, not for public push)
+.internal/

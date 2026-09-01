@@ -2,6 +2,8 @@
 
 A Python-based report design, scheduling, and delivery platform that replaces Crystal Reports/Jasper Reports. Features a web-based designer, scheduled report execution, multiple delivery methods (email, SFTP, SMB, webhook), and AI-assisted report creation.
 
+> **⚠️ Work in Progress:** This project is still being actively developed and is only about two-thirds complete. It functions at this point in time, but there are still major bugs and missing or confusing features. Expect breaking changes as we move forward.
+
 ## Features
 
 - **Report Designer** — Section-based layout builder with drag-and-drop, live preview, version history
@@ -139,7 +141,6 @@ InstantReports/
 ├── testing/               # Test configurations
 │   └── mokapi/            # LDAP + SMTP test server
 └── docs/                  # Documentation
-    └── IMPLEMENTATION_PROGRESS.md
 ```
 
 ## Data Connectors
@@ -380,8 +381,8 @@ brew install pango cairo gdk-pixbuf
 
 ## License
 
-Proprietary — InstantReports © 2026
+Distributed under the terms of the Apache License 2.0. This project is open source and available for use and modification. See LICENSE for details.
 
 ## Support
 
-For issues and questions, refer to the implementation progress document: `docs/IMPLEMENTATION_PROGRESS.md`
+For issues and questions, please open a new issue in this repository on GitHub.

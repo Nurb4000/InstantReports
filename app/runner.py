@@ -23,6 +23,19 @@ logger = logging.getLogger(__name__)
 async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput | None:
     """Execute a scheduled report and return the output."""
     try:
+        # Log audit event: schedule execution started
+        from app.models.connection import AuditLog
+        audit_entry = AuditLog(
+            id=uuid.uuid4(),
+            report_id=schedule.report_id,
+            schedule_id=schedule.id,
+            action="schedule_executed",
+            details={"message": f"Schedule '{schedule.name}' execution started"},
+            executed_at=datetime.utcnow(),
+        )
+        db.add(audit_entry)
+        await db.commit()
+
         report_result = await db.execute(select(Report).where(Report.id == schedule.report_id))
         report = report_result.scalar_one_or_none()
 
@@ -47,6 +60,19 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
             parameters_used=schedule.parameters or {},
         )
         db.add(output)
+        await db.commit()
+        
+        # Log audit event: report generated successfully
+        audit_entry = AuditLog(
+            id=uuid.uuid4(),
+            report_id=report.id,
+            schedule_id=schedule.id,
+            action="report_generated",
+            details={"message": f"Report '{report.name}' generated successfully", "output_id": str(output.id)},
+            output_id=output.id,
+            executed_at=datetime.utcnow(),
+        )
+        db.add(audit_entry)
         await db.commit()
         await db.refresh(output)
 

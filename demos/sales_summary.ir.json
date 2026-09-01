@@ -1,0 +1,69 @@
+{
+    "instantreports_export": true,
+    "version": "1.0",
+    "report": {
+        "name": "Sales Summary Report",
+        "description": "Shows recent orders with customer information",
+        "definition": {
+            "layout": {
+                "sections": [
+                    {
+                        "type": "header",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Sales Summary Report",
+                                    "fontSize": 24,
+                                    "bold": true,
+                                    "color": "#333333"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "elements": [
+                            {
+                                "type": "table",
+                                "properties": {
+                                    "query": "SELECT o.order_id, o.order_date, c.company_name, c.contact_name, o.shipped_date FROM orders o JOIN customers c ON o.customer_id = c.customer_id ORDER BY o.order_date DESC LIMIT 50",
+                                    "showHeader": true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "footer",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Generated on {{date.now}}",
+                                    "fontSize": 10,
+                                    "color": "#666666"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_sources": [
+                {
+                    "connection_id": "bef2f9f6-3cb6-47db-941c-fec47999a3c8",
+                    "name": "Northwind Demo",
+                    "type": "postgresql"
+                }
+            ],
+            "selected_fields": [
+                {"table": "orders", "field": "order_id", "type": "integer"},
+                {"table": "orders", "field": "order_date", "type": "timestamp"},
+                {"table": "customers", "field": "company_name", "type": "varchar"},
+                {"table": "customers", "field": "contact_name", "type": "varchar"}
+            ],
+            "query": "SELECT o.order_id, o.order_date, c.company_name, c.contact_name FROM orders o JOIN customers c ON o.customer_id = c.customer_id"
+        }
+    },
+    "exported_by": "admin",
+    "exported_at": "2026-08-30"
+}

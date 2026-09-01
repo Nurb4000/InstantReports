@@ -5,9 +5,17 @@ from typing import Any
 
 import pandas as pd
 
+from app.services.connectors.base import DataConnector
+
 
 class ODBCCConnector(DataConnector):
     """Connector for ODBC data sources using aioodbc."""
+
+    config_fields = [
+        {"name": "dsn", "label": "DSN Name", "type": "text", "default": "", "required": True},
+        {"name": "user", "label": "Username", "type": "text", "default": "", "required": False},
+        {"name": "password", "label": "Password", "type": "password", "default": "", "required": False},
+    ]
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:

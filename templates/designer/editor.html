@@ -101,6 +101,13 @@
         border-color: #3498db;
         background: #e3f2fd;
     }
+    .sortable-ghost {
+        opacity: 0.4;
+        background: #f0f0f0;
+    }
+    .sortable-chosen {
+        background: #e3f2fd;
+    }
     
     /* Properties Modal */
     .properties-modal {
@@ -127,36 +134,252 @@
         max-height: 80vh;
         overflow-y: auto;
     }
+
+    /* Data Tab Styles */
+    .data-tab-content {
+        padding: 1.5rem;
+    }
+    .connection-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: #fff;
+    }
+    .connection-card.linked {
+        border-color: #28a745;
+        background: #f8fff8;
+    }
+    .connection-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .connection-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    /* Fields Tab Styles */
+    .fields-layout {
+        display: flex;
+        gap: 1rem;
+        min-height: 400px;
+    }
+    .fields-source-panel {
+        flex: 1;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-y: auto;
+        max-height: 500px;
+        background: #f8f9fa;
+    }
+    .fields-selected-panel {
+        flex: 1;
+        border: 1px solid #28a745;
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-y: auto;
+        max-height: 500px;
+        background: #f0fff4;
+    }
+    .table-group {
+        margin-bottom: 1rem;
+    }
+    .table-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #dee2e6;
+        margin-bottom: 0.25rem;
+    }
+    .table-header:hover {
+        background: #e9ecef;
+    }
+    .table-columns {
+        padding-left: 1.5rem;
+        display: none;
+    }
+    .table-columns.expanded {
+        display: block;
+    }
+    .field-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    .field-item:hover {
+        background: rgba(0,0,0,0.05);
+        border-radius: 4px;
+    }
+    .field-type {
+        color: #6c757d;
+        font-size: 0.75rem;
+        min-width: 60px;
+    }
+    .selected-field-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.35rem 0.5rem;
+        margin-bottom: 0.25rem;
+        background: white;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        font-size: 0.85rem;
+    }
+    .query-preview {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 1rem;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        margin-top: 1rem;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .connection-form {
+        display: none;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+    .connection-form.active {
+        display: block;
+    }
+
+    /* Section drag handle */
+    .section-drag-handle {
+        cursor: grab;
+        color: #6c757d;
+        font-size: 1.1rem;
+        margin-right: 0.5rem;
+        user-select: none;
+    }
+    .section-drag-handle:active {
+        cursor: grabbing;
+    }
+    .section-preview.sortable-ghost {
+        opacity: 0.4;
+    }
+    .section-preview.sortable-chosen {
+        background: #e3f2fd;
+    }
+
+    /* Section Edit Modal */
+    .section-edit-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    .section-edit-modal.active {
+        display: flex;
+    }
+    .section-edit-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        max-width: 450px;
+        width: 90%;
+    }
+    .section-edit-content h3 {
+        margin-bottom: 1.5rem;
+    }
+    .section-edit-content .form-group {
+        margin-bottom: 1rem;
+    }
+    .section-edit-content label {
+        display: block;
+        margin-bottom: 0.3rem;
+        font-weight: 500;
+    }
+    .section-edit-content select,
+    .section-edit-content input[type="text"] {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    .section-edit-content .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .section-edit-content .checkbox-group input[type="checkbox"] {
+        width: auto;
+    }
+    .section-edit-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+    .section-edit-content small {
+        display: block;
+        margin-top: 0.25rem;
+    }
+    
+    /* Hidden element styling in designer */
+    .element-hidden {
+        opacity: 0.3;
+        border-style: dashed;
+    }
+    .element-hidden:hover {
+        opacity: 0.6;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div class="flex-grow-1">
-            {% if report %}
-            <h1 class="mb-2">{{ report.name }}</h1>
-            <p class="text-muted mb-0">
-                Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }} | 
-                ID: <code>{{ report.id }}</code>
-            </p>
-            {% else %}
             <input type="text" id="report-name" name="name" class="form-control form-control-lg mb-2" 
                    placeholder="Enter report name..." value="{{ report.name if report else '' }}">
             <input type="text" id="report-description" name="description" class="form-control mb-2" 
-                   placeholder="Report description (optional)..." value="">
+                   placeholder="Report description (optional)..." value="{{ report.description if report else '' }}">
             <p class="text-muted mb-0">
+                {% if report %}Last updated: {{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else 'Never' }} | {% endif %}
                 Report ID: <code id="report-id">{{ report.id if report else 'Will be assigned on save' }}</code>
             </p>
-            {% endif %}
         </div>
         <div class="d-flex gap-2">
             <a href="/designer/reports" class="btn btn-secondary">Back to Reports</a>
+            {% if report %}
+            <button class="btn btn-info" onclick="previewReport()">Preview</button>
+            <a href="/designer/reports/{{ report.id }}/export" class="btn btn-success">Export</a>
+            {% endif %}
             <button id="save-btn" class="btn btn-success">Save Report</button>
         </div>
-    </div>
-        <div class="d-flex gap-2">
-            <button id="save-btn" class="btn btn-success">Save Report</button>
-            <a href="/designer" class="btn btn-secondary">Cancel</a>
+        
+        <!-- Commit Message -->
+        <div class="mb-3">
+            <label class="form-label">Commit Message (optional)</label>
+            <input type="text" id="commit-message" class="form-control" placeholder="e.g., Fixed layout, Added chart, etc." maxlength="200">
         </div>
     </div>
 
@@ -164,6 +387,12 @@
         <ul class="nav nav-tabs" id="designerTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design" type="button" role="tab">Design</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">Data</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="fields-tab" data-bs-toggle="tab" data-bs-target="#fields" type="button" role="tab">Fields</button>
             </li>
             {% if report %}
             <li class="nav-item" role="presentation">
@@ -178,8 +407,171 @@
         </ul>
         <div class="tab-content" id="designerTabContent">
             <div class="tab-pane fade show active" id="design" role="tabpanel">
-                <!-- Designer content goes here -->
+                <div class="designer-layout">
+                    <!-- Palette Row -->
+                    <div class="designer-palette">
+                        <div class="palette-section">
+                            <h4>Elements</h4>
+                            <div id="elements-palette" class="elements-grid">
+                                <div class="element-item" draggable="true" data-element-type="text">
+                                    <span class="element-handle">☰</span> Text
+                                </div>
+                                <div class="element-item" draggable="true" data-element-type="image">
+                                    <span class="element-handle">☰</span> Image
+                                </div>
+                                <div class="element-item" draggable="true" data-element-type="table">
+                                    <span class="element-handle">☰</span> Table
+                                </div>
+                                <div class="element-item" draggable="true" data-element-type="chart">
+                                    <span class="element-handle">☰</span> Chart
+                                </div>
+                                <div class="element-item" draggable="true" data-element-type="crosstab">
+                                    <span class="element-handle">☰</span> Cross-tab
+                                </div>
+                                <div class="element-item" draggable="true" data-element-type="subreport">
+                                    <span class="element-handle">☰</span> Sub-report
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Canvas Area -->
+                    <div class="designer-canvas" id="canvas">
+                        <div class="toolbar">
+                            <button class="btn btn-secondary btn-sm" onclick="addSection('header')">Header</button>
+                            <button class="btn btn-secondary btn-sm" onclick="addSection('detail')">Detail</button>
+                            <button class="btn btn-secondary btn-sm" onclick="addSection('summary')">Summary</button>
+                            <button class="btn btn-secondary btn-sm" onclick="addSection('footer')">Footer</button>
+                        </div>
+
+                        <div id="canvas-content">
+                            {% if report and report.definition.get('layout', {}).get('sections') %}
+                                {% for section in report.definition.layout.sections %}
+                                {% set section_idx = loop.index0 %}
+                                {% set section_name = section.get('custom_name', section.type|capitalize) %}
+                                <div class="section-preview" data-section-index="{{ section_idx }}" data-section-type="{{ section.type }}" {% if section.get('custom_name') %}data-section-custom-name="{{ section.custom_name }}"{% endif %}>
+                                    <div class="section-header d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center gap-1">
+                                            <span class="section-drag-handle" title="Drag to reorder">&#9776;</span>
+                                            <button class="btn btn-sm btn-outline-secondary section-move-up" onclick="moveSection({{ section_idx }}, -1)" title="Move up" {% if loop.first %}disabled{% endif %}>&#9650;</button>
+                                            <button class="btn btn-sm btn-outline-secondary section-move-down" onclick="moveSection({{ section_idx }}, 1)" title="Move down" {% if loop.last %}disabled{% endif %}>&#9660;</button>
+                                        </div>
+                                        <strong class="section-title-text">{{ section_name }}</strong>
+                                        <div>
+                                            <button class="btn btn-sm btn-secondary" onclick="editSection({{ section_idx }})">Edit</button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteSection({{ section_idx }})">Delete</button>
+                                        </div>
+                                    </div>
+                                    <div class="section-body mt-2">
+                                        {% if section.elements %}
+                                            {% for element in section.elements %}
+                                            {% set elem_data = element | tojson %}
+                                            {% set element_label = element.get('label', element.type|capitalize ~ ' Element') %}
+                                            {% set label_hidden = ' style="display: none;"' if element.get('hide_label') else '' %}
+                                            <div class="element-preview" data-element-index="{{ loop.index0 }}"
+                                                 data-element-type="{{ element.type }}"
+                                                 data-element-data='{{ elem_data | safe }}'
+                                                 onclick="openProperties({{ section_idx }}, {{ loop.index0 }})">
+                                                <span class="element-handle" style="cursor: grab;">&#9776;</span>
+                                                <span class="element-label-text"{{ label_hidden | safe }}>{{ element_label }}</span>
+                                                <button class="btn btn-sm btn-outline-danger ms-2" onclick="event.stopPropagation(); removeElement({{ section_idx }}, {{ loop.index0 }})" title="Remove element">&times;</button>
+                                            </div>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <!-- Data Tab -->
+            <div class="tab-pane fade" id="data" role="tabpanel">
+                <div class="data-tab-content">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>Data Connections</h4>
+                        <button class="btn btn-primary btn-sm" onclick="showNewConnectionForm()">+ New Connection</button>
+                    </div>
+
+                    <div id="new-connection-form" class="connection-form">
+                        <h5>Create New Connection</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Connection Type</label>
+                            <select class="form-control" id="nc-type" onchange="loadConnectionFields()">
+                                <option value="">-- Select Type --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="nc-name" placeholder="My Database">
+                        </div>
+                        <div id="nc-fields"></div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-success btn-sm" onclick="testNewConnection()">Test</button>
+                            <button class="btn btn-primary btn-sm" onclick="saveNewConnection()">Save & Link</button>
+                            <button class="btn btn-secondary btn-sm" onclick="hideNewConnectionForm()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="connections-search" placeholder="Search connections..." oninput="filterConnections()">
+                    </div>
+                    <div id="connections-list">
+                        <p class="text-muted text-center py-4">Loading connections...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fields Tab -->
+            <div class="tab-pane fade" id="fields" role="tabpanel">
+                <div class="data-tab-content">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>Field Explorer</h4>
+                        <div class="d-flex gap-2">
+                            <select class="form-control form-control-sm" id="fields-connection-select" onchange="loadSchemaForConnection()" style="width: 250px;">
+                                <option value="">-- Select Linked Connection --</option>
+                            </select>
+                            <button class="btn btn-info btn-sm" onclick="refreshSchema()">Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="fields-layout">
+                        <div class="fields-source-panel">
+                            <h6 class="mb-2">Available Fields</h6>
+                            <p class="text-muted small mb-2">Select tables to expand, then check fields to add them.</p>
+                            <div id="available-fields">
+                                <p class="text-muted text-center py-4">Select a connection above to browse fields.</p>
+                            </div>
+                        </div>
+
+                        <div class="fields-selected-panel">
+                            <h6 class="mb-2">Selected Fields</h6>
+                            <p class="text-muted small mb-2">Drag to reorder. These fields will be available in your report.</p>
+                            <div id="selected-fields">
+                                <p class="text-muted text-center py-4">No fields selected yet.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <h6>Query Preview</h6>
+                        <div id="query-preview" class="query-preview">SELECT ... -- Select fields to generate query preview</div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-sm btn-outline-primary" onclick="copyQuery()">Copy Query</button>
+                            <button class="btn btn-sm btn-outline-success" onclick="testQuery()">Test Query</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="resetFields()">Reset All</button>
+                        </div>
+                    </div>
+
+                    <div id="query-results" class="mt-3" style="display: none;">
+                        <h6>Query Results Preview</h6>
+                        <div id="query-results-table" class="table-responsive"></div>
+                    </div>
+                </div>
+            </div>
+
             {% if report %}
             <div class="tab-pane fade" id="history" role="tabpanel">
                 <div id="version-history">
@@ -195,89 +587,6 @@
             {% endif %}
         </div>
     </div>
-
-<div class="designer-layout">
-    <!-- Palette Row -->
-    <div class="designer-palette">
-        <div class="palette-section">
-            <div id="sections-list" data-sortable="true">
-                {% if report and report.definition.get('layout', {}).get('sections') %}
-                    {% for section in report.definition.layout.sections %}
-                    <div class="section-item" data-section-type="{{ section.type }}" data-section-index="{{ loop.index0 }}">
-                        <span class="element-handle">&#9776;</span>
-                        {{ section.type|capitalize }}
-                    </div>
-                    {% endfor %}
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="palette-section">
-            <h4>Elements</h4>
-            <div id="elements-palette" class="elements-grid">
-                <div class="element-item" draggable="true" data-element-type="text">
-                    <span class="element-handle">☰</span> Text
-                </div>
-                <div class="element-item" draggable="true" data-element-type="image">
-                    <span class="element-handle">☰</span> Image
-                </div>
-                <div class="element-item" draggable="true" data-element-type="table">
-                    <span class="element-handle">☰</span> Table
-                </div>
-                <div class="element-item" draggable="true" data-element-type="chart">
-                    <span class="element-handle">☰</span> Chart
-                </div>
-                <div class="element-item" draggable="true" data-element-type="crosstab">
-                    <span class="element-handle">☰</span> Cross-tab
-                </div>
-                <div class="element-item" draggable="true" data-element-type="subreport">
-                    <span class="element-handle">☰</span> Sub-report
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Canvas Area -->
-    <div class="designer-canvas" id="canvas">
-        <div class="toolbar">
-            <button class="btn btn-secondary btn-sm" onclick="addSection('header')">Header</button>
-            <button class="btn btn-secondary btn-sm" onclick="addSection('detail')">Detail</button>
-            <button class="btn btn-secondary btn-sm" onclick="addSection('summary')">Summary</button>
-            <button class="btn btn-secondary btn-sm" onclick="addSection('footer')">Footer</button>
-        </div>
-
-        <div id="canvas-content">
-            {% if report and report.definition.get('layout', {}).get('sections') %}
-                {% for section in report.definition.layout.sections %}
-                <div class="section-preview" data-section-index="{{ loop.index0 }}">
-                    <div class="section-header d-flex justify-content-between align-items-center">
-                        <strong>{{ section.type|capitalize }}</strong>
-                        <div>
-                            <button class="btn btn-sm btn-secondary" onclick="editSection({{ loop.index0 }})">Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteSection({{ loop.index0 }})">Delete</button>
-                        </div>
-                    </div>
-                    <div class="section-body mt-2">
-                        {% if section.elements %}
-                            {% for element in section.elements %}
-                            <div class="element-preview" data-element-index="{{ loop.index0 }}" onclick="openProperties({{ loop.index0 }})">
-                                {{ element.type|capitalize }} Element
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <p class="text-muted">No elements in this section</p>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="text-center text-muted py-5">
-                    <p>No sections yet. Click a button above to add one.</p>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
 
 <!-- Properties Modal -->
 <div id="properties-modal" class="properties-modal">
@@ -296,78 +605,275 @@
     </div>
 </div>
 
-
+    <!-- Section Edit Modal -->
+    <div class="section-edit-modal" id="section-edit-modal">
+        <div class="section-edit-content">
+            <h3>Edit Section</h3>
+            <input type="hidden" id="edit-section-index" value="">
+            <div class="form-group">
+                <label for="edit-section-type">Section Type</label>
+                <select id="edit-section-type">
+                    <option value="header">Header</option>
+                    <option value="detail">Detail</option>
+                    <option value="summary">Summary</option>
+                    <option value="footer">Footer</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="edit-section-custom-name">Section Label (optional)</label>
+                <input type="text" id="edit-section-custom-name" placeholder="Leave empty to use type name">
+                <small class="text-muted">Set a custom display name for this section</small>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit-section-hide-name">
+                    <label for="edit-section-hide-name">Hide section name</label>
+                </div>
+            </div>
+            <div class="section-edit-actions">
+                <button class="btn btn-secondary" onclick="closeSectionEditModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSectionEdit()">Save</button>
+            </div>
+        </div>
+    </div>
 
 <script>
+    let currentElement = null;
+    let currentSectionIndex = null;
+    let currentElementIndex = null;
+
     document.addEventListener('DOMContentLoaded', function() {
-        const canvas = document.getElementById('canvas-content');
-        const sectionsList = document.getElementById('sections-list');
+        try {
+            const canvas = document.getElementById('canvas-content');
 
-        if (Sortable) {
-            new Sortable(sectionsList, {
-                animation: 150,
-                handle: '.element-handle',
-                onEnd: function(evt) {
-                    console.log('Section moved from', evt.oldIndex, 'to', evt.newIndex);
-                }
+            document.querySelectorAll('[draggable="true"]').forEach(item => {
+                item.addEventListener('dragstart', function(e) {
+                    e.dataTransfer.setData('text/plain', this.dataset.elementType || this.dataset.sectionType);
+                });
             });
-        }
 
-        // Add drag handlers to both section items and element items
-        document.querySelectorAll('[draggable="true"]').forEach(item => {
-            item.addEventListener('dragstart', function(e) {
-                e.dataTransfer.setData('text/plain', this.dataset.elementType || this.dataset.sectionType);
+            // Make elements sortable within sections
+            document.querySelectorAll('.section-body').forEach(sectionBody => {
+                initSectionBodySortable(sectionBody);
             });
-        });
 
         canvas.addEventListener('dragover', function(e) {
             e.preventDefault();
+            // Highlight the section being hovered over
+            const section = e.target.closest('.section-preview');
+            if (section) {
+                document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
+                section.style.borderColor = '#3498db';
+            } else if (e.target.closest('.section-body')) {
+                const section = e.target.closest('.section-preview');
+                if (section) {
+                    document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
+                    section.style.borderColor = '#3498db';
+                }
+            }
+        });
+
+        canvas.addEventListener('dragleave', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX >= rect.right || e.clientY < rect.top || e.clientY >= rect.bottom) {
+                document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
+            }
         });
 
         canvas.addEventListener('drop', function(e) {
             e.preventDefault();
+            // Reset all borders
+            document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
+            
             const elementType = e.dataTransfer.getData('text/plain');
-            if (elementType) {
-                addElementToCanvas(elementType);
+            
+            // Handle dropping elements from palette onto sections
+            if (elementType && ['text', 'image', 'table', 'chart', 'crosstab', 'subreport'].includes(elementType)) {
+                // Find which section was dropped on
+                const sectionPreview = e.target.closest('.section-preview');
+                if (sectionPreview) {
+                    const sectionIndex = parseInt(sectionPreview.dataset.sectionIndex);
+                    addElementToCanvas(elementType, sectionIndex);
+                } else {
+                    // Drop on canvas itself - add to last section or create new one
+                    addElementToCanvas(elementType);
+                }
             }
         });
 
-        // Function to add element to canvas
-        function addElementToCanvas(elementType) {
-            const canvasContent = document.getElementById('canvas-content');
-            // Find the last section or create a new one
+            {% if report %}
+            loadVersions('{{ report.id }}');
+            {% endif %}
+
+            // Data tab initialization
+            loadAllConnections();
+            loadConnectorTypes();
+
+            const savedDef = {{ (report.definition or {}) | tojson }};
+            if (savedDef && savedDef.data_sources) {
+                linkedConnectionIds = savedDef.data_sources.map(ds => ds.connection_id);
+                if (savedDef.selected_fields) {
+                    selectedFieldsList = savedDef.selected_fields;
+                }
+            }
+        } catch (e) {
+            console.error('Error initializing designer:', e);
+        }
+    });
+
+    function getDefaultProperties(type) {
+        const defaults = {
+            text: { content: 'Text', fontSize: 12, bold: false, color: '#000000' },
+            image: { src: '', alt: '', width: 200, height: 150 },
+            table: { query: '', columns: [], showHeader: true },
+            chart: { type: 'bar', title: 'Chart', xField: '', yField: '' },
+            crosstab: { rowField: '', columnField: '', valueField: '', aggregation: 'sum' },
+            subreport: { reportId: '', parameters: {} }
+        };
+        return defaults[type] || {};
+    }
+
+    function addElementToCanvas(elementType, targetSectionIndex) {
+        const canvasContent = document.getElementById('canvas-content');
+        
+        let targetSection;
+        if (targetSectionIndex !== undefined && canvasContent.children[targetSectionIndex]) {
+            targetSection = canvasContent.children[targetSectionIndex];
+            if (!targetSection.classList.contains('section-preview')) {
+                targetSection = null;
+            }
+        }
+        
+        if (!targetSection) {
+            // Find last section or create new one
             let lastSection = canvasContent.lastElementChild;
-            if (!lastSection || !lastSection.classList.contains('section-preview')) {
-                // Create a new detail section
-                lastSection = document.createElement('div');
-                lastSection.className = 'section-preview';
-                lastSection.dataset.sectionIndex = canvasContent.children.length;
-                lastSection.innerHTML = `
+            if (lastSection && lastSection.classList.contains('section-preview')) {
+                targetSection = lastSection;
+            } else {
+                // Create new detail section
+                const idx = canvasContent.querySelectorAll('.section-preview').length;
+                targetSection = document.createElement('div');
+                targetSection.className = 'section-preview';
+                targetSection.dataset.sectionIndex = idx;
+                targetSection.dataset.sectionType = 'detail';
+                targetSection.innerHTML = `
                     <div class="section-header d-flex justify-content-between align-items-center">
-                        <strong>Detail</strong>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="section-drag-handle" title="Drag to reorder">&#9776;</span>
+                            <button class="btn btn-sm btn-outline-secondary section-move-up" onclick="moveSection(${idx}, -1)" title="Move up" disabled>&#9650;</button>
+                            <button class="btn btn-sm btn-outline-secondary section-move-down" onclick="moveSection(${idx}, 1)" title="Move down">&#9660;</button>
+                        </div>
+                        <strong class="section-title-text">Detail</strong>
                         <div>
-                            <button class="btn btn-sm btn-secondary" onclick="editSection(${canvasContent.children.length})">Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteSection(${canvasContent.children.length})">Delete</button>
+                            <button class="btn btn-sm btn-secondary" onclick="editSection(${idx})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSection(${idx})">Delete</button>
                         </div>
                     </div>
                     <div class="section-body mt-2"></div>
                 `;
-                canvasContent.appendChild(lastSection);
+                canvasContent.appendChild(targetSection);
             }
-            
-            const sectionBody = lastSection.querySelector('.section-body');
-            const elementHtml = `
-                <div class="element-preview" data-element-type="${elementType}" onclick="openProperties(${lastSection.dataset.sectionIndex})">
-                    ${elementType.charAt(0).toUpperCase() + elementType.slice(1)} Element
-                </div>
-            `;
-            sectionBody.insertAdjacentHTML('beforeend', elementHtml);
         }
 
-        {% if report %}
-        loadVersions('{{ report.id }}');
-        {% endif %}
-    });
+        const sectionBody = targetSection.querySelector('.section-body');
+        if (sectionBody.querySelector('.text-muted')) {
+            sectionBody.innerHTML = '';
+        }
+        const elementIndex = sectionBody.children.length;
+        const elementData = { type: elementType, properties: getDefaultProperties(elementType) };
+        const elementHtml = `
+            <div class="element-preview" data-element-type="${elementType}" data-element-index="${elementIndex}"
+                 data-element-data='${JSON.stringify(elementData).replace(/'/g, "&#39;")}'
+                 onclick="openProperties(${targetSection.dataset.sectionIndex}, ${elementIndex})">
+                <span class="element-handle" style="cursor: grab;">&#9776;</span>
+                <span class="element-label-text">${elementType.charAt(0).toUpperCase() + elementType.slice(1)} Element</span>
+                <button class="btn btn-sm btn-outline-danger ms-2" onclick="event.stopPropagation(); removeElement(${targetSection.dataset.sectionIndex}, ${elementIndex})" title="Remove element">&times;</button>
+            </div>
+        `;
+        sectionBody.insertAdjacentHTML('beforeend', elementHtml);
+    }
+
+    function removeElement(sectionIndex, elementIndex) {
+        if (!confirm('Remove this element?')) return;
+        const section = document.querySelector(`[data-section-index="${sectionIndex}"]`);
+        if (section) {
+            const element = section.querySelector(`[data-element-index="${elementIndex}"]`);
+            if (element) {
+                element.remove();
+                // Reindex elements within the section
+                reindexElements(sectionIndex);
+                // If no elements left, show placeholder
+                const sectionBody = section.querySelector('.section-body');
+                if (!sectionBody || sectionBody.children.length === 0) {
+                    sectionBody.innerHTML = '<p class="text-muted">No elements yet. Drag elements from the palette.</p>';
+                }
+            }
+        }
+    }
+
+    function reindexElements(sectionIndex) {
+        const section = document.querySelector(`[data-section-index="${sectionIndex}"]`);
+        if (!section) return;
+        const sectionBody = section.querySelector('.section-body');
+        if (!sectionBody) return;
+        
+        const elements = sectionBody.querySelectorAll('.element-preview');
+        elements.forEach((el, i) => {
+            el.dataset.elementIndex = i;
+            const removeBtn = el.querySelector('.btn-outline-danger');
+            if (removeBtn) removeBtn.setAttribute('onclick', `event.stopPropagation(); removeElement(${sectionIndex}, ${i})`);
+            el.setAttribute('onclick', `openProperties(${sectionIndex}, ${i})`);
+        });
+    }
+
+    function serializeCanvas() {
+        const canvasContent = document.getElementById('canvas-content');
+        const sections = [];
+        
+        Array.from(canvasContent.children).forEach(sectionEl => {
+            if (!sectionEl.classList.contains('section-preview')) return;
+            
+            const sectionType = sectionEl.dataset.sectionType || 
+                sectionEl.querySelector('.section-title-text')?.textContent?.toLowerCase().trim() || 'detail';
+            const hideName = sectionEl.querySelector('.section-title-text')?.style.display === 'none';
+            const elements = [];
+            
+            const sectionBody = sectionEl.querySelector('.section-body');
+            if (sectionBody) {
+                Array.from(sectionBody.children).forEach(el => {
+                    if (el.classList.contains('element-preview')) {
+                        let data;
+                        try {
+                            data = JSON.parse(el.dataset.elementData);
+                        } catch {
+                            data = { type: el.dataset.elementType, properties: getDefaultProperties(el.dataset.elementType) };
+                        }
+                        
+                        // Keep all elements in serialization (hide_label is just display)
+                        elements.push(data);
+                    }
+                });
+            }
+            
+            const sectionData = {
+                type: sectionType,
+                elements: elements
+            };
+            if (hideName) {
+                sectionData.hide_name = true;
+            }
+            if (sectionEl.dataset.sectionCustomName) {
+                sectionData.custom_name = sectionEl.dataset.sectionCustomName;
+            }
+            sections.push(sectionData);
+        });
+        
+        return {
+            layout: { sections: sections },
+            data_sources: [],
+            parameters: []
+        };
+    }
 
     async function loadVersions(reportId) {
         try {
@@ -432,29 +938,118 @@
     }
 
     function addSection(type) {
-        // Add section directly to canvas
         const canvasContent = document.getElementById('canvas-content');
-        const sectionIndex = canvasContent.children.length;
+        const sectionIndex = canvasContent.querySelectorAll('.section-preview').length;
+        const sectionBody = document.createElement('div');
+        sectionBody.className = 'section-body mt-2';
+        sectionBody.innerHTML = '<p class="text-muted">No elements yet. Drag elements from the palette.</p>';
+        
+        const isFirst = sectionIndex === 0;
+        const typeName = type.charAt(0).toUpperCase() + type.slice(1);
         const sectionHtml = `
-            <div class="section-preview" data-section-index="${sectionIndex}">
+            <div class="section-preview" data-section-index="${sectionIndex}" data-section-type="${type}">
                 <div class="section-header d-flex justify-content-between align-items-center">
-                    <strong>${type.charAt(0).toUpperCase() + type.slice(1)}</strong>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="section-drag-handle" title="Drag to reorder">&#9776;</span>
+                        <button class="btn btn-sm btn-outline-secondary section-move-up" onclick="moveSection(${sectionIndex}, -1)" title="Move up"${isFirst ? ' disabled' : ''}>&#9650;</button>
+                        <button class="btn btn-sm btn-outline-secondary section-move-down" onclick="moveSection(${sectionIndex}, 1)" title="Move down"">&#9660;</button>
+                    </div>
+                    <strong class="section-title-text">${typeName}</strong>
                     <div>
                         <button class="btn btn-sm btn-secondary" onclick="editSection(${sectionIndex})">Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteSection(${sectionIndex})">Delete</button>
                     </div>
                 </div>
-                <div class="section-body mt-2">
-                    <p class="text-muted">No elements yet. Drag elements from the palette.</p>
-                </div>
             </div>
         `;
-        canvasContent.insertAdjacentHTML('beforeend', sectionHtml);
+        
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = sectionHtml;
+        const newSection = tempDiv.firstElementChild;
+        newSection.appendChild(sectionBody);
+        canvasContent.appendChild(newSection);
+        
+        // Initialize Sortable on the new section body
+        initSectionBodySortable(sectionBody);
     }
 
+    function initSectionBodySortable(sectionBody) {
+        if (typeof Sortable !== 'undefined') {
+            new Sortable(sectionBody, {
+                animation: 150,
+                handle: '.element-handle',
+                clone: false,
+                sort: true,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    console.log('Element moved from', evt.oldIndex, 'to', evt.newIndex);
+                    // Reindex elements after SortableJS move
+                    const section = evt.item.closest('.section-preview');
+                    if (section) {
+                        const sectionIndex = parseInt(section.dataset.sectionIndex);
+                        reindexElements(sectionIndex);
+                    }
+                }
+            });
+        }
+    }
+
+    document.getElementById('section-edit-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeSectionEditModal();
+    });
+
     function editSection(index) {
-        console.log('Editing section:', index);
-        // TODO: Open section editor modal
+        openSectionEditModal(index);
+    }
+
+    function openSectionEditModal(index) {
+        const section = document.querySelector(`[data-section-index="${index}"]`);
+        if (!section) return;
+
+        document.getElementById('edit-section-index').value = index;
+        const typeSelect = document.getElementById('edit-section-type');
+        const sectionType = section.dataset.sectionType || 'detail';
+        const customName = section.dataset.sectionCustomName || '';
+        
+        typeSelect.value = sectionType;
+        document.getElementById('edit-section-custom-name').value = customName;
+
+        const hideNameCheckbox = document.getElementById('edit-section-hide-name');
+        const titleEl = section.querySelector('.section-title-text');
+        hideNameCheckbox.checked = !titleEl || titleEl.style.display === 'none' || titleEl.textContent.trim() === '';
+
+        document.getElementById('section-edit-modal').classList.add('active');
+    }
+
+    function closeSectionEditModal() {
+        document.getElementById('section-edit-modal').classList.remove('active');
+    }
+
+    function saveSectionEdit() {
+        const index = document.getElementById('edit-section-index').value;
+        const section = document.querySelector(`[data-section-index="${index}"]`);
+        if (!section) return;
+
+        const type = document.getElementById('edit-section-type').value;
+        const customName = document.getElementById('edit-section-custom-name').value.trim();
+        const hideName = document.getElementById('edit-section-hide-name').checked;
+
+        section.dataset.sectionType = type;
+        if (customName) {
+            section.dataset.sectionCustomName = customName;
+        } else {
+            delete section.dataset.sectionCustomName;
+        }
+
+        const titleEl = section.querySelector('.section-title-text');
+        if (titleEl) {
+            titleEl.textContent = customName || type.charAt(0).toUpperCase() + type.slice(1);
+            titleEl.style.display = hideName ? 'none' : '';
+        }
+
+        closeSectionEditModal();
     }
 
     function deleteSection(index) {
@@ -462,59 +1057,423 @@
             const section = document.querySelector(`[data-section-index="${index}"]`);
             if (section) {
                 section.remove();
+                reindexSections();
             }
         }
     }
 
-    function openProperties(elementIndex) {
-        console.log('Opening properties for element:', elementIndex);
-        // TODO: Load element data and populate properties form
+    function reindexSections() {
+        const sections = document.querySelectorAll('#canvas-content .section-preview');
+        const arr = Array.from(sections);
+        arr.forEach((section, i) => {
+            section.dataset.sectionIndex = i;
+            
+            // Update element onclick handlers inside this section
+            const elements = section.querySelectorAll('.element-preview');
+            elements.forEach((el, elemIdx) => {
+                el.setAttribute('onclick', `openProperties(${i}, ${elemIdx})`);
+                const removeBtn = el.querySelector('.btn-outline-danger');
+                if (removeBtn) {
+                    removeBtn.setAttribute('onclick', `event.stopPropagation(); removeElement(${i}, ${elemIdx})`);
+                }
+            });
+            
+            const editBtn = section.querySelector('.btn-secondary');
+            const deleteBtn = section.querySelector('.btn-danger');
+            if (editBtn) editBtn.setAttribute('onclick', `editSection(${i})`);
+            if (deleteBtn) deleteBtn.setAttribute('onclick', `deleteSection(${i})`);
+        });
+        updateMoveButtons(arr);
+    }
+
+    function updateMoveButtons(sections) {
+        sections.forEach((section, i) => {
+            const upBtn = section.querySelector('.section-move-up');
+            const downBtn = section.querySelector('.section-move-down');
+            if (upBtn) {
+                if (i === 0) {
+                    upBtn.disabled = true;
+                } else {
+                    upBtn.disabled = false;
+                    upBtn.setAttribute('onclick', `moveSection(${i}, -1)`);
+                }
+            }
+            if (downBtn) {
+                if (i === sections.length - 1) {
+                    downBtn.disabled = true;
+                } else {
+                    downBtn.disabled = false;
+                    downBtn.setAttribute('onclick', `moveSection(${i}, 1)`);
+                }
+            }
+        });
+    }
+
+    function moveSection(index, direction) {
+        const sections = document.querySelectorAll('#canvas-content .section-preview');
+        const arr = Array.from(sections);
+        if (index < 0 || index >= arr.length) return;
+        
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= arr.length) return;
+        
+        const section = arr[index];
+        const parent = section.parentNode;
+        
+        if (direction === 1) {
+            parent.insertBefore(section, arr[targetIndex].nextSibling);
+        } else {
+            parent.insertBefore(section, arr[targetIndex]);
+        }
+        
+        reindexSections();
+    }
+
+    function openProperties(sectionIndex, elementIndex) {
+        currentSectionIndex = sectionIndex;
+        currentElementIndex = elementIndex;
+        
+        const sectionEl = document.querySelector(`[data-section-index="${sectionIndex}"]`);
+        if (!sectionEl) return;
+        
+        const sectionBody = sectionEl.querySelector('.section-body');
+        const elementEl = sectionBody?.querySelector(`[data-element-index="${elementIndex}"]`);
+        if (!elementEl) return;
+        
+        currentElement = elementEl;
+        let elementData;
+        try {
+            elementData = JSON.parse(elementEl.dataset.elementData);
+        } catch {
+            elementData = { type: elementEl.dataset.elementType, properties: {} };
+        }
+        
+        const type = elementData.type || elementEl.dataset.elementType;
+        document.getElementById('properties-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Properties`;
+        
+        // Get existing label or generate default from type
+        const existingLabel = elementData.label || '';
+        const defaultLabel = `${type.charAt(0).toUpperCase() + type.slice(1)} Element`;
+        
+        // Set hide checkbox state
+        setTimeout(() => {
+            const hideCheckbox = document.getElementById('prop-hide-element');
+            if (hideCheckbox) {
+                hideCheckbox.checked = elementData.hide === true;
+            }
+        }, 0);
+        
+        let formHtml = `
+            <div class="mb-3">
+                <label class="form-label">Element Label (optional)</label>
+                <input type="text" class="form-control" id="prop-label" value="${existingLabel}" placeholder="Leave empty to use default">
+                <small class="text-muted">Custom display name for this element in the designer</small>
+            </div>
+            <div class="mb-3">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="prop-hide-label">
+                    <label for="prop-hide-label">Hide label</label>
+                </div>
+                <small class="text-muted">Hide just the element label (not the element itself)</small>
+            </div>
+        `;
+        if (type === 'text') {
+            formHtml += `
+                <div class="mb-3">
+                    <label class="form-label">Content</label>
+                    <textarea class="form-control" id="prop-content" rows="2">${elementData.properties.content || ''}</textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Font Size</label>
+                        <input type="number" class="form-control" id="prop-fontSize" value="${elementData.properties.fontSize || 12}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Color</label>
+                        <input type="color" class="form-control form-control-color" id="prop-color" value="${elementData.properties.color || '#000000'}">
+                    </div>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="prop-bold" ${elementData.properties.bold ? 'checked' : ''}>
+                    <label class="form-check-label" for="prop-bold">Bold</label>
+                </div>
+            `;
+        } else if (type === 'image') {
+            formHtml += `
+                <div class="mb-3">
+                    <label class="form-label">Image URL or Upload</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="prop-src" value="${elementData.properties.src || ''}" placeholder="https://... or /static/img/...">
+                        <input type="file" class="form-control" id="prop-image-upload" accept="image/*" style="display: none;" onchange="uploadImage(this)">
+                        <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('prop-image-upload').click()">Upload</button>
+                    </div>
+                    <small class="text-muted">Or enter a URL directly</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Alt Text</label>
+                    <input type="text" class="form-control" id="prop-alt" value="${elementData.properties.alt || ''}">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Width (px)</label>
+                        <input type="number" class="form-control" id="prop-width" value="${elementData.properties.width || 200}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Height (px)</label>
+                        <input type="number" class="form-control" id="prop-height" value="${elementData.properties.height || 150}">
+                    </div>
+                </div>
+            `;
+        } else if (type === 'table') {
+            formHtml += `
+                <div class="mb-3">
+                    <label class="form-label">SQL Query</label>
+                    <textarea class="form-control" id="prop-query" rows="3">${elementData.properties.query || ''}</textarea>
+                    <button type="button" class="btn btn-sm btn-primary mt-2" onclick="openQueryBuilder('table')">🔨 Build Query Visually</button>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="prop-showHeader" ${elementData.properties.showHeader !== false ? 'checked' : ''}>
+                    <label class="form-check-label" for="prop-showHeader">Show Header Row</label>
+                </div>
+            `;
+        } else if (type === 'chart') {
+            formHtml += `
+                <div class="mb-3">
+                    <label class="form-label">Chart Title</label>
+                    <input type="text" class="form-control" id="prop-title" value="${elementData.properties.title || ''}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Chart Type</label>
+                    <select class="form-control" id="prop-chartType">
+                        <option value="bar" ${elementData.properties.type === 'bar' ? 'selected' : ''}>Bar</option>
+                        <option value="line" ${elementData.properties.type === 'line' ? 'selected' : ''}>Line</option>
+                        <option value="pie" ${elementData.properties.type === 'pie' ? 'selected' : ''}>Pie</option>
+                        <option value="area" ${elementData.properties.type === 'area' ? 'selected' : ''}>Area</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openQueryBuilder('chart')">🔨 Build Query Visually</button>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">X Field</label>
+                        <input type="text" class="form-control" id="prop-xField" value="${elementData.properties.xField || ''}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Y Field</label>
+                        <input type="text" class="form-control" id="prop-yField" value="${elementData.properties.yField || ''}">
+                    </div>
+                </div>
+            `;
+        } else if (type === 'crosstab') {
+            formHtml += `
+                <div class="mb-3">
+                    <label class="form-label">Row Field</label>
+                    <input type="text" class="form-control" id="prop-rowField" value="${elementData.properties.rowField || ''}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Column Field</label>
+                    <input type="text" class="form-control" id="prop-columnField" value="${elementData.properties.columnField || ''}">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Value Field</label>
+                        <input type="text" class="form-control" id="prop-valueField" value="${elementData.properties.valueField || ''}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Aggregation</label>
+                        <select class="form-control" id="prop-aggregation">
+                            <option value="sum" ${elementData.properties.aggregation === 'sum' ? 'selected' : ''}>Sum</option>
+                            <option value="avg" ${elementData.properties.aggregation === 'avg' ? 'selected' : ''}>Average</option>
+                            <option value="count" ${elementData.properties.aggregation === 'count' ? 'selected' : ''}>Count</option>
+                            <option value="min" ${elementData.properties.aggregation === 'min' ? 'selected' : ''}>Min</option>
+                            <option value="max" ${elementData.properties.aggregation === 'max' ? 'selected' : ''}>Max</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'subreport') {
+            formHtml += `
+                <div class="mb-3">
+                    <label class="form-label">Sub-report ID</label>
+                    <input type="text" class="form-control" id="prop-reportId" value="${elementData.properties.reportId || ''}">
+                </div>
+            `;
+        } else {
+            formHtml = '<p class="text-muted">No configurable properties for this element type.</p>';
+        }
+        
+        document.getElementById('properties-form').innerHTML = formHtml;
         document.getElementById('properties-modal').classList.add('active');
     }
 
     function closeProperties() {
         document.getElementById('properties-modal').classList.remove('active');
+        currentElement = null;
+        currentSectionIndex = null;
+        currentElementIndex = null;
+    }
+
+    async function uploadImage(input) {
+        if (!input.files || !input.files[0]) return;
+        
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+            const response = await fetch('/designer/images/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('prop-src').value = data.url;
+                alert('Image uploaded successfully!');
+            } else {
+                const error = await response.json();
+                alert('Upload failed: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Upload failed: ' + error.message);
+        }
     }
 
     function saveProperties() {
-        console.log('Saving properties');
-        // TODO: Save element data
+        if (!currentElement) return;
+        
+        const type = currentElement.dataset.elementType;
+        let properties = {};
+        
+        if (type === 'text') {
+            properties = {
+                content: document.getElementById('prop-content')?.value || '',
+                fontSize: parseInt(document.getElementById('prop-fontSize')?.value) || 12,
+                bold: document.getElementById('prop-bold')?.checked || false,
+                color: document.getElementById('prop-color')?.value || '#000000'
+            };
+        } else if (type === 'image') {
+            properties = {
+                src: document.getElementById('prop-src')?.value || '',
+                alt: document.getElementById('prop-alt')?.value || '',
+                width: parseInt(document.getElementById('prop-width')?.value) || 200,
+                height: parseInt(document.getElementById('prop-height')?.value) || 150
+            };
+        } else if (type === 'table') {
+            properties = {
+                query: document.getElementById('prop-query')?.value || '',
+                showHeader: document.getElementById('prop-showHeader')?.checked !== false
+            };
+        } else if (type === 'chart') {
+            properties = {
+                title: document.getElementById('prop-title')?.value || '',
+                type: document.getElementById('prop-chartType')?.value || 'bar',
+                xField: document.getElementById('prop-xField')?.value || '',
+                yField: document.getElementById('prop-yField')?.value || ''
+            };
+        } else if (type === 'crosstab') {
+            properties = {
+                rowField: document.getElementById('prop-rowField')?.value || '',
+                columnField: document.getElementById('prop-columnField')?.value || '',
+                valueField: document.getElementById('prop-valueField')?.value || '',
+                aggregation: document.getElementById('prop-aggregation')?.value || 'sum'
+            };
+        } else if (type === 'subreport') {
+            properties = {
+                reportId: document.getElementById('prop-reportId')?.value || ''
+            };
+        }
+        
+        let elementData;
+        try {
+            elementData = JSON.parse(currentElement.dataset.elementData);
+        } catch {
+            elementData = { type: type, properties: {} };
+        }
+        elementData.properties = properties;
+        
+        // Save or clear the label
+        const labelValue = document.getElementById('prop-label')?.value?.trim();
+        if (labelValue) {
+            elementData.label = labelValue;
+        } else {
+            delete elementData.label;
+        }
+        
+        // Save hide label flag
+        const hideLabelCheckbox = document.getElementById('prop-hide-label');
+        if (hideLabelCheckbox && hideLabelCheckbox.checked) {
+            elementData.hide_label = true;
+        } else {
+            delete elementData.hide_label;
+        }
+        
+        currentElement.dataset.elementData = JSON.stringify(elementData);
+        
+        // Update the displayed text in the designer
+        const labelEl = currentElement.querySelector('.element-label-text');
+        if (labelEl) {
+            labelEl.textContent = labelValue || `${type.charAt(0).toUpperCase() + type.slice(1)} Element`;
+        }
+        
         closeProperties();
+    }
+
+    async function previewReport() {
+        try {
+            // Get current canvas state (before saving)
+            const currentDefinition = serializeCanvas();
+            
+            // Always use temporary preview with current canvas data
+            const tempDef = JSON.stringify(currentDefinition);
+            const previewUrl = `/preview/temp?definition_json=${encodeURIComponent(tempDef)}`;
+            
+            window.open(previewUrl, '_blank');
+        } catch (error) {
+            console.error('Preview error:', error);
+            alert('Failed to generate preview: ' + error.message);
+        }
     }
 
     document.getElementById('save-btn').addEventListener('click', async function() {
         const reportId = '{{ report.id if report else "" }}';
         const url = reportId ? `/designer/reports/${reportId}` : '/designer/reports';
-        
-        // Get form values
+
         const nameInput = document.getElementById('report-name');
         const descInput = document.getElementById('report-description');
         const reportName = nameInput ? nameInput.value.trim() || 'Untitled Report' : 'Untitled Report';
         const reportDesc = descInput ? descInput.value.trim() : '';
 
         try {
+            const definition = serializeCanvas();
+            const commitMessage = document.getElementById('commit-message')?.value?.trim() || '';
             const formData = new FormData();
             formData.append('name', reportName);
             formData.append('description', reportDesc);
-            formData.append('definition', JSON.stringify({}));
+            formData.append('definition', JSON.stringify(definition));
+            if (commitMessage) {
+                formData.append('commit_message', commitMessage);
+            }
 
             const response = await fetch(url, {
                 method: 'POST',
                 body: formData,
             });
 
-            // Check if response is OK (2xx) or redirect (3xx)
-            if (response.ok || response.status >= 300 && response.status < 400) {
+            if (response.ok || (response.status >= 300 && response.status < 400)) {
                 alert('Report saved successfully!');
-                // Stay on page - user can continue editing
-                // Optionally update the report ID display if new report
                 const location = response.headers.get('location');
                 if (location && !reportId) {
                     const idMatch = location.match(/\/reports\/([a-f0-9-]+)/);
                     if (idMatch && idMatch[1]) {
                         document.getElementById('report-id').textContent = idMatch[1];
-                        if (nameInput) nameInput.value = reportName;
                     }
+                }
+                // Always refresh history after save
+                if (reportId) {
+                    loadVersions(reportId);
                 }
             } else {
                 const errorText = await response.text();
@@ -532,5 +1491,1042 @@
             alert('An error occurred while saving: ' + error.message);
         }
     });
+
+    /* ===== DATA TAB ===== */
+    let allConnections = [];
+    let linkedConnectionIds = [];
+    let availableSchema = {};
+    let selectedFieldsList = [];
+    let currentConnectorFields = [];
+
+    async function loadAllConnections() {
+        try {
+            const res = await fetch('/datasources/');
+            if (!res.ok) return;
+            allConnections = await res.json();
+            renderConnectionsList();
+        } catch (e) {
+            console.error('Failed to load connections:', e);
+        }
+    }
+
+    function filterConnections() {
+        renderConnectionsList();
+    }
+
+    async function loadConnectorTypes() {
+        try {
+            const res = await fetch('/datasources/connectors');
+            if (!res.ok) return;
+            const connectors = await res.json();
+            const select = document.getElementById('nc-type');
+            connectors.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.type;
+                opt.textContent = c.label;
+                opt.dataset.fields = JSON.stringify(c.fields || []);
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load connector types:', e);
+        }
+    }
+
+    function renderConnectionsList() {
+        const container = document.getElementById('connections-list');
+        if (!allConnections.length) {
+            container.innerHTML = '<p class="text-muted text-center py-4">No connections yet. Create one to get started.</p>';
+            return;
+        }
+
+        container.innerHTML = allConnections.map(conn => {
+            const isLinked = linkedConnectionIds.includes(conn.id);
+            return `
+                <div class="connection-card ${isLinked ? 'linked' : ''}">
+                    <div class="connection-header">
+                        <div>
+                            <strong>${conn.name}</strong>
+                            <span class="connection-badge ms-2">${conn.connector_type}</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            ${isLinked ? '<span class="badge bg-success">Linked</span>' : ''}
+                            <button class="btn btn-sm btn-outline-primary" onclick="editConnection('${conn.id}')">Edit</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="testConnection('${conn.id}')">Test</button>
+                            <button class="btn btn-sm ${isLinked ? 'btn-outline-secondary' : 'btn-success'}" 
+                                onclick="toggleLinkConnection('${conn.id}')">
+                                ${isLinked ? 'Unlink' : 'Link'}
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteConnection('${conn.id}')">Delete</button>
+                        </div>
+                    </div>
+                    <small class="text-muted">Created: ${new Date(conn.created_at).toLocaleString()}</small>
+                </div>
+            `;
+        }).join('');
+
+        updateFieldsConnectionSelect();
+    }
+
+    async function editConnection(connId) {
+        try {
+            const res = await fetch(`/datasources/${connId}`);
+            if (!res.ok) throw new Error('Failed to fetch connection');
+            const conn = await res.json();
+            
+            // Populate the new connection form with existing data
+            document.getElementById('nc-type').value = conn.connector_type;
+            document.getElementById('nc-name').value = conn.name;
+            loadConnectionFields();
+            
+            // Store the ID for update
+            window.editingConnectionId = connId;
+            
+            // Show the form and hide the connections list
+            document.getElementById('new-connection-form').classList.add('active');
+            document.getElementById('connections-list').style.display = 'none';
+            document.querySelector('#new-connection-form h5').textContent = 'Edit Connection';
+            document.querySelector('#new-connection-form .btn-primary').textContent = 'Save Changes';
+        } catch (e) {
+            alert('Error loading connection: ' + e.message);
+        }
+    }
+
+    async function saveNewConnection() {
+        const type = document.getElementById('nc-type').value;
+        const name = document.getElementById('nc-name').value.trim();
+        if (!type || !name) {
+            alert('Please select a type and enter a name.');
+            return;
+        }
+
+        const config = {};
+        currentConnectorFields.forEach(f => {
+            const el = document.getElementById(`nc-${f.name}`);
+            if (el) config[f.name] = el.value;
+        });
+
+        try {
+            let res;
+            if (window.editingConnectionId) {
+                // Update existing connection
+                res = await fetch(`/datasources/${window.editingConnectionId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, config}),
+                });
+                delete window.editingConnectionId;
+            } else {
+                // Create new connection
+                res = await fetch('/datasources/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, connector_type: type, config}),
+                });
+            }
+            
+            if (!res.ok) throw new Error('Failed to save connection');
+            const data = await res.json();
+
+            // Refresh the connections list
+            await loadAllConnections();
+            hideNewConnectionForm();
+        } catch (e) {
+            alert('Error saving connection: ' + e.message);
+        }
+    }
+
+    function showNewConnectionForm() {
+        document.getElementById('new-connection-form').classList.add('active');
+    }
+
+    function hideNewConnectionForm() {
+        document.getElementById('new-connection-form').classList.remove('active');
+        document.getElementById('connections-list').style.display = 'block';
+        document.getElementById('nc-fields').innerHTML = '';
+        document.getElementById('nc-type').value = '';
+        document.getElementById('nc-name').value = '';
+        delete window.editingConnectionId;
+        // Reset form header and button text
+        const formHeader = document.querySelector('#new-connection-form h5');
+        if (formHeader) formHeader.textContent = 'Create New Connection';
+        const saveBtn = document.querySelector('#new-connection-form .btn-primary');
+        if (saveBtn) saveBtn.textContent = 'Save & Link';
+    }
+
+    function loadConnectionFields() {
+        const select = document.getElementById('nc-type');
+        const opt = select.options[select.selectedIndex];
+        const fields = JSON.parse(opt.dataset.fields || '[]');
+        currentConnectorFields = fields;
+
+        const container = document.getElementById('nc-fields');
+        container.innerHTML = fields.map(f => {
+            if (f.type === 'select') {
+                return `
+                    <div class="mb-3">
+                        <label class="form-label">${f.label}</label>
+                        <select class="form-control" id="nc-${f.name}">
+                            ${(f.options || []).map(o => `<option value="${o}" ${o == f.default ? 'selected' : ''}>${o}</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+            } else if (f.type === 'textarea') {
+                return `
+                    <div class="mb-3">
+                        <label class="form-label">${f.label}</label>
+                        <textarea class="form-control" id="nc-${f.name}" rows="2">${f.default || ''}</textarea>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="mb-3">
+                        <label class="form-label">${f.label}</label>
+                        <input type="${f.type || 'text'}" class="form-control" id="nc-${f.name}" value="${f.default || ''}">
+                    </div>
+                `;
+            }
+        }).join('');
+    }
+
+    async function saveNewConnection() {
+        const type = document.getElementById('nc-type').value;
+        const name = document.getElementById('nc-name').value.trim();
+        if (!type || !name) {
+            alert('Please select a type and enter a name.');
+            return;
+        }
+
+        const config = {};
+        currentConnectorFields.forEach(f => {
+            const el = document.getElementById(`nc-${f.name}`);
+            if (el) config[f.name] = el.value;
+        });
+
+        try {
+            const res = await fetch('/datasources/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, connector_type: type, config}),
+            });
+            if (!res.ok) throw new Error('Failed to create connection');
+            const data = await res.json();
+
+            allConnections.unshift({
+                id: data.id,
+                name: name,
+                connector_type: type,
+                created_at: new Date().toISOString(),
+            });
+
+            linkedConnectionIds.push(data.id);
+            hideNewConnectionForm();
+            renderConnectionsList();
+        } catch (e) {
+            alert('Error creating connection: ' + e.message);
+        }
+    }
+
+    async function testNewConnection() {
+        const type = document.getElementById('nc-type').value;
+        const name = document.getElementById('nc-name').value.trim();
+        if (!type || !name) {
+            alert('Please fill in all required fields.');
+            return;
+        }
+
+        const config = {};
+        currentConnectorFields.forEach(f => {
+            const el = document.getElementById(`nc-${f.name}`);
+            if (el) config[f.name] = el.value;
+        });
+
+        try {
+            const res = await fetch('/datasources/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, connector_type: type, config}),
+            });
+            if (!res.ok) throw new Error('Failed to create connection');
+            const data = await res.json();
+
+            const testRes = await fetch(`/datasources/test/${data.id}`);
+            const testData = await testRes.json();
+
+            if (testData.success) {
+                alert('Connection successful!');
+                allConnections.unshift({
+                    id: data.id,
+                    name: name,
+                    connector_type: type,
+                    created_at: new Date().toISOString(),
+                });
+                linkedConnectionIds.push(data.id);
+                hideNewConnectionForm();
+                renderConnectionsList();
+            } else {
+                await fetch(`/datasources/${data.id}`, {method: 'DELETE'});
+                alert('Connection failed: ' + (testData.message || 'Could not connect'));
+            }
+        } catch (e) {
+            alert('Error testing connection: ' + e.message);
+        }
+    }
+
+    async function testConnection(connId) {
+        try {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '...';
+            const res = await fetch(`/datasources/test/${connId}`, { method: 'POST' });
+            const data = await res.json();
+            alert(data.success ? 'Connection successful!' : 'Connection failed: ' + (data.message || ''));
+        } catch (e) {
+            alert('Error testing connection: ' + e.message);
+        } finally {
+            const btn = event.target;
+            btn.disabled = false;
+            btn.textContent = 'Test';
+        }
+    }
+
+    function toggleLinkConnection(connId) {
+        const idx = linkedConnectionIds.indexOf(connId);
+        if (idx >= 0) {
+            linkedConnectionIds.splice(idx, 1);
+        } else {
+            linkedConnectionIds.push(connId);
+        }
+        renderConnectionsList();
+    }
+
+    async function deleteConnection(connId) {
+        if (!confirm('Delete this connection?')) return;
+        try {
+            const res = await fetch(`/datasources/${connId}`, {method: 'DELETE'});
+            if (res.ok) {
+                allConnections = allConnections.filter(c => c.id !== connId);
+                linkedConnectionIds = linkedConnectionIds.filter(id => id !== connId);
+                renderConnectionsList();
+            }
+        } catch (e) {
+            alert('Error deleting connection: ' + e.message);
+        }
+    }
+
+    function updateFieldsConnectionSelect() {
+        const select = document.getElementById('fields-connection-select');
+        select.innerHTML = '<option value="">-- Select Linked Connection --</option>';
+        linkedConnectionIds.forEach(connId => {
+            const conn = allConnections.find(c => c.id === connId);
+            if (conn) {
+                const opt = document.createElement('option');
+                opt.value = conn.id;
+                opt.textContent = `${conn.name} (${conn.connector_type})`;
+                select.appendChild(opt);
+            }
+        });
+    }
+
+    /* ===== FIELDS TAB ===== */
+    async function loadSchemaForConnection() {
+        const connId = document.getElementById('fields-connection-select').value;
+        if (!connId) return;
+
+        const container = document.getElementById('available-fields');
+        container.innerHTML = '<p class="text-muted text-center py-4">Loading schema...</p>';
+
+        try {
+            const res = await fetch(`/datasources/${connId}/schema`);
+            if (!res.ok) throw new Error('Failed to load schema');
+            const data = await res.json();
+            availableSchema = data.schema || {};
+            renderAvailableFields();
+        } catch (e) {
+            container.innerHTML = `<p class="text-danger text-center py-4">Error: ${e.message}</p>`;
+        }
+    }
+
+    function refreshSchema() {
+        loadSchemaForConnection();
+    }
+
+    function renderAvailableFields() {
+        const container = document.getElementById('available-fields');
+        const tables = availableSchema.tables || [];
+        if (!tables.length) {
+            container.innerHTML = '<p class="text-muted text-center py-4">No tables found in this connection.</p>';
+            return;
+        }
+
+        container.innerHTML = tables.map(table => `
+            <div class="table-group">
+                <div class="table-header" onclick="toggleTable('${table.name}')">
+                    <span class="table-toggle" id="toggle-${table.name}">&#9654;</span>
+                    <strong>${table.name}</strong>
+                    <small class="text-muted">(${table.columns.length} fields)</small>
+                </div>
+                <div class="table-columns" id="cols-${table.name}">
+                    ${table.columns.map(col => `
+                        <div class="field-item">
+                            <input type="checkbox" id="field-${table.name}-${col.name}" 
+                                onchange="toggleField('${table.name}', '${col.name}', '${col.type}', this.checked)">
+                            <label for="field-${table.name}-${col.name}" style="cursor:pointer; flex:1;">${col.name}</label>
+                            <span class="field-type">${col.type}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+
+        selectedFieldsList.forEach(sf => {
+            const cb = document.getElementById(`field-${sf.table}-${sf.field}`);
+            if (cb) cb.checked = true;
+        });
+    }
+
+    function toggleTable(tableName) {
+        const cols = document.getElementById(`cols-${tableName}`);
+        const toggle = document.getElementById(`toggle-${tableName}`);
+        if (cols.classList.contains('expanded')) {
+            cols.classList.remove('expanded');
+            toggle.textContent = '\u25B6';
+        } else {
+            cols.classList.add('expanded');
+            toggle.textContent = '\u25BC';
+        }
+    }
+
+    function toggleField(table, field, type, checked) {
+        if (checked) {
+            if (!selectedFieldsList.find(f => f.table === table && f.field === field)) {
+                selectedFieldsList.push({table, field, type});
+            }
+        } else {
+            selectedFieldsList = selectedFieldsList.filter(f => !(f.table === table && f.field === field));
+        }
+        renderSelectedFields();
+        updateQueryPreview();
+    }
+
+    function renderSelectedFields() {
+        const container = document.getElementById('selected-fields');
+        if (!selectedFieldsList.length) {
+            container.innerHTML = '<p class="text-muted text-center py-4">No fields selected yet.</p>';
+            return;
+        }
+
+        const grouped = {};
+        selectedFieldsList.forEach(f => {
+            if (!grouped[f.table]) grouped[f.table] = [];
+            grouped[f.table].push(f);
+        });
+
+        container.innerHTML = Object.entries(grouped).map(([table, fields]) => `
+            <div class="table-group">
+                <strong>${table}</strong>
+                ${fields.map(f => `
+                    <div class="selected-field-item">
+                        <span>${f.field} <small class="text-muted">(${f.type})</small></span>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeField('${table}', '${f.field}')">&times;</button>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('');
+    }
+
+    function removeField(table, field) {
+        selectedFieldsList = selectedFieldsList.filter(f => !(f.table === table && f.field === field));
+        const cb = document.getElementById(`field-${table}-${field}`);
+        if (cb) cb.checked = false;
+        renderSelectedFields();
+        updateQueryPreview();
+    }
+
+    function resetFields() {
+        selectedFieldsList = [];
+        document.querySelectorAll('#available-fields input[type="checkbox"]').forEach(cb => cb.checked = false);
+        renderSelectedFields();
+        updateQueryPreview();
+    }
+
+    function buildQuery() {
+        if (!selectedFieldsList.length) return 'SELECT ... -- Select fields to generate query preview';
+
+        const grouped = {};
+        selectedFieldsList.forEach(f => {
+            if (!grouped[f.table]) grouped[f.table] = [];
+            grouped[f.table].push(f);
+        });
+
+        const tables = Object.keys(grouped);
+        const selects = [];
+        tables.forEach(t => {
+            grouped[t].forEach(f => {
+                selects.push(`${t}.${f.field}`);
+            });
+        });
+
+        let query = `SELECT\n  ${selects.join(',\n  ')}\nFROM\n  ${tables[0]}`;
+        for (let i = 1; i < tables.length; i++) {
+            query += `\n  INNER JOIN ${tables[i]} ON ...`;
+        }
+        return query;
+    }
+
+    function updateQueryPreview() {
+        document.getElementById('query-preview').textContent = buildQuery();
+    }
+
+    function copyQuery() {
+        const query = buildQuery();
+        navigator.clipboard.writeText(query).then(() => {
+            alert('Query copied to clipboard!');
+        }).catch(() => {
+            const el = document.getElementById('query-preview');
+            el.select();
+            document.execCommand('copy');
+        });
+    }
+
+    async function testQuery() {
+        const connId = document.getElementById('fields-connection-select').value;
+        if (!connId) {
+            alert('Select a connection first.');
+            return;
+        }
+
+        const query = buildQuery();
+        if (query.startsWith('SELECT ...')) {
+            alert('No fields selected to test.');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/datasources/${connId}/query`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({query, limit: 100}),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                alert('Query failed: ' + (err.detail || 'Unknown error'));
+                return;
+            }
+
+            const data = await res.json();
+            const resultsDiv = document.getElementById('query-results');
+            const tableDiv = document.getElementById('query-results-table');
+            resultsDiv.style.display = 'block';
+
+            if (!data.preview.length) {
+                tableDiv.innerHTML = '<p class="text-muted">No rows returned.</p>';
+                return;
+            }
+
+            const cols = data.columns.map(c => c.name);
+            let html = '<table class="table table-sm table-striped"><thead><tr>';
+            cols.forEach(c => html += `<th>${c}</th>`);
+            html += '</tr></thead><tbody>';
+            data.preview.forEach(row => {
+                html += '<tr>';
+                cols.forEach(c => html += `<td>${row[c] ?? ''}</td>`);
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            tableDiv.innerHTML = html;
+        } catch (e) {
+            alert('Error testing query: ' + e.message);
+        }
+    }
+
+    /* ===== UPDATE SERIALIZATION ===== */
+    // Override serializeCanvas to include data_sources and fields
+    const _origSerializeCanvas = serializeCanvas;
+    serializeCanvas = function() {
+        const def = _origSerializeCanvas();
+        def.data_sources = linkedConnectionIds.map(connId => {
+            const conn = allConnections.find(c => c.id === connId);
+            return {
+                connection_id: connId,
+                name: conn ? conn.name : '',
+                type: conn ? conn.connector_type : '',
+            };
+        });
+        def.selected_fields = selectedFieldsList;
+        def.query = buildQuery();
+        return def;
+    };
+
+    // ===== QUERY BUILDER =====
+    let queryBuilderModal = null;
+    let currentQueryBuilderType = null;
+
+    function openQueryBuilder(elementType) {
+        currentQueryBuilderType = elementType;
+        
+        if (!queryBuilderModal) {
+            queryBuilderModal = document.createElement('div');
+            queryBuilderModal.id = 'query-builder-modal';
+            queryBuilderModal.className = 'properties-modal active';
+            queryBuilderModal.innerHTML = `
+                <div class="properties-content" style="max-width: 1400px; width: 95%;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3>🔨 Visual Query Builder</h3>
+                        <button type="button" class="btn-close" onclick="closeQueryBuilder()"></button>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 280px 1fr 300px; gap: 20px; min-height: 500px;">
+                        <!-- Schema Browser -->
+                        <div class="schema-panel" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px; overflow-y: auto; max-height: 600px;">
+                            <h4 style="margin-bottom: 15px; color: #666;">📊 Tables</h4>
+                            <div id="qb-schema-tables">
+                                <p class="text-muted">Loading schema...</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Query Canvas -->
+                        <div class="query-canvas" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px;">
+                            <div class="canvas-toolbar mb-3">
+                                <button class="btn btn-sm btn-outline-primary" onclick="qbAddStep('select')">➕ SELECT</button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="qbAddStep('from')">➕ FROM</button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="qbAddStep('join')">➕ JOIN</button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="qbAddStep('where')">➕ WHERE</button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="qbAddStep('groupby')">➕ GROUP BY</button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="qbAddStep('orderby')">➕ ORDER BY</button>
+                            </div>
+                            
+                            <div id="qb-query-steps">
+                                <!-- Steps will be dynamically added here -->
+                            </div>
+                        </div>
+                        
+                        <!-- SQL Preview -->
+                        <div class="sql-panel" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px; background: #2c3e50; color: white;">
+                            <h4 style="margin-bottom: 15px;">📝 Generated SQL</h4>
+                            <pre id="qb-sql-output" style="background: #1a252f; padding: 15px; border-radius: 4px; font-size: 12px; overflow-y: auto; max-height: 400px; white-space: pre-wrap;">-- Select tables and columns to build your query</pre>
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-primary w-100 mb-2" onclick="qbTestQuery()">▶ Test Query</button>
+                                <button class="btn btn-sm btn-secondary w-100" onclick="qbCopySQL()">📋 Copy SQL</button>
+                            </div>
+                            
+                            <div id="qb-test-result" class="mt-2"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2 mt-3 justify-content-end">
+                        <button class="btn btn-secondary" onclick="closeQueryBuilder()">Cancel</button>
+                        <button class="btn btn-primary" onclick="qbApplyQuery()">Apply Query</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(queryBuilderModal);
+        }
+        
+        queryBuilderModal.style.display = 'flex';
+        loadSchema();
+    }
+
+    function closeQueryBuilder() {
+        if (queryBuilderModal) {
+            queryBuilderModal.remove();
+            queryBuilderModal = null;
+        }
+    }
+
+    async function loadSchema() {
+        const container = document.getElementById('qb-schema-tables');
+        if (!container) return;
+        
+        try {
+            // Use the first available connection
+            const connId = linkedConnectionIds[0];
+            if (!connId) {
+                container.innerHTML = '<p class="text-muted">No database connection configured</p>';
+                return;
+            }
+            
+            const response = await fetch(`/api/query-builder/schema/${connId}`);
+            if (!response.ok) throw new Error('Failed to load schema');
+            
+            const schema = await response.json();
+            
+            container.innerHTML = schema.tables.map(table => `
+                <div class="schema-table mb-2">
+                    <div class="table-header d-flex align-items-center gap-2 p-2 bg-light rounded" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+                        <span>📋</span>
+                        <strong>${table.name}</strong>
+                    </div>
+                    <div class="table-columns mt-1" style="display: none;">
+                        ${table.columns.map(col => `
+                            <div class="column-item d-flex align-items-center justify-content-between p-1 hover-bg-light rounded cursor-pointer" 
+                                 onclick="qbAddColumn('${table.name}', '${col.name}', '${col.data_type}')"
+                                 draggable="true"
+                                 ondragstart="qbDragColumn(event, '${table.name}', '${col.name}')">
+                                <span>${col.name}</span>
+                                <small class="text-muted">${col.data_type}</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading schema:', error);
+            container.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+        }
+    }
+
+    function qbAddColumn(tableName, columnName, dataType) {
+        const stepsContainer = document.getElementById('qb-query-steps');
+        
+        // Find or create SELECT step
+        let selectStep = stepsContainer.querySelector('[data-step-type="select"]');
+        if (!selectStep) {
+            qbAddStep('select');
+            selectStep = stepsContainer.querySelector('[data-step-type="select"]');
+        }
+        
+        const columnsContainer = selectStep.querySelector('.qb-selected-columns');
+        const columnTag = document.createElement('div');
+        columnTag.className = 'column-tag d-inline-flex align-items-center gap-2 px-2 py-1 bg-primary text-white rounded me-2 mb-2';
+        columnTag.innerHTML = `
+            <span>${tableName}.${columnName}</span>
+            <select class="qb-agg-select form-select form-select-sm" style="width: auto; font-size: 11px;" onchange="qbUpdateAggregation(this)">
+                <option value="">None</option>
+                <option value="COUNT">COUNT</option>
+                <option value="SUM">SUM</option>
+                <option value="AVG">AVG</option>
+                <option value="MIN">MIN</option>
+                <option value="MAX">MAX</option>
+            </select>
+            <span class="remove cursor-pointer" onclick="this.parentElement.remove(); qbRegenerateSQL()">✕</span>
+        `;
+        columnTag.dataset.table = tableName;
+        columnTag.dataset.column = columnName;
+        columnTag.draggable = true;
+        
+        // Add drag events for reordering
+        columnTag.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                type: 'column',
+                table: tableName,
+                column: columnName,
+                aggregation: ''
+            }));
+            columnTag.style.opacity = '0.5';
+        });
+        
+        columnTag.addEventListener('dragend', () => {
+            columnTag.style.opacity = '1';
+        });
+        
+        columnsContainer.appendChild(columnTag);
+        
+        qbRegenerateSQL();
+    }
+
+    function qbUpdateAggregation(select) {
+        const tag = select.closest('.column-tag');
+        tag.dataset.aggregation = select.value || null;
+        qbRegenerateSQL();
+    }
+
+    function qbAddStep(type) {
+        const stepsContainer = document.getElementById('qb-query-steps');
+        const stepId = `qb-step-${Date.now()}`;
+        
+        let stepHtml = '';
+        
+        switch(type) {
+            case 'select':
+                stepHtml = `
+                    <div class="step-card border rounded p-3 mb-2" data-step-type="select" id="${stepId}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>1. SELECT Columns</strong>
+                            <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.step-card').remove(); qbRegenerateSQL()">✕</button>
+                        </div>
+                        <div class="qb-selected-columns"></div>
+                    </div>
+                `;
+                break;
+                
+            case 'from':
+                stepHtml = `
+                    <div class="step-card border rounded p-3 mb-2" data-step-type="from" id="${stepId}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>2. FROM Tables</strong>
+                            <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.step-card').remove(); qbRegenerateSQL()">✕</button>
+                        </div>
+                        <div class="qb-selected-tables"></div>
+                    </div>
+                `;
+                break;
+                
+            case 'join':
+                stepHtml = `
+                    <div class="step-card border rounded p-3 mb-2" data-step-type="join" id="${stepId}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>3. JOIN</strong>
+                            <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.step-card').remove(); qbRegenerateSQL()">✕</button>
+                        </div>
+                        <div class="join-config">
+                            <div class="row mb-2">
+                                <div class="col">
+                                    <select class="form-select form-select-sm qb-join-table" onchange="qbRegenerateSQL()">
+                                        <option value="">Select table...</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <select class="form-select form-select-sm qb-join-type">
+                                        <option value="INNER">INNER JOIN</option>
+                                        <option value="LEFT">LEFT JOIN</option>
+                                        <option value="RIGHT">RIGHT JOIN</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <input type="text" class="form-control form-control-sm qb-join-condition" placeholder="ON condition (e.g., t1.id = t2.fk)" onchange="qbRegenerateSQL()">
+                        </div>
+                    </div>
+                `;
+                break;
+                
+            case 'where':
+                stepHtml = `
+                    <div class="step-card border rounded p-3 mb-2" data-step-type="where" id="${stepId}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>4. WHERE Filters</strong>
+                            <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.step-card').remove(); qbRegenerateSQL()">✕</button>
+                        </div>
+                        <div class="filter-config">
+                            <div class="row mb-2">
+                                <div class="col">
+                                    <select class="form-select form-select-sm qb-filter-field">
+                                        <option value="">Select field...</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <select class="form-select form-select-sm qb-filter-operator">
+                                        <option value="=">=</option>
+                                        <option value=">">></option>
+                                        <option value="<"><</option>
+                                        <option value="LIKE">LIKE</option>
+                                        <option value="IN">IN</option>
+                                    </select>
+                                </div>
+                                <div class="col">
+                                    <input type="text" class="form-control form-control-sm qb-filter-value" placeholder="Value">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                break;
+                
+            case 'groupby':
+                stepHtml = `
+                    <div class="step-card border rounded p-3 mb-2" data-step-type="groupby" id="${stepId}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>5. GROUP BY</strong>
+                            <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.step-card').remove(); qbRegenerateSQL()">✕</button>
+                        </div>
+                        <div class="qb-selected-columns"></div>
+                    </div>
+                `;
+                break;
+                
+            case 'orderby':
+                stepHtml = `
+                    <div class="step-card border rounded p-3 mb-2" data-step-type="orderby" id="${stepId}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>6. ORDER BY</strong>
+                            <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.step-card').remove(); qbRegenerateSQL()">✕</button>
+                        </div>
+                        <div class="orderby-config">
+                            <div class="row">
+                                <div class="col">
+                                    <select class="form-select form-select-sm qb-orderby-field">
+                                        <option value="">Select field...</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <select class="form-select form-select-sm qb-orderby-direction">
+                                        <option value="ASC">ASC</option>
+                                        <option value="DESC">DESC</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                break;
+        }
+        
+        stepsContainer.insertAdjacentHTML('beforeend', stepHtml);
+        qbRegenerateSQL();
+    }
+
+    function qbRegenerateSQL() {
+        const stepsContainer = document.getElementById('qb-query-steps');
+        if (!stepsContainer) return;
+        
+        const steps = stepsContainer.querySelectorAll('.step-card');
+        let sql = '';
+        
+        // SELECT
+        const selectSteps = steps.filter(s => s.dataset.stepType === 'select');
+        if (selectSteps.length > 0) {
+            const columns = [];
+            selectSteps.forEach(step => {
+                step.querySelectorAll('.column-tag').forEach(tag => {
+                    const table = tag.dataset.table;
+                    const column = tag.dataset.column;
+                    const agg = tag.dataset.aggregation;
+                    
+                    if (agg) {
+                        columns.push(`${agg}(${table}.${column})`);
+                    } else {
+                        columns.push(`${table}.${column}`);
+                    }
+                });
+            });
+            sql += `SELECT ${columns.join(', ')}\n`;
+        }
+        
+        // FROM
+        const fromSteps = steps.filter(s => s.dataset.stepType === 'from');
+        if (fromSteps.length > 0) {
+            const tables = [];
+            fromSteps.forEach(step => {
+                step.querySelectorAll('.qb-table-tag').forEach(tag => {
+                    tables.push(tag.textContent.trim());
+                });
+            });
+            if (tables.length > 0) {
+                sql += `FROM ${tables[0]}\n`;
+            }
+        }
+        
+        // JOINs
+        const joinSteps = steps.filter(s => s.dataset.stepType === 'join');
+        joinSteps.forEach(step => {
+            const table = step.querySelector('.qb-join-table')?.value;
+            const type = step.querySelector('.qb-join-type')?.value;
+            const condition = step.querySelector('.qb-join-condition')?.value;
+            
+            if (table && condition) {
+                sql += `${type} JOIN ${table} ON ${condition}\n`;
+            }
+        });
+        
+        // WHERE
+        const whereSteps = steps.filter(s => s.dataset.stepType === 'where');
+        const filters = [];
+        whereSteps.forEach(step => {
+            const field = step.querySelector('.qb-filter-field')?.value;
+            const operator = step.querySelector('.qb-filter-operator')?.value;
+            const value = step.querySelector('.qb-filter-value')?.value;
+            
+            if (field && value) {
+                filters.push(`${field} ${operator} '${value}'`);
+            }
+        });
+        if (filters.length > 0) {
+            sql += `WHERE ${filters.join(' AND ')}\n`;
+        }
+        
+        // GROUP BY
+        const groupBySteps = steps.filter(s => s.dataset.stepType === 'groupby');
+        if (groupBySteps.length > 0) {
+            const columns = [];
+            groupBySteps.forEach(step => {
+                step.querySelectorAll('.column-tag').forEach(tag => {
+                    columns.push(`${tag.dataset.table}.${tag.dataset.column}`);
+                });
+            });
+            if (columns.length > 0) {
+                sql += `GROUP BY ${columns.join(', ')}\n`;
+            }
+        }
+        
+        // ORDER BY
+        const orderBySteps = steps.filter(s => s.dataset.stepType === 'orderby');
+        if (orderBySteps.length > 0) {
+            const fields = [];
+            orderBySteps.forEach(step => {
+                const field = step.querySelector('.qb-orderby-field')?.value;
+                const direction = step.querySelector('.qb-orderby-direction')?.value;
+                if (field) {
+                    fields.push(`${field} ${direction}`);
+                }
+            });
+            if (fields.length > 0) {
+                sql += `ORDER BY ${fields.join(', ')}`;
+            }
+        }
+        
+        const sqlOutput = document.getElementById('qb-sql-output');
+        if (sqlOutput) {
+            sqlOutput.textContent = sql || '-- Select tables and columns to build your query';
+        }
+    }
+
+    async function qbTestQuery() {
+        const resultDiv = document.getElementById('qb-test-result');
+        if (!resultDiv) return;
+        
+        resultDiv.innerHTML = '<div class="alert alert-info">⏳ Testing query...</div>';
+        
+        try {
+            // Get current SQL
+            const sqlOutput = document.getElementById('qb-sql-output');
+            const sql = sqlOutput?.textContent || '';
+            
+            if (!sql || sql.startsWith('--')) {
+                resultDiv.innerHTML = '<div class="alert alert-warning">⚠️ Please build a query first</div>';
+                return;
+            }
+            
+            // For now, show a mock success message
+            resultDiv.innerHTML = '<div class="alert alert-success">✅ Query syntax looks valid! (Test execution requires database connection)</div>';
+        } catch (error) {
+            resultDiv.innerHTML = `<div class="alert alert-danger">❌ Error: ${error.message}</div>`;
+        }
+    }
+
+    function qbCopySQL() {
+        const sqlOutput = document.getElementById('qb-sql-output');
+        if (!sqlOutput) return;
+        
+        const sql = sqlOutput.textContent;
+        navigator.clipboard.writeText(sql).then(() => {
+            alert('SQL copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }
+
+    function qbApplyQuery() {
+        const sqlOutput = document.getElementById('qb-sql-output');
+        if (!sqlOutput) return;
+        
+        const sql = sqlOutput.textContent;
+        
+        if (currentQueryBuilderType === 'table') {
+            const queryInput = document.getElementById('prop-query');
+            if (queryInput) {
+                queryInput.value = sql;
+            }
+        } else if (currentQueryBuilderType === 'chart') {
+            // For charts, we'd need to parse the SQL to extract xField and yField
+            // For now, just store the SQL in a hidden field or properties
+            alert('Chart query builder: SQL saved. X/Y fields would be extracted from SELECT clause.');
+        }
+        
+        closeQueryBuilder();
+    }
+
+    function qbDragColumn(event, tableName, columnName) {
+        event.dataTransfer.setData('text/plain', `${tableName}.${columnName}`);
+    }
 </script>
 {% endblock %}

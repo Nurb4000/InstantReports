@@ -5,7 +5,61 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Report Designer</h1>
-    <a href="/designer/reports/new" class="btn btn-primary">+ New Report</a>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" onclick="toggleFilters()">
+            <span id="filter-icon">&#9776;</span> Filters
+        </button>
+        <button class="btn btn-outline-primary" onclick="document.getElementById('import-file-input').click()">Import Report</button>
+        <input type="file" id="import-file-input" accept=".ir.json,.json" style="display:none" onchange="importReport(event)">
+        <a href="/designer/reports/new" class="btn btn-primary">+ New Report</a>
+    </div>
+</div>
+
+<!-- Filter Panel -->
+<div id="filter-panel" class="card mb-3" style="display: none;">
+    <div class="card-body">
+        <form id="filter-form" onsubmit="applyFilters(event)">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" class="form-control" id="filter-search" name="search" 
+                           placeholder="Search by name or description..." 
+                           value="{{ filters.search if filters else '' }}">
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-control" id="filter-status" name="status_filter">
+                        <option value="">All</option>
+                        <option value="active" {% if filters and filters.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if filters and filters.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Creator</label>
+                    <select class="form-control" id="filter-creator" name="creator_filter">
+                        <option value="">All</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if filters and filters.creator == user.id|string %}selected{% endif %}>
+                            {{ user.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Sort By</label>
+                    <select class="form-control" id="filter-sort" name="sort_by">
+                        <option value="updated_at" {% if not filters or filters.sort_by == 'updated_at' %}selected{% endif %}>Last Updated</option>
+                        <option value="created_at" {% if filters and filters.sort_by == 'created_at' %}selected{% endif %}>Date Created</option>
+                        <option value="name" {% if filters and filters.sort_by == 'name' %}selected{% endif %}>Name</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Apply Filters</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="card">
@@ -16,6 +70,7 @@
             <tr>
                 <th>Name</th>
                 <th>Description</th>
+                <th>Creator</th>
                 <th>Updated</th>
                 <th>Actions</th>
             </tr>
@@ -25,16 +80,75 @@
             <tr>
                 <td><a href="/designer/reports/{{ report.id }}">{{ report.name }}</a></td>
                 <td>{{ report.description or '-' }}</td>
+                <td>{{ report.creator.name if report.creator else 'Unknown' }}</td>
                 <td>{{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else '-' }}</td>
                 <td>
                     <a href="/designer/reports/{{ report.id }}" class="btn btn-secondary btn-sm">Edit</a>
+                    <a href="/designer/reports/{{ report.id }}/export" class="btn btn-outline-success btn-sm">Export</a>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <p class="text-muted">No reports yet. Create your first report to get started.</p>
+    <p class="text-muted">No reports found. Create your first report to get started.</p>
     {% endif %}
 </div>
+
+<script>
+function toggleFilters() {
+    const panel = document.getElementById('filter-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function applyFilters(event) {
+    event.preventDefault();
+    const search = document.getElementById('filter-search').value;
+    const status = document.getElementById('filter-status').value;
+    const creator = document.getElementById('filter-creator').value;
+    const sort = document.getElementById('filter-sort').value;
+    
+    let url = '/designer/reports?';
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    if (status) url += `status_filter=${encodeURIComponent(status)}&`;
+    if (creator) url += `creator_filter=${encodeURIComponent(creator)}&`;
+    if (sort) url += `sort_by=${encodeURIComponent(sort)}&`;
+    
+    window.location.href = url;
+}
+
+function resetFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-creator').value = '';
+    document.getElementById('filter-sort').value = 'updated_at';
+    applyFilters(new Event('submit'));
+}
+
+async function importReport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/designer/reports/import', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (response.ok || (response.status >= 300 && response.status < 400)) {
+            window.location.href = response.headers.get('location') || '/designer/reports';
+        } else {
+            const error = await response.json();
+            alert('Import failed: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Import error: ' + err.message);
+    }
+
+    event.target.value = '';
+}
+</script>
 {% endblock %}

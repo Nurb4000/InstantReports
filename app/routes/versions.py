@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.routes.auth import get_current_user_optional
@@ -15,6 +18,7 @@ from app.services.versioning import (
     delete_comment,
     get_comments,
     get_tags,
+    get_version,
     get_versions,
     remove_tag,
     restore_version,
@@ -60,9 +64,7 @@ async def get_version_detail(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    version = await __import__("app.services.versioning.store").get_version(
-        db, report_id, version_number
-    )
+    version = await get_version(db, report_id, version_number)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
 
@@ -85,20 +87,23 @@ async def create_version(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    # Get role value (handle both Enum and string)
+    role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+    if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     form = await request.form()
-    definition = __import__("json").loads(form.get("definition", "{}"))
+    definition = json.loads(form.get("definition", "{}"))
 
     report_result = await db.execute(
-        __import__("sqlalchemy").select(Report).where(Report.id == report_id)
+        select(Report).where(Report.id == report_id)
     )
     report = report_result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    latest_version = await __import__("app.services.versioning.store").get_latest_version(db, report_id)
+    from app.services.versioning.store import get_latest_version
+    latest_version = await get_latest_version(db, report_id)
     diff_summary = None
     if latest_version:
         diff_summary = diff_engine.diff(latest_version.definition, definition)
@@ -113,7 +118,7 @@ async def create_version(
     )
 
     report.definition = definition
-    report.updated_at = __import__("datetime").datetime.utcnow()
+    report.updated_at = datetime.utcnow()
     await db.commit()
 
     return {
@@ -131,7 +136,9 @@ async def restore_version_endpoint(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    # Get role value (handle both Enum and string)
+    role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+    if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
@@ -156,7 +163,9 @@ async def tag_version(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    # Get role value (handle both Enum and string)
+    role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+    if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
@@ -180,7 +189,9 @@ async def untag_version(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
+    # Get role value (handle both Enum and string)
+    role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+    if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     success = await remove_tag(db, report_id, tag_name)
@@ -260,8 +271,9 @@ async def diff_versions(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    version1 = await __import__("app.services.versioning.store").get_version(db, report_id, v1)
-    version2 = await __import__("app.services.versioning.store").get_version(db, report_id, v2)
+    from app.services.versioning.store import get_version as get_ver
+    version1 = await get_ver(db, report_id, v1)
+    version2 = await get_ver(db, report_id, v2)
 
     if not version1 or not version2:
         raise HTTPException(status_code=404, detail="Version not found")

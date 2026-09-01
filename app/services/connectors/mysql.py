@@ -5,9 +5,19 @@ from typing import Any
 
 import pandas as pd
 
+from app.services.connectors.base import DataConnector
+
 
 class MySQLConnector(DataConnector):
     """Connector for MySQL/MariaDB databases using asyncmy."""
+
+    config_fields = [
+        {"name": "host", "label": "Host", "type": "text", "default": "localhost", "required": True},
+        {"name": "port", "label": "Port", "type": "number", "default": 3306, "required": False},
+        {"name": "database", "label": "Database", "type": "text", "default": "", "required": True},
+        {"name": "user", "label": "Username", "type": "text", "default": "", "required": True},
+        {"name": "password", "label": "Password", "type": "password", "default": "", "required": True},
+    ]
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:

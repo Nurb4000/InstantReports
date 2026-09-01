@@ -22,15 +22,32 @@ async def portal_index(
     current_user: User | None = Depends(get_current_user_optional),
     search: str = Query(None),
     format_type: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
+    from datetime import datetime
+    
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
+    from app.models.connection import Schedule
+    
+    # Get schedules owned by this user
+    owner_schedule_ids = (
+        select(Schedule.report_id)
+        .where(Schedule.owner_id == current_user.id)
+    ).scalar_subquery()
+    
     query = (
         select(ReportOutput)
         .join(Report)
-        .where(ReportOutput.generated_by == current_user.id)
+        .where(
+            or_(
+                ReportOutput.generated_by == current_user.id,
+                Report.id.in_(owner_schedule_ids)
+            )
+        )
     )
 
     if search:
@@ -43,6 +60,22 @@ async def portal_index(
 
     if format_type:
         query = query.where(ReportOutput.format == format_type)
+
+    if date_from:
+        try:
+            from_date = datetime.fromisoformat(date_from)
+            query = query.where(ReportOutput.generated_at >= from_date)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            to_date = datetime.fromisoformat(date_to)
+            # Include the entire day
+            to_date = to_date.replace(hour=23, minute=59, second=59)
+            query = query.where(ReportOutput.generated_at <= to_date)
+        except ValueError:
+            pass
 
     query = query.order_by(ReportOutput.generated_at.desc()).limit(50)
 
@@ -57,6 +90,8 @@ async def portal_index(
             "outputs": outputs,
             "search": search,
             "format_type": format_type,
+            "date_from": date_from,
+            "date_to": date_to,
             "mode": settings.MODE,
         },
     )

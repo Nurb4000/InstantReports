@@ -5,7 +5,55 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Audit Log</h1>
-    <button class="btn btn-secondary" onclick="loadAuditLog()">Refresh</button>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" onclick="toggleFilters()">
+            <span id="filter-icon">&#9776;</span> Filters
+        </button>
+        <button class="btn btn-secondary" onclick="loadAuditLog()">Refresh</button>
+    </div>
+</div>
+
+<!-- Filter Panel -->
+<div id="filter-panel" class="card mb-3" style="display: none;">
+    <div class="card-body">
+        <form id="filter-form" onsubmit="applyFilters(event)">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" class="form-control" id="filter-search" name="search" 
+                           placeholder="Search in details...">
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Action</label>
+                    <select class="form-control" id="filter-action" name="action_filter">
+                        <option value="">All Actions</option>
+                        <option value="generated">Generated</option>
+                        <option value="failed">Failed</option>
+                        <option value="scheduled">Scheduled</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Sort By</label>
+                    <select class="form-control" id="filter-sort" name="sort_by">
+                        <option value="executed_at">Latest First</option>
+                        <option value="action">Action A-Z</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Limit</label>
+                    <select class="form-control" id="filter-limit" name="limit">
+                        <option value="50">50 entries</option>
+                        <option value="100" selected>100 entries</option>
+                        <option value="200">200 entries</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Apply</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="card">
@@ -28,33 +76,65 @@
 </div>
 
 <script>
-    async function loadAuditLog() {
-        try {
-            const response = await fetch('/admin/api/audit-log?limit=100');
-            if (response.ok) {
-                const logs = await response.json();
-                const tbody = document.getElementById('audit-table');
-                
-                if (logs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No audit entries found.</td></tr>';
-                    return;
-                }
+let currentFilters = {};
 
-                tbody.innerHTML = logs.map(log => `
-                    <tr>
-                        <td>${new Date(log.executed_at).toLocaleString()}</td>
-                        <td><span class="badge bg-${log.action === 'generated' ? 'success' : log.action === 'failed' ? 'danger' : 'info'}">${log.action}</span></td>
-                        <td>${log.report_id || '-'}</td>
-                        <td>${log.schedule_id || '-'}</td>
-                        <td><pre class="small">${JSON.stringify(log.details, null, 2)}</pre></td>
-                    </tr>
-                `).join('');
-            }
-        } catch (error) {
-            console.error('Error loading audit log:', error);
-        }
-    }
+function toggleFilters() {
+    const panel = document.getElementById('filter-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
 
+function applyFilters(event) {
+    event.preventDefault();
+    const search = document.getElementById('filter-search').value;
+    const action = document.getElementById('filter-action').value;
+    const sort = document.getElementById('filter-sort').value;
+    const limit = document.getElementById('filter-limit').value;
+    
+    currentFilters = { search, action_filter: action, sort_by: sort, limit: parseInt(limit) };
     loadAuditLog();
+}
+
+function resetFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-action').value = '';
+    document.getElementById('filter-sort').value = 'executed_at';
+    document.getElementById('filter-limit').value = '100';
+    currentFilters = {};
+    loadAuditLog();
+}
+
+async function loadAuditLog() {
+    try {
+        let url = `/admin/api/audit-log?limit=${currentFilters.limit || 100}`;
+        if (currentFilters.search) url += `&search=${encodeURIComponent(currentFilters.search)}`;
+        if (currentFilters.action_filter) url += `&action_filter=${encodeURIComponent(currentFilters.action_filter)}`;
+        if (currentFilters.sort_by) url += `&sort_by=${encodeURIComponent(currentFilters.sort_by)}`;
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            const logs = await response.json();
+            const tbody = document.getElementById('audit-table');
+            
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No audit entries found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${new Date(log.executed_at).toLocaleString()}</td>
+                    <td><span class="badge bg-${log.action === 'generated' ? 'success' : log.action === 'failed' ? 'danger' : 'info'}">${log.action}</span></td>
+                    <td>${log.report_id || '-'}</td>
+                    <td>${log.schedule_id || '-'}</td>
+                    <td><pre class="small">${JSON.stringify(log.details, null, 2)}</pre></td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading audit log:', error);
+    }
+}
+
+loadAuditLog();
 </script>
 {% endblock %}

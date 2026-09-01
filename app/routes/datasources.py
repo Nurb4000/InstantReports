@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
+import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,18 +13,50 @@ from app.database import get_db
 from app.models.connection import DataConnection
 from app.models.user import User
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _require_designer(user):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get role value (handle both Enum and string)
+    role = user.role.value if hasattr(user.role, 'value') else user.role
+    if role not in ("admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
 
 
 @router.get("/")
 async def list_connections(
+    search: str = None,
+    type_filter: str = None,
+    sort_by: str = "updated_at",
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    result = await db.execute(select(DataConnection).order_by(DataConnection.updated_at.desc()))
+    query = select(DataConnection)
+    
+    # Apply type filter
+    if type_filter:
+        query = query.where(DataConnection.connector_type == type_filter)
+    
+    # Apply search filter
+    if search:
+        query = query.where(DataConnection.name.ilike(f"%{search}%"))
+    
+    # Apply sorting
+    if sort_by == "name":
+        query = query.order_by(DataConnection.name.asc())
+    elif sort_by == "created_at":
+        query = query.order_by(DataConnection.created_at.desc())
+    else:
+        query = query.order_by(DataConnection.updated_at.desc())
+    
+    result = await db.execute(query.limit(50))
     connections = result.scalars().all()
 
     return [
@@ -36,22 +70,49 @@ async def list_connections(
     ]
 
 
+@router.get("/connectors")
+async def list_connectors(
+    current_user: User | None = Depends(get_current_user_optional),
+):
+    """List available connector types with their config field definitions."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    from app.services.connectors.base import ConnectorFactory
+
+    connector_types = ConnectorFactory.list_connectors()
+    connectors = []
+    for ct in connector_types:
+        try:
+            conn = ConnectorFactory.get_connector(ct)
+            connectors.append({
+                "type": ct,
+                "label": ct.replace("_", " ").title(),
+                "fields": getattr(conn, "config_fields", []),
+            })
+        except Exception as e:
+            logger.warning(f"Failed to instantiate connector {ct}: {e}")
+            connectors.append({
+                "type": ct,
+                "label": ct.replace("_", " ").title(),
+                "fields": [],
+            })
+
+    return connectors
+
+
 @router.post("/")
 async def create_connection(
-    request: Request,
-    name: str = None,
-    connector_type: str = None,
-    config: dict = None,
+    data: dict = Body(...),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    _require_designer(current_user)
 
     connection = DataConnection(
-        name=name or "Unnamed Connection",
-        connector_type=connector_type or "postgresql",
-        config=config or {},
+        name=data.get("name") or "Unnamed Connection",
+        connector_type=data.get("connector_type") or "postgresql",
+        config=data.get("config") or {},
         created_by=current_user.id,
     )
     db.add(connection)
@@ -87,13 +148,11 @@ async def get_connection(
 @router.put("/{connection_id}")
 async def update_connection(
     connection_id: uuid.UUID,
-    name: str = None,
-    config: dict = None,
+    data: dict = Body(...),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    _require_designer(current_user)
 
     result = await db.execute(select(DataConnection).where(DataConnection.id == connection_id))
     connection = result.scalar_one_or_none()
@@ -101,10 +160,10 @@ async def update_connection(
     if not connection:
         raise HTTPException(status_code=404, detail="Connection not found")
 
-    if name:
-        connection.name = name
-    if config:
-        connection.config = config
+    if "name" in data:
+        connection.name = data["name"]
+    if "config" in data:
+        connection.config = data["config"]
 
     await db.commit()
     return {"status": "ok"}
@@ -116,7 +175,11 @@ async def delete_connection(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value != "admin":
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+    if role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = await db.execute(select(DataConnection).where(DataConnection.id == connection_id))
@@ -136,8 +199,7 @@ async def test_connection(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user or current_user.role.value not in ("admin", "designer"):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    _require_designer(current_user)
 
     result = await db.execute(select(DataConnection).where(DataConnection.id == connection_id))
     connection = result.scalar_one_or_none()
@@ -153,3 +215,77 @@ async def test_connection(
         return {"status": "ok", "success": success}
     except Exception as e:
         return {"status": "error", "success": False, "message": str(e)}
+
+
+@router.get("/{connection_id}/schema")
+async def get_schema(
+    connection_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get available tables and columns for a connection."""
+    _require_designer(current_user)
+
+    result = await db.execute(select(DataConnection).where(DataConnection.id == connection_id))
+    connection = result.scalar_one_or_none()
+
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    from app.services.connectors.base import get_connector
+
+    connector = get_connector(connection.connector_type)
+    try:
+        schema = await connector.get_schema(connection.config)
+        return {"status": "ok", "schema": schema}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{connection_id}/query")
+async def test_query(
+    connection_id: uuid.UUID,
+    data: dict = Body(...),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Execute a test query and return column info + sample rows."""
+    _require_designer(current_user)
+
+    result = await db.execute(select(DataConnection).where(DataConnection.id == connection_id))
+    connection = result.scalar_one_or_none()
+
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    from app.services.connectors.base import get_connector
+
+    connector = get_connector(connection.connector_type)
+    query = data.get("query", "")
+    parameters = data.get("parameters", {})
+    limit = data.get("limit", 100)
+
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
+
+    try:
+        df = await connector.execute_query(connection.config, query, parameters or None)
+        if limit and len(df) > limit:
+            df = df.head(limit)
+
+        columns = []
+        for col in df.columns:
+            columns.append({
+                "name": str(col),
+                "type": str(df[col].dtype),
+                "sample_values": df[col].dropna().head(5).tolist(),
+            })
+
+        return {
+            "status": "ok",
+            "columns": columns,
+            "row_count": len(df),
+            "preview": df.to_dict(orient="records"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Query error: {str(e)}")

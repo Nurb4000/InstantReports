@@ -86,6 +86,7 @@ class ReportRenderer:
     ) -> dict[str, Any]:
         """Render a single element (text, table, chart, etc.)."""
         element_type = element_def.get("type", "text")
+        element_label = element_def.get("label", "")
 
         if element_type == "text":
             return self._render_text(element_def)
@@ -106,11 +107,13 @@ class ReportRenderer:
         """Render a text element with variable substitution."""
         content = element_def.get("content", "")
         style = element_def.get("style", "normal")
+        label = element_def.get("label", "")
 
         return {
             "type": "text",
             "content": content,
             "style": style,
+            "label": label,
         }
 
     def _render_table(
@@ -142,6 +145,7 @@ class ReportRenderer:
             "columns": columns,
             "data": df.to_dict(orient="records"),
             "total_rows": len(df),
+            "label": element_label,
         }
 
     def _render_chart(
@@ -159,6 +163,7 @@ class ReportRenderer:
             "width": element_def.get("width", "100%"),
             "height": element_def.get("height", "200px"),
             "data_source": data_source_id,
+            "label": element_label,
         }
 
     def _render_crosstab(
@@ -200,6 +205,7 @@ class ReportRenderer:
             "columns": columns,
             "value_field": value_field,
             "aggregate": aggregate,
+            "label": element_label,
         }
 
     def _render_image(self, element_def: dict[str, Any]) -> dict[str, Any]:
@@ -210,6 +216,7 @@ class ReportRenderer:
             "position": element_def.get("position", "left"),
             "width": element_def.get("width"),
             "height": element_def.get("height"),
+            "label": element_label,
         }
 
     def _render_subreport(
@@ -219,6 +226,7 @@ class ReportRenderer:
         return {
             "type": "subreport",
             "data_source": element_def.get("data_source"),
+            "label": element_label,
             "render_mode": element_def.get("render_mode", "inline"),
             "pass_parameters": element_def.get("pass_parameters", {}),
             "layout": element_def.get("layout", {}),

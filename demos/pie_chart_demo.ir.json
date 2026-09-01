@@ -1,0 +1,172 @@
+{
+    "instantreports_export": true,
+    "version": "1.0",
+    "report": {
+        "name": "Sales by Category - Pie Chart Demo",
+        "description": "Demonstrates pie chart visualization using live Northwind database data",
+        "definition": {
+            "layout": {
+                "sections": [
+                    {
+                        "type": "header",
+                        "custom_name": "Sales Distribution Report",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Report Title",
+                                "properties": {
+                                    "content": "Product Sales Distribution by Category",
+                                    "fontSize": 20,
+                                    "bold": true,
+                                    "color": "#2c3e50"
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "label": "Subtitle",
+                                "properties": {
+                                    "content": "Visualizing market share across product categories using live Northwind data",
+                                    "fontSize": 12,
+                                    "bold": false,
+                                    "color": "#666666"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "custom_name": "Category Sales Overview",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Introduction",
+                                "properties": {
+                                    "content": "The following pie chart displays the percentage of total sales contributed by each product category. Data is sourced directly from the Northwind database.",
+                                    "fontSize": 11,
+                                    "bold": false,
+                                    "color": "#333333"
+                                }
+                            },
+                            {
+                                "type": "chart",
+                                "label": "Sales by Category Pie Chart",
+                                "properties": {
+                                    "title": "Sales Distribution by Category",
+                                    "type": "pie",
+                                    "xField": "category_name",
+                                    "yField": "total_sales",
+                                    "query": "SELECT c.category_name, SUM(od.unit_price * od.quantity) AS total_sales FROM categories c LEFT JOIN products p ON c.category_id = p.category_id LEFT JOIN order_details od ON p.product_id = od.product_id GROUP BY c.category_name ORDER BY total_sales DESC"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "custom_name": "Detailed Category Breakdown",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Table Header",
+                                "properties": {
+                                    "content": "Category Sales Details",
+                                    "fontSize": 14,
+                                    "bold": true,
+                                    "color": "#2c3e50"
+                                }
+                            },
+                            {
+                                "type": "table",
+                                "label": "Category Sales Table",
+                                "properties": {
+                                    "query": "SELECT c.category_name, COUNT(DISTINCT p.product_id) AS product_count, SUM(od.quantity) AS total_units_sold, SUM(od.unit_price * od.quantity) AS total_sales, ROUND(SUM(od.unit_price * od.quantity) * 100.0 / (SELECT SUM(unit_price * quantity) FROM order_details), 2) AS percentage_of_total FROM categories c LEFT JOIN products p ON c.category_id = p.category_id LEFT JOIN order_details od ON p.product_id = od.product_id GROUP BY c.category_name ORDER BY total_sales DESC",
+                                    "columns": [
+                                        {"field": "category_name", "header": "Category"},
+                                        {"field": "product_count", "header": "Products"},
+                                        {"field": "total_units_sold", "header": "Units Sold"},
+                                        {"field": "total_sales", "header": "Total Sales ($)"},
+                                        {"field": "percentage_of_total", "header": "% of Total"}
+                                    ],
+                                    "showHeader": true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "summary",
+                        "custom_name": "Key Insights",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Summary Title",
+                                "properties": {
+                                    "content": "Key Findings",
+                                    "fontSize": 14,
+                                    "bold": true,
+                                    "color": "#2c3e50"
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "label": "Insight 1",
+                                "properties": {
+                                    "content": "• Data is retrieved in real-time from the Northwind PostgreSQL database",
+                                    "fontSize": 11,
+                                    "bold": false,
+                                    "color": "#555555"
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "label": "Insight 2",
+                                "properties": {
+                                    "content": "• Pie chart shows proportional distribution of sales across categories",
+                                    "fontSize": 11,
+                                    "bold": false,
+                                    "color": "#555555"
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "label": "Insight 3",
+                                "properties": {
+                                    "content": "• Table provides detailed breakdown with product counts and percentages",
+                                    "fontSize": 11,
+                                    "bold": false,
+                                    "color": "#555555"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "footer",
+                        "custom_name": "Report Footer",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Footer Text",
+                                "properties": {
+                                    "content": "Generated by InstantReports | Northwind Demo Database",
+                                    "fontSize": 9,
+                                    "bold": false,
+                                    "color": "#999999"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_sources": [
+                {
+                    "connection_id": "bef2f9f6-3cb6-47db-941c-fec47999a3c8",
+                    "name": "Northwind Demo",
+                    "type": "postgresql"
+                }
+            ],
+            "parameters": [],
+            "selected_fields": [],
+            "query": ""
+        }
+    },
+    "exported_by": "demo",
+    "exported_at": null
+}

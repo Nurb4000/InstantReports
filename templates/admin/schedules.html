@@ -8,7 +8,47 @@
 </script>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Schedules</h1>
-    <button class="btn btn-primary" onclick="showCreateScheduleModal()">+ New Schedule</button>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" onclick="toggleFilters()">
+            <span id="filter-icon">&#9776;</span> Filters
+        </button>
+        <button class="btn btn-primary" onclick="showCreateScheduleModal()">+ New Schedule</button>
+    </div>
+</div>
+
+<!-- Filter Panel -->
+<div id="filter-panel" class="card mb-3" style="display: none;">
+    <div class="card-body">
+        <form id="filter-form" onsubmit="applyFilters(event)">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" class="form-control" id="filter-search" name="search" 
+                           placeholder="Search by name...">
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-control" id="filter-status" name="status_filter">
+                        <option value="">All</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Sort By</label>
+                    <select class="form-control" id="filter-sort" name="sort_by">
+                        <option value="created_at">Date Created</option>
+                        <option value="updated_at">Last Updated</option>
+                        <option value="name">Name</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Apply Filters</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="card">
@@ -16,25 +56,92 @@
         <thead>
             <tr>
                 <th>Name</th>
-                <th>Report ID</th>
+                <th>Report</th>
                 <th>Cron Expression</th>
                 <th>Timezone</th>
+                <th>Owner</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody id="schedules-table">
             <tr>
-                <td colspan="6" class="text-center text-muted">Loading schedules...</td>
+                <td colspan="7" class="text-center text-muted">Loading schedules...</td>
             </tr>
         </tbody>
     </table>
 </div>
 
+<script>
+let currentFilters = {};
+
+function toggleFilters() {
+    const panel = document.getElementById('filter-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function applyFilters(event) {
+    event.preventDefault();
+    const search = document.getElementById('filter-search').value;
+    const status = document.getElementById('filter-status').value;
+    const sort = document.getElementById('filter-sort').value;
+    
+    currentFilters = { search, status_filter: status, sort_by: sort };
+    loadSchedules();
+}
+
+function resetFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-sort').value = 'created_at';
+    currentFilters = {};
+    loadSchedules();
+}
+
+async function loadSchedules() {
+    try {
+        let url = '/admin/api/schedules?';
+        if (currentFilters.search) url += `search=${encodeURIComponent(currentFilters.search)}&`;
+        if (currentFilters.status_filter) url += `status_filter=${encodeURIComponent(currentFilters.status_filter)}&`;
+        if (currentFilters.sort_by) url += `sort_by=${encodeURIComponent(currentFilters.sort_by)}&`;
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            const schedules = await response.json();
+            const tbody = document.getElementById('schedules-table');
+            
+            if (schedules.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No schedules found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = schedules.map(schedule => `
+                <tr>
+                    <td>${schedule.name}</td>
+                    <td><a href="/designer/reports/${schedule.report_id}" target="_blank">${schedule.report_name || schedule.report_id}</a></td>
+                    <td><code>${schedule.cron_expression || 'One-shot'}</code></td>
+                    <td>${schedule.timezone}</td>
+                    <td>${schedule.owner_name || 'Unknown'}</td>
+                    <td>${schedule.output_format || 'pdf'}</td>
+                    <td>${schedule.delivery_type || 'email'}</td>
+                    <td>${schedule.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="editSchedule('${schedule.id}')">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${schedule.id}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading schedules:', error);
+    }
+}
+</script>
+
 <div id="create-schedule-modal" class="modal">
     <div class="modal-content card">
         <h2>Create New Schedule</h2>
-        <form id="create-schedule-form">
+        <form id="create-schedule-form" novalidate>
             <div class="form-group">
                 <label for="schedule-name">Schedule Name</label>
                 <input type="text" id="schedule-name" name="name" class="form-control" required placeholder="Daily Sales Report">
@@ -207,7 +314,7 @@
                 <small class="text-muted">The user who will see this report in their portal</small>
             </div>
     <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">Create Schedule</button>
+                <button type="button" class="btn btn-primary" onclick="submitCreateSchedule()">Create Schedule</button>
         <button type="button" class="btn btn-secondary" onclick="hideCreateScheduleModal()">Cancel</button>
     </div>
 </div>
@@ -216,7 +323,7 @@
 <div id="edit-schedule-modal" class="modal">
     <div class="modal-content card">
         <h2>Edit Schedule</h2>
-        <form id="edit-schedule-form">
+        <form id="edit-schedule-form" novalidate>
             <input type="hidden" id="edit-schedule-id" name="id">
             <div class="form-group">
                 <label for="edit-schedule-name">Schedule Name</label>
@@ -278,6 +385,11 @@
             <div class="form-group" style="display: none;">
                 <label for="edit-schedule-cron">Cron Expression (Custom Mode)</label>
                 <input type="text" id="edit-schedule-cron" name="cron_expression_custom" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="edit-schedule-cron-preview">Generated Cron Expression</label>
+                <input type="text" id="edit-schedule-cron-preview" class="form-control" readonly placeholder="Will be generated automatically">
+                <input type="hidden" id="edit-schedule-cron-hidden" name="cron_expression" value="">
             </div>
             <div class="form-group">
                 <label for="edit-schedule-timezone">Timezone</label>
@@ -390,7 +502,7 @@
                 </label>
             </div>
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-primary" onclick="submitEditSchedule()">Save Changes</button>
                 <button type="button" class="btn btn-secondary" onclick="hideEditScheduleModal()">Cancel</button>
             </div>
         </form>
@@ -401,39 +513,6 @@
 </div>
 
 <script>
-async function loadSchedules() {
-        try {
-            const response = await fetch('/admin/api/schedules');
-            if (response.ok) {
-                const schedules = await response.json();
-                const tbody = document.getElementById('schedules-table');
-                
-                if (schedules.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No schedules found.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = schedules.map(schedule => `
-                    <tr>
-                        <td>${schedule.name}</td>
-                        <td><code>${schedule.report_id}</code></td>
-                        <td><code>${schedule.cron_expression || 'One-shot'}</code></td>
-                        <td>${schedule.timezone}</td>
-                        <td>${schedule.output_format || 'pdf'}</td>
-                        <td>${schedule.delivery_type || 'email'}</td>
-                        <td>${schedule.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
-                        <td>
-                            <button class="btn btn-sm btn-secondary" onclick="editSchedule('${schedule.id}')">Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${schedule.id}')">Delete</button>
-                        </td>
-                    </tr>
-                `).join('');
-            }
-        } catch (error) {
-            console.error('Error loading schedules:', error);
-        }
-    }
-
     async function showCreateScheduleModal() {
         try {
             const modal = document.getElementById('create-schedule-modal');
@@ -460,6 +539,8 @@ async function loadSchedules() {
         const modal = document.getElementById('create-schedule-modal');
         if (modal) {
             modal.classList.remove('active');
+            // Reset form
+            document.getElementById('create-schedule-form').reset();
         }
     }
 
@@ -597,7 +678,7 @@ function generateCronExpression() {
     }
 
     // Add event listeners to all form inputs
-document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
         const inputs = document.querySelectorAll('#create-schedule-form input, #create-schedule-form select');
         inputs.forEach(input => {
             input.addEventListener('change', function() {
@@ -610,10 +691,50 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+        
+        const editInputs = document.querySelectorAll('#edit-schedule-form input, #edit-schedule-form select');
+        editInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                if (input.id === 'edit-schedule-frequency') {
+                    updateEditScheduleFields();
+                } else if (input.id === 'edit-schedule-day-type') {
+                    updateEditDayFields();
+                } else {
+                    generateEditCronExpression();
+                }
+            });
+        });
     });
 
-    document.getElementById('create-schedule-form').addEventListener('submit', async function(e) {
-        e.preventDefault();
+    async function submitCreateSchedule() {
+        console.log('submitCreateSchedule called');
+        const createForm = document.getElementById('create-schedule-form');
+        if (!createForm) {
+            alert('Create form not found');
+            return;
+        }
+        
+        // Trigger the form's submit event programmatically
+        const event = new Event('submit', {bubbles: true, cancelable: true});
+        createForm.dispatchEvent(event);
+    }
+
+    async function submitEditSchedule() {
+        console.log('submitEditSchedule called');
+        const editForm = document.getElementById('edit-schedule-form');
+        if (!editForm) {
+            alert('Edit form not found');
+            return;
+        }
+        
+        // Trigger the form's submit event programmatically
+        const event = new Event('submit', {bubbles: true, cancelable: true});
+        editForm.dispatchEvent(event);
+    }
+
+    // Create schedule submission function
+    async function submitCreateSchedule() {
+        console.log('submitCreateSchedule called');
         
         // Ensure cron expression is generated before submission
         const frequency = document.getElementById('schedule-frequency').value;
@@ -621,39 +742,183 @@ document.addEventListener('DOMContentLoaded', function() {
             generateCronExpression();
         }
         
-        const formData = new FormData(this);
+        // Manually collect form values
+        const data = {
+            name: document.getElementById('schedule-name')?.value?.trim() || '',
+            report_id: document.getElementById('schedule-report')?.value?.trim() || '',
+            frequency: document.getElementById('schedule-frequency')?.value || '',
+            hour: document.getElementById('schedule-hour')?.value || '',
+            minute: document.getElementById('schedule-minute')?.value || '',
+            timezone: document.getElementById('schedule-timezone')?.value || '',
+            output_format: document.getElementById('schedule-output-format')?.value || '',
+            delivery_type: document.getElementById('schedule-delivery-type')?.value || '',
+            recipient_emails: document.getElementById('schedule-recipient-emails')?.value || '',
+            cron_expression: document.getElementById('schedule-cron-hidden')?.value || '',
+        };
         
-        // Ensure cron_expression is set (required by backend)
-        const cronPreview = document.getElementById('schedule-cron-preview');
-        if (!cronPreview.value && frequency !== 'custom') {
-            alert('Please select a valid schedule configuration');
+        // Add SFTP/SMB/Webhook specific fields if applicable
+        if (data.delivery_type === 'sftp') {
+            data.sftp_host = document.getElementById('schedule-sftp-host')?.value?.trim() || '';
+            data.sftp_port = document.getElementById('schedule-sftp-port')?.value?.trim() || '';
+            data.sftp_username = document.getElementById('schedule-sftp-username')?.value?.trim() || '';
+            data.sftp_password = document.getElementById('schedule-sftp-password')?.value?.trim() || '';
+            data.sftp_remote_path = document.getElementById('schedule-sftp-remote-path')?.value?.trim() || '';
+        } else if (data.delivery_type === 'smb') {
+            data.smb_server = document.getElementById('schedule-smb-server')?.value?.trim() || '';
+            data.smb_share = document.getElementById('schedule-smb-share')?.value?.trim() || '';
+            data.smb_username = document.getElementById('schedule-smb-username')?.value?.trim() || '';
+            data.smb_password = document.getElementById('schedule-smb-password')?.value?.trim() || '';
+            data.smb_remote_path = document.getElementById('schedule-smb-remote-path')?.value?.trim() || '';
+        } else if (data.delivery_type === 'webhook') {
+            data.webhook_url = document.getElementById('schedule-webhook-url')?.value?.trim() || '';
+            data.webhook_secret = document.getElementById('schedule-webhook-secret')?.value?.trim() || '';
+        }
+        
+        // Add owner_id if selected
+        const ownerSelect = document.getElementById('schedule-owner');
+        if (ownerSelect && ownerSelect.value) {
+            data.owner_id = ownerSelect.value;
+        }
+        
+        // Validate required fields
+        if (!data.name || !data.report_id || !data.cron_expression) {
+            alert('Please fill in all required fields (Name, Report ID, Cron Expression)');
             return;
         }
         
-        // Explicitly set cron_expression in form data
-        formData.set('cron_expression', cronPreview.value);
+        console.log('Create form data:', data);
         
         try {
             const response = await fetch('/admin/schedules', {
                 method: 'POST',
-                body: formData,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
             });
+            
+            console.log('Response status:', response.status);
             
             if (response.ok) {
                 hideCreateScheduleModal();
                 loadSchedules();
             } else {
-                const error = await response.json();
-                alert('Failed to create schedule: ' + (error.detail || 'Unknown error'));
+                const errorText = await response.text();
+                let errorMessage = 'Unknown error';
+                try {
+                    const errorData = JSON.parse(errorText);
+                    errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
+                } catch {
+                    errorMessage = errorText || 'Unknown error';
+                }
+                alert('Failed to create schedule: ' + errorMessage);
             }
         } catch (error) {
             console.error('Error creating schedule:', error);
+            alert('Error creating schedule: ' + error.message);
         }
-    });
+    }
+
+    // Edit schedule submission function
+    async function submitEditSchedule() {
+        console.log('submitEditSchedule called');
+        const scheduleId = document.getElementById('edit-schedule-id')?.value;
+        
+        if (!scheduleId) {
+            alert('No schedule ID found');
+            return;
+        }
+        
+        // Ensure cron expression is generated before submission
+        const frequency = document.getElementById('edit-schedule-frequency').value;
+        if (frequency === 'custom') {
+            document.getElementById('edit-schedule-cron-hidden').value = document.getElementById('edit-schedule-cron').value;
+        } else {
+            generateEditCronExpression();
+        }
+        
+        // Manually collect form values
+        const data = {
+            name: document.getElementById('edit-schedule-name')?.value?.trim() || '',
+            report_id: document.getElementById('edit-schedule-report')?.value?.trim() || '',
+            frequency: document.getElementById('edit-schedule-frequency')?.value || '',
+            hour: document.getElementById('edit-schedule-hour')?.value || '',
+            minute: document.getElementById('edit-schedule-minute')?.value || '',
+            timezone: document.getElementById('edit-schedule-timezone')?.value || '',
+            output_format: document.getElementById('edit-schedule-output-format')?.value || '',
+            delivery_type: document.getElementById('edit-schedule-delivery-type')?.value || '',
+            recipient_emails: document.getElementById('edit-schedule-recipient-emails')?.value || '',
+            cron_expression: document.getElementById('edit-schedule-cron-hidden')?.value || '',
+            is_active: document.getElementById('edit-schedule-is-active')?.checked || false,
+        };
+        
+        console.log('Collected data:', data);
+        
+        // Validate required fields
+        if (!data.name || !data.report_id || !data.cron_expression) {
+            alert('Please fill in all required fields (Name, Report ID, Cron Expression)');
+            return;
+        }
+        
+        // Add SFTP/SMB/Webhook specific fields if applicable
+        if (data.delivery_type === 'sftp') {
+            data.sftp_host = document.getElementById('edit-sftp-host')?.value?.trim() || '';
+            data.sftp_port = document.getElementById('edit-sftp-port')?.value?.trim() || '';
+            data.sftp_username = document.getElementById('edit-sftp-username')?.value?.trim() || '';
+            data.sftp_password = document.getElementById('edit-sftp-password')?.value?.trim() || '';
+            data.sftp_remote_path = document.getElementById('edit-sftp-remote-path')?.value?.trim() || '';
+        } else if (data.delivery_type === 'smb') {
+            data.smb_server = document.getElementById('edit-smb-server')?.value?.trim() || '';
+            data.smb_share = document.getElementById('edit-smb-share')?.value?.trim() || '';
+            data.smb_username = document.getElementById('edit-smb-username')?.value?.trim() || '';
+            data.smb_password = document.getElementById('edit-smb-password')?.value?.trim() || '';
+            data.smb_remote_path = document.getElementById('edit-smb-remote-path')?.value?.trim() || '';
+        } else if (data.delivery_type === 'webhook') {
+            data.webhook_url = document.getElementById('edit-webhook-url')?.value?.trim() || '';
+            data.webhook_secret = document.getElementById('edit-webhook-secret')?.value?.trim() || '';
+        }
+        
+        // Add owner_id if selected
+        const ownerSelect = document.getElementById('edit-schedule-owner');
+        if (ownerSelect && ownerSelect.value) {
+            data.owner_id = ownerSelect.value;
+        }
+        
+        console.log('Edit form data:', data);
+        
+        try {
+            const response = await fetch(`/admin/schedules/${scheduleId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
+            });
+            
+            console.log('Response status:', response.status);
+            const responseText = await response.text();
+            console.log('Response body:', responseText);
+            
+            if (response.ok || response.status === 303) {
+                console.log('Schedule updated successfully');
+                hideEditScheduleModal();
+                loadSchedules();
+            } else {
+                let errorMessage = 'Unknown error';
+                try {
+                    const errorData = JSON.parse(responseText);
+                    errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
+                } catch {
+                    errorMessage = responseText || 'Unknown error';
+                }
+                alert('Failed to update schedule: ' + errorMessage);
+            }
+        } catch (error) {
+            console.error('Error updating schedule:', error);
+            alert('Error updating schedule: ' + error.message);
+        }
+    }
 
     loadSchedules();
 
 async function editSchedule(scheduleId) {
+        console.log('editSchedule called with:', scheduleId);
         try {
             const modal = document.getElementById('edit-schedule-modal');
             if (!modal) {
@@ -665,20 +930,26 @@ async function editSchedule(scheduleId) {
             modal.classList.add('active');
             
             try {
+                console.log('Fetching schedule data...');
                 const response = await fetch(`/admin/api/schedules/${scheduleId}`);
+                console.log('Response status:', response.status);
+                
                 if (!response.ok) {
                     console.error('Failed to fetch schedule:', response.status);
                     return;
                 }
                 
                 const schedule = await response.json();
+                console.log('Schedule data:', schedule);
                 
+                console.log('Setting form values...');
                 document.getElementById('edit-schedule-id').value = schedule.id;
                 document.getElementById('edit-schedule-name').value = schedule.name;
                 document.getElementById('edit-schedule-report').value = schedule.report_id;
                 document.getElementById('edit-schedule-timezone').value = schedule.timezone;
                 document.getElementById('edit-schedule-output-format').value = schedule.output_format || 'pdf';
                 document.getElementById('edit-schedule-delivery-type').value = schedule.delivery_type || 'email';
+                console.log('Form values set. Name:', document.getElementById('edit-schedule-name').value);
                 
                 // Set owner (default to current user if not set)
                 const ownerSelect = document.getElementById('edit-schedule-owner');
@@ -740,7 +1011,13 @@ async function editSchedule(scheduleId) {
                         
                         document.getElementById('edit-schedule-hour').value = hour;
                         document.getElementById('edit-schedule-minute').value = minute;
+                        
+                        document.getElementById('edit-schedule-cron-preview').value = schedule.cron_expression;
+                        document.getElementById('edit-schedule-cron-hidden').value = schedule.cron_expression;
                     }
+                } else {
+                    document.getElementById('edit-schedule-cron-preview').value = schedule.cron_expression || '';
+                    document.getElementById('edit-schedule-cron-hidden').value = schedule.cron_expression || '';
                 }
                 
                 updateEditScheduleFields();
@@ -765,6 +1042,11 @@ function hideEditScheduleModal() {
         const modal = document.getElementById('edit-schedule-modal');
         if (modal) {
             modal.classList.remove('active');
+            // Reset form
+            const form = document.getElementById('edit-schedule-form');
+            if (form) {
+                form.reset();
+            }
         }
     }
 
@@ -788,6 +1070,8 @@ function updateEditScheduleFields() {
                 dayFields.style.display = 'none';
             }
         }
+        
+        generateEditCronExpression();
     }
 
 function updateEditDayFields() {
@@ -805,6 +1089,45 @@ function updateEditDayFields() {
             specificDays.style.display = 'none';
             lastDay.style.display = 'block';
         }
+        
+        generateEditCronExpression();
+    }
+
+function generateEditCronExpression() {
+        const frequency = document.getElementById('edit-schedule-frequency').value;
+        const hour = document.getElementById('edit-schedule-hour').value || '0';
+        const minute = document.getElementById('edit-schedule-minute').value || '0';
+        let cron = `${minute} ${hour} * * *`;
+        
+        if (frequency === 'custom') {
+            const customCron = document.getElementById('edit-schedule-cron').value;
+            if (customCron) {
+                cron = customCron;
+            }
+        } else if (frequency === 'weekly') {
+            const days = Array.from(document.querySelectorAll('input[name="edit_days"]:checked')).map(cb => cb.value);
+            if (days.length > 0) {
+                cron = `${minute} ${hour} * * ${days.join(',')}`;
+            } else {
+                cron = `${minute} ${hour} * * 1`;
+            }
+        } else if (frequency === 'monthly') {
+            const dayType = document.getElementById('edit-schedule-day-type').value;
+            if (dayType === 'specific') {
+                const days = Array.from(document.querySelectorAll('input[name="edit_days"]:checked')).map(cb => cb.value);
+                if (days.length > 0) {
+                    cron = `${minute} ${hour} ${days[0]} * *`;
+                }
+            } else if (dayType === 'first') {
+                cron = `${minute} ${hour} 1 * *`;
+            } else {
+                const lastDay = document.getElementById('edit-schedule-last-day').value || '1';
+                cron = `${minute} ${hour} ${lastDay} * *`;
+            }
+        }
+        
+        document.getElementById('edit-schedule-cron-preview').value = cron;
+        document.getElementById('edit-schedule-cron-hidden').value = cron;
     }
 
 function updateEditDeliveryFields() {
@@ -828,34 +1151,103 @@ function updateEditDeliveryFields() {
         }
     }
 
-    document.getElementById('edit-schedule-form').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const scheduleId = document.getElementById('edit-schedule-id').value;
-        const formData = new FormData(this);
-        
-        try {
-            const response = await fetch(`/admin/schedules/${scheduleId}`, {
-                method: 'PUT',
-                body: formData,
-            });
-            
-            if (response.ok || response.status === 303) {
-                hideEditScheduleModal();
-                loadSchedules();
-            } else {
-                const errorText = await response.text();
-                let errorMessage = 'Unknown error';
-                try {
-                    const errorData = JSON.parse(errorText);
-                    errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
-                } catch {
-                    errorMessage = errorText || 'Unknown error';
+    document.addEventListener('DOMContentLoaded', function() {
+        const editForm = document.getElementById('edit-schedule-form');
+        if (editForm) {
+            editForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                console.log('EDIT form submitted!');
+                const scheduleId = document.getElementById('edit-schedule-id').value;
+                
+                console.log('Editing schedule:', scheduleId);
+                
+                // Ensure cron expression is generated before submission
+                const frequency = document.getElementById('edit-schedule-frequency').value;
+                if (frequency === 'custom') {
+                    document.getElementById('edit-schedule-cron-hidden').value = document.getElementById('edit-schedule-cron').value;
+                } else {
+                    generateEditCronExpression();
                 }
-                alert('Failed to update schedule: ' + errorMessage);
-            }
-        } catch (error) {
-            console.error('Error updating schedule:', error);
-            alert('Error updating schedule: ' + error.message);
+                
+                // Manually collect form values
+                const data = {
+                    name: document.getElementById('edit-schedule-name')?.value?.trim() || '',
+                    report_id: document.getElementById('edit-schedule-report')?.value?.trim() || '',
+                    frequency: document.getElementById('edit-schedule-frequency')?.value || '',
+                    hour: document.getElementById('edit-schedule-hour')?.value || '',
+                    minute: document.getElementById('edit-schedule-minute')?.value || '',
+                    timezone: document.getElementById('edit-schedule-timezone')?.value || '',
+                    output_format: document.getElementById('edit-schedule-output-format')?.value || '',
+                    delivery_type: document.getElementById('edit-schedule-delivery-type')?.value || '',
+                    recipient_emails: document.getElementById('edit-schedule-recipient-emails')?.value || '',
+                    cron_expression: document.getElementById('edit-schedule-cron-hidden')?.value || '',
+                    is_active: document.getElementById('edit-schedule-is-active')?.checked || false,
+                };
+                
+                console.log('Collected data:', data);
+                
+                // Validate required fields
+                if (!data.name || !data.report_id || !data.cron_expression) {
+                    alert('Please fill in all required fields (Name, Report ID, Cron Expression)');
+                    return;
+                }
+                
+                // Add SFTP/SMB/Webhook specific fields if applicable
+                if (data.delivery_type === 'sftp') {
+                    data.sftp_host = document.getElementById('edit-sftp-host')?.value?.trim() || '';
+                    data.sftp_port = document.getElementById('edit-sftp-port')?.value?.trim() || '';
+                    data.sftp_username = document.getElementById('edit-sftp-username')?.value?.trim() || '';
+                    data.sftp_password = document.getElementById('edit-sftp-password')?.value?.trim() || '';
+                    data.sftp_remote_path = document.getElementById('edit-sftp-remote-path')?.value?.trim() || '';
+                } else if (data.delivery_type === 'smb') {
+                    data.smb_server = document.getElementById('edit-smb-server')?.value?.trim() || '';
+                    data.smb_share = document.getElementById('edit-smb-share')?.value?.trim() || '';
+                    data.smb_username = document.getElementById('edit-smb-username')?.value?.trim() || '';
+                    data.smb_password = document.getElementById('edit-smb-password')?.value?.trim() || '';
+                    data.smb_remote_path = document.getElementById('edit-smb-remote-path')?.value?.trim() || '';
+                } else if (data.delivery_type === 'webhook') {
+                    data.webhook_url = document.getElementById('edit-webhook-url')?.value?.trim() || '';
+                    data.webhook_secret = document.getElementById('edit-webhook-secret')?.value?.trim() || '';
+                }
+                
+                // Add owner_id if selected
+                const ownerSelect = document.getElementById('edit-schedule-owner');
+                if (ownerSelect && ownerSelect.value) {
+                    data.owner_id = ownerSelect.value;
+                }
+                
+                console.log('Edit form data:', data);
+                
+                try {
+                    const response = await fetch(`/admin/schedules/${scheduleId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data),
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    const responseText = await response.text();
+                    console.log('Response body:', responseText);
+                    
+                    if (response.ok || response.status === 303) {
+                        console.log('Schedule updated successfully');
+                        hideEditScheduleModal();
+                        loadSchedules();
+                    } else {
+                        let errorMessage = 'Unknown error';
+                        try {
+                            const errorData = JSON.parse(responseText);
+                            errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
+                        } catch {
+                            errorMessage = responseText || 'Unknown error';
+                        }
+                        alert('Failed to update schedule: ' + errorMessage);
+                    }
+                } catch (error) {
+                    console.error('Error updating schedule:', error);
+                    alert('Error updating schedule: ' + error.message);
+                }
+            });
         }
     });
 

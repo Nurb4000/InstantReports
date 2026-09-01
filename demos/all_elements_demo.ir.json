@@ -1,0 +1,165 @@
+{
+    "instantreports_export": true,
+    "version": "1.0",
+    "report": {
+        "name": "All Elements Demo",
+        "description": "Demo report showcasing all element types (text, image, table, chart, crosstab) and section types (header, detail, summary, footer) using the Northwind database.",
+        "definition": {
+            "layout": {
+                "sections": [
+                    {
+                        "type": "header",
+                        "custom_name": "Company Report Header",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "InstantReports Demo",
+                                "properties": {
+                                    "content": "Welcome to the InstantReports demo report! This report showcases all available element types and section types.",
+                                    "fontSize": 16,
+                                    "bold": true,
+                                    "color": "#2c3e50"
+                                }
+                            },
+                            {
+                                "type": "image",
+                                "label": "Company Logo",
+                                "properties": {
+                                    "src": "/static/img/logo.png",
+                                    "alt": "Company Logo",
+                                    "width": 150,
+                                    "height": 50
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "custom_name": "Employee Sales Overview",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Top Employees by Sales",
+                                "properties": {
+                                    "content": "The following table shows the top employees ranked by their total sales:",
+                                    "fontSize": 12,
+                                    "bold": false,
+                                    "color": "#000000"
+                                }
+                            },
+                            {
+                                "type": "table",
+                                "label": "Employee Sales Table",
+                                "properties": {
+                                    "query": "SELECT e.employee_id, e.first_name || ' ' || e.last_name AS employee, COUNT(o.order_id) AS orders, SUM(od.unit_price * od.quantity) AS total_sales FROM employees e LEFT JOIN orders o ON e.employee_id = o.employee_id LEFT JOIN order_details od ON o.order_id = od.order_id GROUP BY e.employee_id, e.first_name, e.last_name ORDER BY total_sales DESC LIMIT 10",
+                                    "columns": [
+                                        {"field": "employee", "header": "Employee"},
+                                        {"field": "orders", "header": "Orders"},
+                                        {"field": "total_sales", "header": "Total Sales"}
+                                    ],
+                                    "showHeader": true
+                                }
+                            },
+                            {
+                                "type": "chart",
+                                "label": "Employees by Title",
+                                "properties": {
+                                    "title": "Employee Count by Title",
+                                    "type": "bar",
+                                    "xField": "title",
+                                    "yField": "emp_count",
+                                    "query": "SELECT title, COUNT(*) AS emp_count FROM employees GROUP BY title ORDER BY emp_count DESC"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "custom_name": "Product Analysis",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Product Category Summary",
+                                "properties": {
+                                    "content": "Analysis of sales by product category:",
+                                    "fontSize": 12,
+                                    "bold": false,
+                                    "color": "#000000"
+                                }
+                            },
+                            {
+                                "type": "table",
+                                "label": "Product Sales by Category",
+                                "properties": {
+                                    "query": "SELECT c.category_name, COUNT(DISTINCT p.product_id) AS products, SUM(od.quantity) AS total_units, SUM(od.unit_price * od.quantity) AS total_sales FROM categories c LEFT JOIN products p ON c.category_id = p.category_id LEFT JOIN order_details od ON p.product_id = od.product_id GROUP BY c.category_name ORDER BY total_sales DESC",
+                                    "columns": [
+                                        {"field": "category_name", "header": "Category"},
+                                        {"field": "products", "header": "Products"},
+                                        {"field": "total_units", "header": "Units Sold"},
+                                        {"field": "total_sales", "header": "Total Sales"}
+                                    ],
+                                    "showHeader": true
+                                }
+                            },
+                            {
+                                "type": "chart",
+                                "label": "Employees by Hire Year",
+                                "properties": {
+                                    "title": "Hires by Year",
+                                    "type": "bar",
+                                    "xField": "hire_year",
+                                    "yField": "hire_count",
+                                    "query": "SELECT EXTRACT(YEAR FROM hire_date)::INTEGER AS hire_year, COUNT(*) AS hire_count FROM employees GROUP BY hire_year ORDER BY hire_year"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "summary",
+                        "custom_name": "Report Summary",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Summary Statistics",
+                                "properties": {
+                                    "content": "This report was generated using the Northwind demo database. It includes examples of all element types: text, image, table, chart, and crosstab.",
+                                    "fontSize": 11,
+                                    "bold": false,
+                                    "color": "#666666"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "footer",
+                        "custom_name": "Report Footer",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "label": "Footer Text",
+                                "properties": {
+                                    "content": "Generated by InstantReports | Confidential",
+                                    "fontSize": 9,
+                                    "bold": false,
+                                    "color": "#999999"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_sources": [
+                {
+                    "connection_id": "bef2f9f6-3cb6-47db-941c-fec47999a3c8",
+                    "name": "Northwind Demo",
+                    "type": "postgresql"
+                }
+            ],
+            "parameters": [],
+            "selected_fields": [],
+            "query": ""
+        }
+    },
+    "exported_by": "demo",
+    "exported_at": null
+}

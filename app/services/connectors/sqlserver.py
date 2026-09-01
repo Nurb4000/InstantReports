@@ -5,9 +5,20 @@ from typing import Any
 
 import pandas as pd
 
+from app.services.connectors.base import DataConnector
+
 
 class SQLServerConnector(DataConnector):
     """Connector for Microsoft SQL Server using pymssql."""
+
+    config_fields = [
+        {"name": "host", "label": "Server", "type": "text", "default": "localhost", "required": True},
+        {"name": "port", "label": "Port", "type": "number", "default": 1433, "required": False},
+        {"name": "database", "label": "Database", "type": "text", "default": "", "required": True},
+        {"name": "user", "label": "Username", "type": "text", "default": "", "required": True},
+        {"name": "password", "label": "Password", "type": "password", "default": "", "required": True},
+        {"name": "schema", "label": "Schema", "type": "text", "default": "dbo", "required": False},
+    ]
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:

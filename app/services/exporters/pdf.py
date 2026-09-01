@@ -143,6 +143,13 @@ class PDFExporter:
     ) -> None:
         """Render a single element."""
         element_type = element.get("type", "text")
+        element_label = element.get("label", "")
+
+        # Add label if present
+        if element_label:
+            label_style = styles.get("Normal", styles["Normal"])
+            story.append(Paragraph(element_label, label_style))
+            story.append(Spacer(1, 0.1 * inch))
 
         if element_type == "text":
             content = element.get("content", "")

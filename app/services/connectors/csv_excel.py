@@ -12,6 +12,11 @@ from app.services.connectors.base import DataConnector
 class CSVConnector(DataConnector):
     """Connector for CSV files."""
 
+    config_fields = [
+        {"name": "file_path", "label": "File Path", "type": "text", "default": "", "required": True},
+        {"name": "delimiter", "label": "Delimiter", "type": "select", "options": [",", ";", "\t", "|"], "default": ",", "required": False},
+    ]
+
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
             df = await asyncio.to_thread(pd.read_csv, config.get("file_path", ""), nrows=5)
@@ -53,6 +58,11 @@ class CSVConnector(DataConnector):
 
 class ExcelConnector(DataConnector):
     """Connector for Excel files (.xlsx, .xls)."""
+
+    config_fields = [
+        {"name": "file_path", "label": "File Path", "type": "text", "default": "", "required": True},
+        {"name": "sheet", "label": "Sheet Name/Index", "type": "text", "default": "0", "required": False},
+    ]
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:

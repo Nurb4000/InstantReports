@@ -1,0 +1,81 @@
+{
+    "instantreports_export": true,
+    "version": "1.0",
+    "report": {
+        "name": "Employee Sales Performance",
+        "description": "Shows sales performance by employee with order counts",
+        "definition": {
+            "layout": {
+                "sections": [
+                    {
+                        "type": "header",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Employee Sales Performance Report",
+                                    "fontSize": 18,
+                                    "bold": true,
+                                    "color": "#34495e"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "elements": [
+                            {
+                                "type": "table",
+                                "properties": {
+                                    "query": "SELECT e.employee_id, e.first_name || ' ' || e.last_name as employee_name, COUNT(o.order_id) as total_orders, SUM(od.unit_price * od.quantity) as total_sales FROM employees e LEFT JOIN orders o ON e.employee_id = o.employee_id LEFT JOIN order_details od ON o.order_id = od.order_id GROUP BY e.employee_id, e.first_name, e.last_name ORDER BY total_sales DESC",
+                                    "showHeader": true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "summary",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Report Period: Current Year",
+                                    "fontSize": 11,
+                                    "color": "#666666"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "footer",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Internal Use Only",
+                                    "fontSize": 9,
+                                    "color": "#999999"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_sources": [
+                {
+                    "connection_id": "bef2f9f6-3cb6-47db-941c-fec47999a3c8",
+                    "name": "Northwind Demo",
+                    "type": "postgresql"
+                }
+            ],
+            "selected_fields": [
+                {"table": "employees", "field": "first_name", "type": "varchar"},
+                {"table": "employees", "field": "last_name", "type": "varchar"},
+                {"table": "orders", "field": "order_id", "type": "integer"}
+            ],
+            "query": "SELECT e.first_name, e.last_name, COUNT(o.order_id) as total_orders FROM employees e LEFT JOIN orders o ON e.employee_id = o.employee_id GROUP BY e.employee_id, e.first_name, e.last_name"
+        }
+    },
+    "exported_by": "admin",
+    "exported_at": "2026-08-30"
+}

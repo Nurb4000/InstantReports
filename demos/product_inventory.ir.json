@@ -1,0 +1,82 @@
+{
+    "instantreports_export": true,
+    "version": "1.0",
+    "report": {
+        "name": "Product Inventory Report",
+        "description": "Shows products by category with stock levels",
+        "definition": {
+            "layout": {
+                "sections": [
+                    {
+                        "type": "header",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Product Inventory Summary",
+                                    "fontSize": 20,
+                                    "bold": true,
+                                    "color": "#2c3e50"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "elements": [
+                            {
+                                "type": "table",
+                                "properties": {
+                                    "query": "SELECT p.product_id, p.product_name, c.category_name, p.unit_price, p.units_in_stock, p.reorder_level FROM products p JOIN categories c ON p.category_id = c.category_id ORDER BY c.category_name, p.product_name",
+                                    "showHeader": true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "summary",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Total Products: {{count}}",
+                                    "fontSize": 12,
+                                    "bold": true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "footer",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Inventory Report - Confidential",
+                                    "fontSize": 9,
+                                    "color": "#999999"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_sources": [
+                {
+                    "connection_id": "bef2f9f6-3cb6-47db-941c-fec47999a3c8",
+                    "name": "Northwind Demo",
+                    "type": "postgresql"
+                }
+            ],
+            "selected_fields": [
+                {"table": "products", "field": "product_name", "type": "varchar"},
+                {"table": "categories", "field": "category_name", "type": "varchar"},
+                {"table": "products", "field": "unit_price", "type": "numeric"},
+                {"table": "products", "field": "units_in_stock", "type": "integer"}
+            ],
+            "query": "SELECT p.product_name, c.category_name, p.unit_price, p.units_in_stock FROM products p JOIN categories c ON p.category_id = c.category_id"
+        }
+    },
+    "exported_by": "admin",
+    "exported_at": "2026-08-30"
+}

@@ -12,6 +12,15 @@ from app.services.connectors.base import DataConnector
 class RESTAPIConnector(DataConnector):
     """Connector for REST API endpoints."""
 
+    config_fields = [
+        {"name": "url", "label": "URL", "type": "text", "default": "", "required": True},
+        {"name": "method", "label": "Method", "type": "select", "options": ["GET", "POST"], "default": "GET", "required": False},
+        {"name": "auth_type", "label": "Auth Type", "type": "select", "options": ["none", "bearer", "basic"], "default": "none", "required": False},
+        {"name": "auth_token", "label": "Bearer Token", "type": "password", "default": "", "required": False},
+        {"name": "auth_username", "label": "Basic Username", "type": "text", "default": "", "required": False},
+        {"name": "auth_password", "label": "Basic Password", "type": "password", "default": "", "required": False},
+    ]
+
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
             async with httpx.AsyncClient(timeout=10) as client:
@@ -111,6 +120,11 @@ class RESTAPIConnector(DataConnector):
 
 class GraphQLConnector(DataConnector):
     """Connector for GraphQL endpoints."""
+
+    config_fields = [
+        {"name": "url", "label": "Endpoint URL", "type": "text", "default": "", "required": True},
+        {"name": "headers", "label": "Custom Headers (JSON)", "type": "textarea", "default": "", "required": False},
+    ]
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:

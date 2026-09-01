@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Query Builder Prototype</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .builder-modal {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        
+        .builder-header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .builder-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .builder-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .builder-body {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            min-height: 600px;
+        }
+        
+        /* Schema Browser */
+        .schema-panel {
+            border-right: 1px solid #ddd;
+            padding: 15px;
+            background: #fafafa;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        
+        .schema-panel h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .table-list {
+            list-style: none;
+        }
+        
+        .table-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        
+        .table-header {
+            padding: 10px 12px;
+            background: #ecf0f1;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .table-header:hover {
+            background: #d5dbdb;
+        }
+        
+        .table-icon {
+            width: 16px;
+            height: 16px;
+            background: #3498db;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+        }
+        
+        .table-columns {
+            padding: 8px 12px 8px 36px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+        
+        .column-item {
+            padding: 4px 0;
+            font-size: 12px;
+            color: #555;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .column-item:hover {
+            color: #3498db;
+        }
+        
+        .column-type {
+            font-size: 10px;
+            color: #999;
+            background: #f5f5f5;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        
+        /* Query Canvas */
+        .query-canvas {
+            padding: 20px;
+            position: relative;
+            background: white;
+        }
+        
+        .canvas-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .toolbar-btn {
+            padding: 6px 12px;
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .toolbar-btn:hover {
+            background: #d5dbdb;
+        }
+        
+        .query-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .step-card {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+            transition: all 0.2s;
+        }
+        
+        .step-card.active {
+            border-color: #3498db;
+            background: #ebf5fb;
+        }
+        
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .step-title {
+            font-weight: 600;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .step-number {
+            width: 24px;
+            height: 24px;
+            background: #3498db;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .step-content {
+            min-height: 60px;
+        }
+        
+        .selected-tables {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .table-tag {
+            background: #3498db;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .table-tag .remove {
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        
+        .table-tag .remove:hover {
+            opacity: 1;
+        }
+        
+        .selected-columns {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 8px;
+        }
+        
+        .column-tag {
+            background: #27ae60;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .column-tag .agg {
+            background: rgba(255,255,255,0.3);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 6px;
+        }
+        
+        .join-config {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+        }
+        
+        .join-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .join-select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .filter-config {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+        }
+        
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .filter-input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        /* SQL Preview */
+        .sql-panel {
+            border-left: 1px solid #ddd;
+            padding: 15px;
+            background: #2c3e50;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sql-panel h3 {
+            color: white;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .sql-output {
+            flex: 1;
+            background: #1a252f;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #ecf0f1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .sql-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            font-size: 12px;
+            color: #ecf0f1;
+        }
+        
+        .test-result.success {
+            background: rgba(39, 174, 96, 0.2);
+            border: 1px solid #27ae60;
+        }
+        
+        .test-result.error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SQL Query Builder Prototype</h1>
+        
+        <div class="builder-modal">
+            <div class="builder-header">
+                <h2>🔨 Visual Query Builder</h2>
+                <div class="builder-actions">
+                    <button class="btn btn-secondary" onclick="closeBuilder()">Cancel</button>
+                    <button class="btn btn-primary" onclick="resetBuilder()">Reset</button>
+                    <button class="btn btn-success" onclick="saveQuery()">Save Query</button>
+                </div>
+            </div>
+            
+            <div class="builder-body">
+                <!-- Schema Browser -->
+                <div class="schema-panel">
+                    <h3>📊 Tables</h3>
+                    <ul class="table-list">
+                        <li class="table-item">
+                            <div class="table-header" onclick="toggleTable('employees')">
+                                <div class="table-icon">📋</div>
+                                <span>employees</span>
+                            </div>
+                            <div class="table-columns" id="columns-employees" style="display: none;">
+                                <div class="column-item" draggable="true" data-table="employees" data-column="employee_id">
+                                    employee_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="employees" data-column="first_name">
+                                    first_name <span class="column-type">VARCHAR</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="employees" data-column="last_name">
+                                    last_name <span class="column-type">VARCHAR</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="employees" data-column="title">
+                                    title <span class="column-type">VARCHAR</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="employees" data-column="city">
+                                    city <span class="column-type">VARCHAR</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="employees" data-column="hire_date">
+                                    hire_date <span class="column-type">DATE</span>
+                                </div>
+                            </div>
+                        </li>
+                        
+                        <li class="table-item">
+                            <div class="table-header" onclick="toggleTable('orders')">
+                                <div class="table-icon">📋</div>
+                                <span>orders</span>
+                            </div>
+                            <div class="table-columns" id="columns-orders" style="display: none;">
+                                <div class="column-item" draggable="true" data-table="orders" data-column="order_id">
+                                    order_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="orders" data-column="employee_id">
+                                    employee_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="orders" data-column="customer_id">
+                                    customer_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="orders" data-column="order_date">
+                                    order_date <span class="column-type">DATE</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="orders" data-column="shipped_date">
+                                    shipped_date <span class="column-type">DATE</span>
+                                </div>
+                            </div>
+                        </li>
+                        
+                        <li class="table-item">
+                            <div class="table-header" onclick="toggleTable('order_details')">
+                                <div class="table-icon">📋</div>
+                                <span>order_details</span>
+                            </div>
+                            <div class="table-columns" id="columns-order_details" style="display: none;">
+                                <div class="column-item" draggable="true" data-table="order_details" data-column="order_id">
+                                    order_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="order_details" data-column="product_id">
+                                    product_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="order_details" data-column="unit_price">
+                                    unit_price <span class="column-type">DECIMAL</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="order_details" data-column="quantity">
+                                    quantity <span class="column-type">INT</span>
+                                </div>
+                            </div>
+                        </li>
+                        
+                        <li class="table-item">
+                            <div class="table-header" onclick="toggleTable('products')">
+                                <div class="table-icon">📋</div>
+                                <span>products</span>
+                            </div>
+                            <div class="table-columns" id="columns-products" style="display: none;">
+                                <div class="column-item" draggable="true" data-table="products" data-column="product_id">
+                                    product_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="products" data-column="product_name">
+                                    product_name <span class="column-type">VARCHAR</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="products" data-column="category_id">
+                                    category_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="products" data-column="unit_price">
+                                    unit_price <span class="column-type">DECIMAL</span>
+                                </div>
+                            </div>
+                        </li>
+                        
+                        <li class="table-item">
+                            <div class="table-header" onclick="toggleTable('categories')">
+                                <div class="table-icon">📋</div>
+                                <span>categories</span>
+                            </div>
+                            <div class="table-columns" id="columns-categories" style="display: none;">
+                                <div class="column-item" draggable="true" data-table="categories" data-column="category_id">
+                                    category_id <span class="column-type">INT</span>
+                                </div>
+                                <div class="column-item" draggable="true" data-table="categories" data-column="category_name">
+                                    category_name <span class="column-type">VARCHAR</span>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Query Canvas -->
+                <div class="query-canvas">
+                    <div class="canvas-toolbar">
+                        <button class="toolbar-btn" onclick="addStep('select')">➕ Add SELECT</button>
+                        <button class="toolbar-btn" onclick="addStep('from')">➕ Add FROM</button>
+                        <button class="toolbar-btn" onclick="addStep('join')">➕ Add JOIN</button>
+                        <button class="toolbar-btn" onclick="addStep('where')">➕ Add WHERE</button>
+                        <button class="toolbar-btn" onclick="addStep('groupby')">➕ Add GROUP BY</button>
+                        <button class="toolbar-btn" onclick="addStep('orderby')">➕ Add ORDER BY</button>
+                    </div>
+                    
+                    <div class="query-steps" id="querySteps">
+                        <!-- Steps will be dynamically added here -->
+                    </div>
+                </div>
+                
+                <!-- SQL Preview -->
+                <div class="sql-panel">
+                    <h3>📝 Generated SQL</h3>
+                    <div class="sql-output" id="sqlOutput">-- Select tables and columns to build your query
+-- The SQL will be generated automatically</div>
+                    
+                    <div class="sql-actions">
+                        <button class="btn btn-primary" onclick="testQuery()">▶ Test Query</button>
+                        <button class="btn btn-secondary" onclick="copySQL()">📋 Copy SQL</button>
+                    </div>
+                    
+                    <div id="testResult"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Query state
+        let queryState = {
+            selects: [],
+            from: [],
+            joins: [],
+            where: [],
+            groupBy: [],
+            orderBy: []
+        };
+        
+        // Toggle table columns
+        function toggleTable(tableName) {
+            const columns = document.getElementById(`columns-${tableName}`);
+            if (columns) {
+                columns.style.display = columns.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+        
+        // Add query step
+        function addStep(type) {
+            const stepsContainer = document.getElementById('querySteps');
+            const stepId = `step-${Date.now()}`;
+            
+            let stepHtml = '';
+            
+            switch(type) {
+                case 'select':
+                    stepHtml = `
+                        <div class="step-card active" id="${stepId}">
+                            <div class="step-header">
+                                <div class="step-title">
+                                    <div class="step-number">1</div>
+                                    SELECT Columns
+                                </div>
+                                <button class="btn btn-secondary" onclick="removeStep('${stepId}')">✕</button>
+                            </div>
+                            <div class="step-content">
+                                <div class="selected-columns" id="columns-${stepId}">
+                                    <p style="color: #999; font-size: 12px;">Drag columns from schema browser or click to add</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'from':
+                    stepHtml = `
+                        <div class="step-card active" id="${stepId}">
+                            <div class="step-header">
+                                <div class="step-title">
+                                    <div class="step-number">2</div>
+                                    FROM Tables
+                                </div>
+                                <button class="btn btn-secondary" onclick="removeStep('${stepId}')">✕</button>
+                            </div>
+                            <div class="step-content">
+                                <div class="selected-tables" id="tables-${stepId}">
+                                    <p style="color: #999; font-size: 12px;">Select tables to query from</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'join':
+                    stepHtml = `
+                        <div class="step-card active" id="${stepId}">
+                            <div class="step-header">
+                                <div class="step-title">
+                                    <div class="step-number">3</div>
+                                    JOIN Configuration
+                                </div>
+                                <button class="btn btn-secondary" onclick="removeStep('${stepId}')">✕</button>
+                            </div>
+                            <div class="step-content">
+                                <div class="join-config" id="join-${stepId}">
+                                    <div class="join-row">
+                                        <select class="join-select" id="join-table-${stepId}">
+                                            <option value="">Select table...</option>
+                                            <option value="employees">employees</option>
+                                            <option value="orders">orders</option>
+                                            <option value="order_details">order_details</option>
+                                            <option value="products">products</option>
+                                            <option value="categories">categories</option>
+                                        </select>
+                                        <select class="join-select" id="join-type-${stepId}">
+                                            <option value="INNER">INNER JOIN</option>
+                                            <option value="LEFT">LEFT JOIN</option>
+                                            <option value="RIGHT">RIGHT JOIN</option>
+                                        </select>
+                                    </div>
+                                    <div class="join-row">
+                                        <input type="text" class="filter-input" placeholder="ON condition (e.g., employees.employee_id = orders.employee_id)" id="join-condition-${stepId}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'where':
+                    stepHtml = `
+                        <div class="step-card active" id="${stepId}">
+                            <div class="step-header">
+                                <div class="step-title">
+                                    <div class="step-number">4</div>
+                                    WHERE Filters
+                                </div>
+                                <button class="btn btn-secondary" onclick="removeStep('${stepId}')">✕</button>
+                            </div>
+                            <div class="step-content">
+                                <div class="filter-config" id="filters-${stepId}">
+                                    <div class="filter-row">
+                                        <select class="filter-input" id="filter-field-${stepId}">
+                                            <option value="">Select field...</option>
+                                            <option value="employees.city">employees.city</option>
+                                            <option value="employees.title">employees.title</option>
+                                            <option value="orders.order_date">orders.order_date</option>
+                                        </select>
+                                        <select class="filter-input" id="filter-operator-${stepId}" style="width: 100px;">
+                                            <option value="=">=</option>
+                                            <option value=">">></option>
+                                            <option value="<"><</option>
+                                            <option value=">=">>=</option>
+                                            <option value="<="><=</option>
+                                            <option value="LIKE">LIKE</option>
+                                            <option value="IN">IN</option>
+                                        </select>
+                                        <input type="text" class="filter-input" id="filter-value-${stepId}" placeholder="Value">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'groupby':
+                    stepHtml = `
+                        <div class="step-card active" id="${stepId}">
+                            <div class="step-header">
+                                <div class="step-title">
+                                    <div class="step-number">5</div>
+                                    GROUP BY
+                                </div>
+                                <button class="btn btn-secondary" onclick="removeStep('${stepId}')">✕</button>
+                            </div>
+                            <div class="step-content">
+                                <div class="selected-columns" id="groupby-${stepId}">
+                                    <p style="color: #999; font-size: 12px;">Select columns to group by</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'orderby':
+                    stepHtml = `
+                        <div class="step-card active" id="${stepId}">
+                            <div class="step-header">
+                                <div class="step-title">
+                                    <div class="step-number">6</div>
+                                    ORDER BY
+                                </div>
+                                <button class="btn btn-secondary" onclick="removeStep('${stepId}')">✕</button>
+                            </div>
+                            <div class="step-content">
+                                <div class="filter-row">
+                                    <select class="filter-input" id="orderby-field-${stepId}">
+                                        <option value="">Select field...</option>
+                                        <option value="employees.last_name">employees.last_name</option>
+                                        <option value="orders.order_date">orders.order_date</option>
+                                    </select>
+                                    <select class="filter-input" id="orderby-direction-${stepId}" style="width: 100px;">
+                                        <option value="ASC">ASC</option>
+                                        <option value="DESC">DESC</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+            
+            stepsContainer.insertAdjacentHTML('beforeend', stepHtml);
+        }
+        
+        // Remove step
+        function removeStep(stepId) {
+            const step = document.getElementById(stepId);
+            if (step) {
+                step.remove();
+                regenerateSQL();
+            }
+        }
+        
+        // Regenerate SQL from current state
+        function regenerateSQL() {
+            let sql = 'SELECT ';
+            
+            // SELECT columns
+            const selectSteps = document.querySelectorAll('[id^="columns-"]');
+            const columns = [];
+            selectSteps.forEach(step => {
+                const tags = step.querySelectorAll('.column-tag');
+                tags.forEach(tag => {
+                    columns.push(tag.textContent.trim());
+                });
+            });
+            
+            if (columns.length > 0) {
+                sql += columns.join(', ');
+            } else {
+                sql += '*';
+            }
+            
+            // FROM tables
+            const fromSteps = document.querySelectorAll('[id^="tables-"]');
+            const tables = [];
+            fromSteps.forEach(step => {
+                const tags = step.querySelectorAll('.table-tag');
+                tags.forEach(tag => {
+                    tables.push(tag.textContent.replace('✕', '').trim());
+                });
+            });
+            
+            if (tables.length > 0) {
+                sql += `\nFROM ${tables[0]}`;
+            }
+            
+            // JOINs
+            const joinSteps = document.querySelectorAll('[id^="join-"]');
+            joinSteps.forEach(step => {
+                const tableSelect = step.querySelector('select:first-child');
+                const typeSelect = step.querySelector('select:nth-child(2)');
+                const conditionInput = step.querySelector('input[type="text"]');
+                
+                if (tableSelect && tableSelect.value && conditionInput && conditionInput.value) {
+                    sql += `\n${typeSelect.value || 'INNER'} JOIN ${tableSelect.value} ON ${conditionInput.value}`;
+                }
+            });
+            
+            // WHERE filters
+            const whereSteps = document.querySelectorAll('[id^="filters-"]');
+            const filters = [];
+            whereSteps.forEach(step => {
+                const fieldSelect = step.querySelector('select:first-child');
+                const operatorSelect = step.querySelector('select:nth-child(2)');
+                const valueInput = step.querySelector('input[type="text"]:last-child');
+                
+                if (fieldSelect && fieldSelect.value && valueInput && valueInput.value) {
+                    filters.push(`${fieldSelect.value} ${operatorSelect.value} '${valueInput.value}'`);
+                }
+            });
+            
+            if (filters.length > 0) {
+                sql += `\nWHERE ${filters.join(' AND ')}`;
+            }
+            
+            // GROUP BY
+            const groupBySteps = document.querySelectorAll('[id^="groupby-"]');
+            const groupByCols = [];
+            groupBySteps.forEach(step => {
+                const tags = step.querySelectorAll('.column-tag');
+                tags.forEach(tag => {
+                    groupByCols.push(tag.textContent.trim());
+                });
+            });
+            
+            if (groupByCols.length > 0) {
+                sql += `\nGROUP BY ${groupByCols.join(', ')}`;
+            }
+            
+            // ORDER BY
+            const orderBySteps = document.querySelectorAll('[id^="orderby-"]');
+            orderBySteps.forEach(step => {
+                const fieldSelect = step.querySelector('select:first-child');
+                const directionSelect = step.querySelector('select:nth-child(2)');
+                
+                if (fieldSelect && fieldSelect.value) {
+                    sql += `\nORDER BY ${fieldSelect.value} ${directionSelect ? directionSelect.value : 'ASC'}`;
+                }
+            });
+            
+            document.getElementById('sqlOutput').textContent = sql;
+        }
+        
+        // Test query (mock)
+        function testQuery() {
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.innerHTML = '<div class="test-result">⏳ Testing query...</div>';
+            
+            setTimeout(() => {
+                resultDiv.innerHTML = '<div class="test-result success">✅ Query executed successfully! Returned 42 rows.</div>';
+            }, 1000);
+        }
+        
+        // Copy SQL to clipboard
+        function copySQL() {
+            const sql = document.getElementById('sqlOutput').textContent;
+            navigator.clipboard.writeText(sql).then(() => {
+                alert('SQL copied to clipboard!');
+            });
+        }
+        
+        // Save query (mock)
+        function saveQuery() {
+            const sql = document.getElementById('sqlOutput').textContent;
+            alert(`Query saved!\n\n${sql}`);
+        }
+        
+        // Reset builder
+        function resetBuilder() {
+            if (confirm('Reset all query steps?')) {
+                document.getElementById('querySteps').innerHTML = '';
+                document.getElementById('sqlOutput').textContent = '-- Select tables and columns to build your query\n-- The SQL will be generated automatically';
+            }
+        }
+        
+        // Close builder
+        function closeBuilder() {
+            if (confirm('Close query builder? Any unsaved changes will be lost.')) {
+                document.querySelector('.builder-modal').style.display = 'none';
+            }
+        }
+        
+        // Initialize with example query
+        window.onload = function() {
+            addStep('select');
+            addStep('from');
+            regenerateSQL();
+        };
+    </script>
+</body>
+</html>

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.report import Report, ReportVersion
@@ -34,12 +35,21 @@ async def restore_version(
     if not report:
         raise ValueError("Report not found")
 
+    # Get the latest version number for this report
+    max_version_result = await db.execute(
+        select(func.coalesce(func.max(ReportVersion.version_number), 0))
+        .where(ReportVersion.report_id == report_id)
+    )
+    max_version = max_version_result.scalar() or 0
+    
+    new_version_number = max_version + 1
+
     report.definition = version.definition.copy()
-    report.updated_at = __import__("datetime").datetime.utcnow()
+    report.updated_at = datetime.utcnow()
 
     new_version = ReportVersion(
         report_id=report_id,
-        version_number=version.version_number + 1,
+        version_number=new_version_number,
         definition=version.definition.copy(),
         commit_message=commit_message or f"Restored to v{version_number}",
         created_by=user_id,

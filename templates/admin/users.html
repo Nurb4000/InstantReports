@@ -5,7 +5,56 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>User Management</h1>
-    <button class="btn btn-primary" onclick="showCreateUserModal()">+ New User</button>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" onclick="toggleFilters()">
+            <span id="filter-icon">&#9776;</span> Filters
+        </button>
+        <button class="btn btn-primary" onclick="showCreateUserModal()">+ New User</button>
+    </div>
+</div>
+
+<!-- Filter Panel -->
+<div id="filter-panel" class="card mb-3" style="display: none;">
+    <div class="card-body">
+        <form id="filter-form" onsubmit="applyFilters(event)">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" class="form-control" id="filter-search" name="search" 
+                           placeholder="Search by name or email...">
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Role</label>
+                    <select class="form-control" id="filter-role" name="role_filter">
+                        <option value="">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="designer">Designer</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-control" id="filter-status" name="status_filter">
+                        <option value="">All</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Sort By</label>
+                    <select class="form-control" id="filter-sort" name="sort_by">
+                        <option value="created_at">Date Created</option>
+                        <option value="name">Name</option>
+                        <option value="email">Email</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Apply</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="card">
@@ -27,6 +76,72 @@
         </tbody>
     </table>
 </div>
+
+<script>
+let currentFilters = {};
+
+function toggleFilters() {
+    const panel = document.getElementById('filter-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function applyFilters(event) {
+    event.preventDefault();
+    const search = document.getElementById('filter-search').value;
+    const role = document.getElementById('filter-role').value;
+    const status = document.getElementById('filter-status').value;
+    const sort = document.getElementById('filter-sort').value;
+    
+    currentFilters = { search, role_filter: role, status_filter: status, sort_by: sort };
+    loadUsers();
+}
+
+function resetFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-role').value = '';
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-sort').value = 'created_at';
+    currentFilters = {};
+    loadUsers();
+}
+
+async function loadUsers() {
+    try {
+        let url = '/admin/api/users?';
+        if (currentFilters.search) url += `search=${encodeURIComponent(currentFilters.search)}&`;
+        if (currentFilters.role_filter) url += `role_filter=${encodeURIComponent(currentFilters.role_filter)}&`;
+        if (currentFilters.status_filter) url += `status_filter=${encodeURIComponent(currentFilters.status_filter)}&`;
+        if (currentFilters.sort_by) url += `sort_by=${encodeURIComponent(currentFilters.sort_by)}&`;
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            const users = await response.json();
+            const tbody = document.getElementById('users-table');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No users found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td><span class="badge bg-${user.role === 'admin' ? 'danger' : user.role === 'designer' ? 'primary' : 'secondary'}">${user.role}</span></td>
+                    <td>${user.auth_source}</td>
+                    <td>${user.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
+    }
+}
+</script>
 
 <div id="create-user-modal" class="modal">
     <div class="modal-content card">
@@ -99,37 +214,6 @@
 </div>
 
 <script>
-    async function loadUsers() {
-        try {
-            const response = await fetch('/admin/api/users');
-            if (response.ok) {
-                const users = await response.json();
-                const tbody = document.getElementById('users-table');
-                
-                if (users.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No users found.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = users.map(user => `
-                    <tr>
-                        <td>${user.name}</td>
-                        <td>${user.email}</td>
-                        <td><span class="badge bg-${user.role === 'admin' ? 'danger' : user.role === 'designer' ? 'primary' : 'secondary'}">${user.role}</span></td>
-                        <td>${user.auth_source}</td>
-                        <td>${user.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
-                        <td>
-                            <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
-                            ${user.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">Delete</button>` : ''}
-                        </td>
-                    </tr>
-                `).join('');
-            }
-        } catch (error) {
-            console.error('Error loading users:', error);
-        }
-    }
-
     function showCreateUserModal() {
         document.getElementById('create-user-modal').classList.add('active');
         document.getElementById('create-user-form').reset();

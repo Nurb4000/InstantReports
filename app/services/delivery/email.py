@@ -1,12 +1,35 @@
 from __future__ import annotations
 
 import logging
+import uuid
+from datetime import datetime
 from typing import Any
 
 import aiosmtplib
 from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
+
+
+async def log_delivery_audit(action: str, report_id: uuid.UUID = None, schedule_id: uuid.UUID = None, details: dict = None):
+    """Log delivery audit event to database."""
+    try:
+        from app.database import async_session_factory
+        from app.models.connection import AuditLog
+        
+        async with async_session_factory() as db:
+            audit_entry = AuditLog(
+                id=uuid.uuid4(),
+                report_id=report_id,
+                schedule_id=schedule_id,
+                action=action,
+                details=details or {},
+                executed_at=datetime.utcnow(),
+            )
+            db.add(audit_entry)
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to log delivery audit event: {e}")
 
 
 async def send_email(
@@ -65,6 +88,17 @@ async def send_email(
         )
 
         logger.info(f"Email sent to {to_emails}: {subject}")
+        
+        # Log audit event for successful delivery
+        await log_delivery_audit(
+            action="delivery_success",
+            details={
+                "message": f"Email sent to {', '.join(to_emails)}",
+                "subject": subject,
+                "recipients": to_emails,
+            }
+        )
+        
         return True
 
     except Exception as e:

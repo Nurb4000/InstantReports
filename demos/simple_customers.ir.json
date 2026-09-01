@@ -1,0 +1,55 @@
+{
+    "instantreports_export": true,
+    "version": "1.0",
+    "report": {
+        "name": "Simple Customer List",
+        "description": "Basic customer list from Northwind",
+        "definition": {
+            "layout": {
+                "sections": [
+                    {
+                        "type": "header",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Customer List",
+                                    "fontSize": 20,
+                                    "bold": true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "detail",
+                        "elements": [
+                            {
+                                "type": "table",
+                                "properties": {
+                                    "query": "SELECT customer_id, company_name, contact_name, city, country FROM customers ORDER BY company_name",
+                                    "showHeader": true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "type": "footer",
+                        "elements": [
+                            {
+                                "type": "text",
+                                "properties": {
+                                    "content": "Northwind Demo Report",
+                                    "fontSize": 10,
+                                    "color": "#999"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "data_sources": [],
+            "selected_fields": [],
+            "query": ""
+        }
+    }
+}
