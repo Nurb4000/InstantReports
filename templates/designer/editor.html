@@ -673,6 +673,9 @@
                 initSectionBodySortable(sectionBody);
             });
 
+            // Make sections sortable via their drag handle (drag-reorder on canvas)
+            initSectionSortable(canvas);
+
         canvas.addEventListener('dragover', function(e) {
             e.preventDefault();
             // Highlight the section being hovered over
@@ -1010,6 +1013,21 @@
                 }
             });
         }
+    }
+
+    function initSectionSortable(canvas) {
+        if (typeof Sortable === 'undefined' || !canvas) return;
+        new Sortable(canvas, {
+            animation: 150,
+            handle: '.section-drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            onEnd: function() {
+                // DOM order changed; reindex sections and their element handlers.
+                reindexSections();
+            }
+        });
     }
 
     document.getElementById('section-edit-modal')?.addEventListener('click', function(e) {
