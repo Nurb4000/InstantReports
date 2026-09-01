@@ -11,6 +11,7 @@ from app.models.connection import (
     DataConnection,
     Delivery,
     DeliveryRecipient,
+    QueryTemplate,
     Schedule,
 )
 from app.models.api_key import APIKey
@@ -21,6 +22,7 @@ __all__ = [
     "DataConnection",
     "Delivery",
     "DeliveryRecipient",
+    "QueryTemplate",
     "Schedule",
     "AuditLog",
     "Report",

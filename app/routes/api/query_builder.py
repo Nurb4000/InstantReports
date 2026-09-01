@@ -1,13 +1,16 @@
 """API routes for the SQL Query Builder."""
 
 import logging
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.connection import DataConnection, QueryTemplate
 from app.models.user import User
 from app.services.query_builder.config import QueryConfig, SchemaResponse
 from app.services.query_builder.generator import validate_query
@@ -149,47 +152,120 @@ async def test_query_endpoint(
 @router.post("/save")
 async def save_query_template(
     query_config: QueryConfig,
-    name: str,
-    description: Optional[str] = None,
+    name: str = Query(...),
+    description: Optional[str] = Query(None),
+    connection_id: str = Query(...),
     current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Save a query configuration as a template."""
-    # In production, would save to database
-    # For now, return success with mock ID
-    import uuid
-    template_id = str(uuid.uuid4())
-    
+    """Persist a query configuration as a reusable template."""
+    try:
+        tmpl_uuid = uuid.UUID(connection_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid connection_id")
+
+    result = await db.execute(
+        select(DataConnection.id).where(DataConnection.id == tmpl_uuid)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
+
+    created_by = current_user.id if current_user else None
+
+    template = QueryTemplate(
+        name=name,
+        description=description,
+        query_config=query_config.model_dump(mode="json"),
+        connection_id=tmpl_uuid,
+        created_by=created_by,
+    )
+    db.add(template)
+    await db.commit()
+    await db.refresh(template)
+
     return {
-        "id": template_id,
-        "name": name,
-        "message": f"Query template saved with ID: {template_id}",
+        "id": str(template.id),
+        "name": template.name,
+        "connection_id": str(template.connection_id),
+        "message": f"Query template saved with ID: {template.id}",
     }
 
 
 @router.get("/templates")
 async def list_query_templates(
+    connection_id: Optional[str] = Query(None),
     current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
 ):
-    """List saved query templates."""
-    # In production, would query database for user's templates
-    return []
+    """List saved query templates, optionally filtered by connection."""
+    query = select(QueryTemplate)
+
+    if connection_id:
+        try:
+            query = query.where(QueryTemplate.connection_id == uuid.UUID(connection_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid connection_id")
+
+    query = query.order_by(QueryTemplate.updated_at.desc())
+    result = await db.execute(query)
+    templates = result.scalars().all()
+
+    return [
+        {
+            "id": str(t.id),
+            "name": t.name,
+            "description": t.description,
+            "connection_id": str(t.connection_id),
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+        }
+        for t in templates
+    ]
 
 
 @router.get("/templates/{template_id}")
 async def get_query_template(
     template_id: str,
     current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific query template."""
-    # In production, would query database
-    return None
+    """Fetch a specific query template with its full configuration."""
+    try:
+        tmpl_uuid = uuid.UUID(template_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid template_id")
+
+    template = await db.get(QueryTemplate, tmpl_uuid)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "description": template.description,
+        "connection_id": str(template.connection_id),
+        "query_config": template.query_config,
+        "created_at": template.created_at.isoformat() if template.created_at else None,
+        "updated_at": template.updated_at.isoformat() if template.updated_at else None,
+    }
 
 
 @router.delete("/templates/{template_id}")
 async def delete_query_template(
     template_id: str,
     current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Delete a query template."""
-    # In production, would delete from database
-    return {"message": f"Template {template_id} deleted (placeholder)"}
+    """Delete a saved query template."""
+    try:
+        tmpl_uuid = uuid.UUID(template_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid template_id")
+
+    template = await db.get(QueryTemplate, tmpl_uuid)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    await db.delete(template)
+    await db.commit()
+    return {"message": f"Template {template_id} deleted", "id": str(template_id)}
