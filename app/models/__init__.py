@@ -11,6 +11,7 @@ from app.models.connection import (
     DataConnection,
     Delivery,
     DeliveryRecipient,
+    QueryHistory,
     QueryTemplate,
     Schedule,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "DataConnection",
     "Delivery",
     "DeliveryRecipient",
+    "QueryHistory",
     "QueryTemplate",
     "Schedule",
     "AuditLog",

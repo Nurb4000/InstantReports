@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -14,6 +14,12 @@ from app.models.connection import DataConnection, QueryTemplate
 from app.models.user import User
 from app.services.query_builder.config import QueryConfig, SchemaResponse
 from app.services.query_builder.generator import validate_query
+from app.services.query_builder.history import (
+    delete_snapshot,
+    get_snapshot,
+    list_snapshots,
+    save_snapshot,
+)
 from app.services.query_builder.schema import get_schema
 
 logger = logging.getLogger(__name__)
@@ -269,3 +275,132 @@ async def delete_query_template(
     await db.delete(template)
     await db.commit()
     return {"message": f"Template {template_id} deleted", "id": str(template_id)}
+
+
+@router.post("/history")
+async def save_query_history(
+    query_config: QueryConfig,
+    connection_id: str = Query(...),
+    report_id: Optional[str] = Query(None),
+    element_id: Optional[str] = Query(None),
+    label: Optional[str] = Query(None),
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record a snapshot of the current query configuration."""
+    try:
+        tmpl_conn = uuid.UUID(connection_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid connection_id")
+
+    result = await db.execute(
+        select(DataConnection.id).where(DataConnection.id == tmpl_conn)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
+
+    tmpl_report = uuid.UUID(report_id) if report_id else None
+    created_by = current_user.id if current_user else None
+
+    snapshot = await save_snapshot(
+        db,
+        query_config.model_dump(mode="json"),
+        report_id=tmpl_report,
+        element_id=element_id,
+        connection_id=tmpl_conn,
+        label=label,
+        user_id=created_by,
+    )
+
+    return {
+        "id": str(snapshot.id),
+        "message": f"Query history snapshot saved: {snapshot.id}",
+    }
+
+
+@router.get("/history")
+async def list_query_history(
+    connection_id: Optional[str] = Query(None),
+    report_id: Optional[str] = Query(None),
+    element_id: Optional[str] = Query(None),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """List query-history snapshots for a connection/report/element."""
+    def _to_uuid(value: Optional[str], name: str) -> Optional[uuid.UUID]:
+        if value is None:
+            return None
+        try:
+            return uuid.UUID(value)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid {name}")
+
+    conn_uuid = _to_uuid(connection_id, "connection_id")
+    report_uuid = _to_uuid(report_id, "report_id")
+
+    snapshots = await list_snapshots(
+        db,
+        report_id=report_uuid,
+        element_id=element_id,
+        connection_id=conn_uuid,
+        limit=limit,
+    )
+
+    return [
+        {
+            "id": str(s.id),
+            "label": s.label,
+            "report_id": str(s.report_id) if s.report_id else None,
+            "element_id": s.element_id,
+            "connection_id": str(s.connection_id) if s.connection_id else None,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in snapshots
+    ]
+
+
+@router.get("/history/{snapshot_id}")
+async def get_query_history(
+    snapshot_id: str,
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch a single query-history snapshot with its full configuration."""
+    try:
+        tmpl_uuid = uuid.UUID(snapshot_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid snapshot_id")
+
+    snapshot = await get_snapshot(db, tmpl_uuid)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="History snapshot not found")
+
+    return {
+        "id": str(snapshot.id),
+        "label": snapshot.label,
+        "report_id": str(snapshot.report_id) if snapshot.report_id else None,
+        "element_id": snapshot.element_id,
+        "connection_id": str(snapshot.connection_id) if snapshot.connection_id else None,
+        "query_config": snapshot.query_config,
+        "created_at": snapshot.created_at.isoformat() if snapshot.created_at else None,
+    }
+
+
+@router.delete("/history/{snapshot_id}")
+async def delete_query_history(
+    snapshot_id: str,
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a query-history snapshot."""
+    try:
+        tmpl_uuid = uuid.UUID(snapshot_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid snapshot_id")
+
+    removed = await delete_snapshot(db, tmpl_uuid)
+    if not removed:
+        raise HTTPException(status_code=404, detail="History snapshot not found")
+
+    return {"message": f"History snapshot {snapshot_id} deleted", "id": str(snapshot_id)}
