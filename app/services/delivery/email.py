@@ -106,7 +106,8 @@ async def send_email(
 
 
 def _get_mime_subtype(filename: str) -> str:
-    """Get MIME subtype from filename extension."""
+    """Get MIME subtype from filename extension (case-insensitive)."""
+    filename = filename.lower()
     if filename.endswith(".pdf"):
         return "pdf"
     elif filename.endswith((".xlsx", ".xls")):
