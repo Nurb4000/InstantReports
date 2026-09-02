@@ -122,15 +122,16 @@ class ReportRenderer:
         self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
     ) -> dict[str, Any]:
         """Render a table element with data."""
+        config = element_def.get("properties") or {}
         data_source_id = element_def.get("data_source")
         df = data.get(data_source_id, pd.DataFrame())
 
-        columns = element_def.get("columns", [])
+        columns = config.get("columns") or element_def.get("columns", [])
         if columns and not df.empty:
             available_cols = [c["field"] for c in columns if c.get("field") in df.columns]
             df = df[available_cols]
 
-        sort_field = element_def.get("sort")
+        sort_field = config.get("sort") or element_def.get("sort")
         if sort_field and not df.empty:
             sort_parts = sort_field.split()
             field = sort_parts[0]
@@ -138,7 +139,7 @@ class ReportRenderer:
             if field in df.columns:
                 df = df.sort_values(by=field, ascending=ascending)
 
-        limit = element_def.get("limit")
+        limit = config.get("limit") or element_def.get("limit")
         if limit and not df.empty:
             df = df.head(limit)
 
@@ -159,15 +160,17 @@ class ReportRenderer:
         self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
     ) -> dict[str, Any]:
         """Render a chart element (returns configuration for client-side rendering)."""
+        config = element_def.get("properties") or {}
         data_source_id = element_def.get("data_source")
 
         return {
             "type": "chart",
-            "chart_type": element_def.get("chart_type", "bar"),
-            "x_field": element_def.get("x_field"),
-            "y_field": element_def.get("y_field"),
-            "width": element_def.get("width", "100%"),
-            "height": element_def.get("height", "200px"),
+            "chart_type": config.get("type") or element_def.get("chart_type", "bar"),
+            "x_field": config.get("xField") or element_def.get("x_field"),
+            "y_field": config.get("yField") or element_def.get("y_field"),
+            "title": config.get("title") or element_def.get("title"),
+            "width": config.get("width") or element_def.get("width", "100%"),
+            "height": config.get("height") or element_def.get("height", "200px"),
             "data_source": data_source_id,
             "label": element_label,
         }
@@ -176,6 +179,7 @@ class ReportRenderer:
         self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
     ) -> dict[str, Any]:
         """Render a cross-tab/pivot table element."""
+        config = element_def.get("properties") or {}
         data_source_id = element_def.get("data_source")
         df = data.get(data_source_id, pd.DataFrame())
 
@@ -185,11 +189,11 @@ class ReportRenderer:
         # The designer stores crosstab config under rowField/columnField/
         # valueField/aggregation; accept those primarily and fall back to the
         # older rows/columns/value/aggregate keys for saved definitions.
-        rows = element_def.get("rowField") or element_def.get("rows") or []
-        columns = element_def.get("columnField") or element_def.get("columns") or []
-        value_field = element_def.get("valueField") or element_def.get("value")
+        rows = config.get("rowField") or element_def.get("rows") or []
+        columns = config.get("columnField") or element_def.get("columns") or []
+        value_field = config.get("valueField") or element_def.get("value")
         aggregate = (
-            element_def.get("aggregation")
+            config.get("aggregation")
             or element_def.get("aggregate")
             or "sum"
         )
@@ -223,12 +227,13 @@ class ReportRenderer:
 
     def _render_image(self, element_def: dict[str, Any], element_label: str = "") -> dict[str, Any]:
         """Render an image element."""
+        config = element_def.get("properties") or {}
         return {
             "type": "image",
-            "source": element_def.get("source"),
-            "position": element_def.get("position", "left"),
-            "width": element_def.get("width"),
-            "height": element_def.get("height"),
+            "source": config.get("src") or element_def.get("src") or element_def.get("source"),
+            "position": config.get("position") or element_def.get("position", "left"),
+            "width": config.get("width") or element_def.get("width"),
+            "height": config.get("height") or element_def.get("height"),
             "label": element_label,
         }
 

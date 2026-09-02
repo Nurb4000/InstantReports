@@ -132,10 +132,12 @@ class TestRenderExportIntegration:
                             {
                                 "type": "table",
                                 "data_source": "ds1",
-                                "columns": [
-                                    {"field": "product", "header": "Product"},
-                                    {"field": "price", "header": "Price"},
-                                ],
+                                "properties": {
+                                    "columns": [
+                                        {"field": "product", "header": "Product"},
+                                        {"field": "price", "header": "Price"},
+                                    ],
+                                },
                             }
                         ],
                     }

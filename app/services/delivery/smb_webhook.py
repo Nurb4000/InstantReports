@@ -122,7 +122,7 @@ async def test_smb_connection(
         smb_url = f"\\\\{server}\\{share}"
         smbclient.register_session(smb_url, username=username, password=password)
 
-        remote_file = f"{smb_url}{remote_path.rstrip('/')}/." 
+        remote_file = f"{smb_url}{remote_path.rstrip('/')}/."
         with smbprotocol.open_file(remote_file, mode="rb") as f:
             f.read(0)
 

@@ -494,13 +494,16 @@ class TestElementRenderers:
 
     def test_render_crosstab_pivots_correctly(self):
         renderer = ReportRenderer()
+        # Config lives nested under "properties" (see serializeCanvas in editor.html).
         element_def = {
             "type": "crosstab",
             "data_source": "ds1",
-            "rowField": "region",
-            "columnField": "product",
-            "valueField": "sales",
-            "aggregation": "sum",
+            "properties": {
+                "rowField": "region",
+                "columnField": "product",
+                "valueField": "sales",
+                "aggregation": "sum",
+            },
         }
         df = pd.DataFrame(
             [
@@ -530,10 +533,12 @@ class TestElementRenderers:
         element_def = {
             "type": "crosstab",
             "data_source": "ds1",
-            "rowField": "region",
-            "columnField": "product",
-            "valueField": "sales",
-            "aggregation": "mean",
+            "properties": {
+                "rowField": "region",
+                "columnField": "product",
+                "valueField": "sales",
+                "aggregation": "mean",
+            },
         }
         df = pd.DataFrame(
             [
@@ -559,3 +564,43 @@ class TestElementRenderers:
         result = renderer._render_element({"type": "widget"}, {})
         assert result["type"] == "widget"
         assert "error" in result
+
+    def test_all_elements_read_config_from_nested_properties(self):
+        """Regression: config is nested under 'properties' in real definitions.
+
+        The renderer must read element config from ``element_def['properties']``,
+        not the top level. Export (runner.py -> PDF) consumes this output, so a
+        mismatch here silently blanked tables, images, charts and crosstabs.
+        """
+        renderer = ReportRenderer()
+        df = pd.DataFrame([{"name": "Alice", "score": 95}])
+
+        table = renderer._render_element(
+            {"type": "table", "data_source": "ds1",
+             "properties": {"columns": [{"field": "name", "header": "Name"}]}},
+            {"ds1": df},
+        )
+        assert [c["field"] for c in table["columns"]] == ["name"]
+
+        image = renderer._render_element(
+            {"type": "image", "properties": {"src": "/img/logo.png"}},
+            {},
+        )
+        assert image["source"] == "/img/logo.png"
+
+        chart = renderer._render_element(
+            {"type": "chart", "properties": {"type": "line", "xField": "name", "yField": "score"}},
+            {},
+        )
+        assert chart["chart_type"] == "line"
+        assert chart["x_field"] == "name"
+        assert chart["y_field"] == "score"
+
+        crosstab = renderer._render_element(
+            {"type": "crosstab", "data_source": "ds1",
+             "properties": {"rowField": "name", "columnField": "name",
+                            "valueField": "score", "aggregation": "sum"}},
+            {"ds1": df},
+        )
+        assert crosstab["type"] == "crosstab"
+        assert crosstab["data"], "crosstab should pivot when config is under properties"
