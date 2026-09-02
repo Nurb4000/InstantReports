@@ -131,8 +131,6 @@ def parse_sql_to_config(sql: str) -> QueryConfig:
     if not normalized:
         return QueryConfig()
 
-    upper = normalized.upper()
-
     # FROM tables (everything after FROM up to the next clause keyword).
     from_tables: List[str] = []
     from_match = re.search(r"\bFROM\s+([\w\"]+)", normalized, re.IGNORECASE)

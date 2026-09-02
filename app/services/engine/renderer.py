@@ -95,11 +95,11 @@ class ReportRenderer:
         elif element_type == "table":
             return self._render_table(element_def, data, element_label)
         elif element_type == "chart":
-            return self._render_chart(element_def, data)
+            return self._render_chart(element_def, data, element_label)
         elif element_type == "crosstab":
-            return self._render_crosstab(element_def, data)
+            return self._render_crosstab(element_def, data, element_label)
         elif element_type == "image":
-            return self._render_image(element_def)
+            return self._render_image(element_def, element_label=element_label)
         elif element_type == "subreport":
             return self._render_subreport(element_def, data, element_label)
         else:
@@ -156,11 +156,10 @@ class ReportRenderer:
         }
 
     def _render_chart(
-        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame]
+        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
     ) -> dict[str, Any]:
         """Render a chart element (returns configuration for client-side rendering)."""
         data_source_id = element_def.get("data_source")
-        df = data.get(data_source_id, pd.DataFrame())
 
         return {
             "type": "chart",
@@ -174,7 +173,7 @@ class ReportRenderer:
         }
 
     def _render_crosstab(
-        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame]
+        self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
     ) -> dict[str, Any]:
         """Render a cross-tab/pivot table element."""
         data_source_id = element_def.get("data_source")
@@ -202,7 +201,7 @@ class ReportRenderer:
                 margins_name="Total",
             )
             data = pivot_df.reset_index().to_dict(orient="records")
-        except Exception as e:
+        except Exception:
             data = []
 
         return {
@@ -215,7 +214,7 @@ class ReportRenderer:
             "label": element_label,
         }
 
-    def _render_image(self, element_def: dict[str, Any]) -> dict[str, Any]:
+    def _render_image(self, element_def: dict[str, Any], element_label: str = "") -> dict[str, Any]:
         """Render an image element."""
         return {
             "type": "image",

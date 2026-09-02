@@ -30,6 +30,7 @@ async def send_smb(
         True if successful, False otherwise
     """
     try:
+        import smbclient
         import smbprotocol
 
         smb_url = f"\\\\{server}\\{share}"

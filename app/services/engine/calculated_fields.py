@@ -42,7 +42,7 @@ class CalculatedFieldEvaluator:
                 return result
             else:
                 return pd.Series([result] * len(df), index=df.index)
-        except Exception as e:
+        except Exception:
             return pd.Series([None] * len(df), index=df.index)
 
     def _process_expression(self, expression: str, df: pd.DataFrame) -> str:

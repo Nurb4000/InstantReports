@@ -75,7 +75,7 @@ async def send_email(
             msg.add_attachment(
                 attachment,
                 maintype="application",
-                subtype=self._get_mime_subtype(attachment_filename),
+                subtype=_get_mime_subtype(attachment_filename),
                 filename=attachment_filename,
             )
 

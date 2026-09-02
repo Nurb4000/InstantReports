@@ -20,6 +20,8 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.doctemplate import PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.platypus.utils import Image
+import pandas as pd
 
 from app.services.engine.chart import ChartGenerator
 
