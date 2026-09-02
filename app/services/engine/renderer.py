@@ -53,8 +53,8 @@ class ReportRenderer:
         replacements = {
             "{{page.number}}": str(context.get("page_number", 1)),
             "{{page.total}}": str(context.get("total_pages", 1)),
-            "{{date.now}}": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "{{date.today}}": datetime.date.today().strftime("%Y-%m-%d"),
+            "{{date.now}}": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            "{{date.today}}": datetime.datetime.now(datetime.timezone.utc).date().strftime("%Y-%m-%d"),
             "{{report.name}}": context.get("report_name", ""),
             "{{user.name}}": context.get("user_name", ""),
         }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
@@ -117,7 +117,7 @@ async def create_version(
     )
 
     report.definition = definition
-    report.updated_at = datetime.utcnow()
+    report.updated_at = datetime.now(timezone.utc)
     await db.commit()
 
     return {

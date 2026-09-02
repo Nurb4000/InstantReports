@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,7 +45,7 @@ async def restore_version(
     new_version_number = max_version + 1
 
     report.definition = version.definition.copy()
-    report.updated_at = datetime.utcnow()
+    report.updated_at = datetime.now(timezone.utc)
 
     new_version = ReportVersion(
         report_id=report_id,

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+
+
+def now_utc() -> datetime:
+    """Return the current UTC time as a timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,11 +24,11 @@ class Report(Base):
     definition: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )
 
     creator: Mapped[User] = relationship(back_populates="reports_created", lazy="selectin")
@@ -44,7 +49,7 @@ class ReportVersion(Base):
     commit_message: Mapped[str] = mapped_column(Text, nullable=False)
     diff_summary: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     report: Mapped[Report] = relationship(back_populates="versions", lazy="selectin")
     author: Mapped[User] = relationship(back_populates="versions_created", lazy="selectin")
@@ -59,7 +64,7 @@ class ReportTag(Base):
     tag_name: Mapped[str] = mapped_column(String(100), nullable=False)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     report: Mapped[Report] = relationship(back_populates="tags", lazy="selectin")
     author: Mapped[User] = relationship(back_populates="tags_created", lazy="selectin")
@@ -73,7 +78,7 @@ class ReportComment(Base):
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
     comment_text: Mapped[str] = mapped_column(Text, nullable=False)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     report: Mapped[Report] = relationship(back_populates="comments", lazy="selectin")
     author: Mapped[User] = relationship(back_populates="comments_created", lazy="selectin")
@@ -91,7 +96,7 @@ class ReportOutput(Base):
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     parameters_used: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     generated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     report: Mapped[Report] = relationship(back_populates="outputs", lazy="selectin")
@@ -105,11 +110,11 @@ class ReportTemplate(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     definition: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )
 
 

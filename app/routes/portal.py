@@ -26,8 +26,8 @@ async def portal_index(
     date_to: str = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    from datetime import datetime
-    
+    from datetime import datetime, timezone
+
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
@@ -64,6 +64,8 @@ async def portal_index(
     if date_from:
         try:
             from_date = datetime.fromisoformat(date_from)
+            if from_date.tzinfo is None:
+                from_date = from_date.replace(tzinfo=timezone.utc)
             query = query.where(ReportOutput.generated_at >= from_date)
         except ValueError:
             pass
@@ -71,6 +73,8 @@ async def portal_index(
     if date_to:
         try:
             to_date = datetime.fromisoformat(date_to)
+            if to_date.tzinfo is None:
+                to_date = to_date.replace(tzinfo=timezone.utc)
             # Include the entire day
             to_date = to_date.replace(hour=23, minute=59, second=59)
             query = query.where(ReportOutput.generated_at <= to_date)

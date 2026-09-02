@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
+
+
+def now_utc() -> datetime:
+    """Return the current UTC time as a timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,11 +23,11 @@ class DataConnection(Base):
     connector_type: Mapped[str] = mapped_column(String(50), nullable=False)
     config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )
 
     creator: Mapped[User] = relationship(lazy="selectin")
@@ -39,11 +44,11 @@ class QueryTemplate(Base):
         UUID(as_uuid=True), ForeignKey("data_connections.id", ondelete="CASCADE"), nullable=False, index=True
     )
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )
 
     connection: Mapped[DataConnection] = relationship(lazy="selectin")
@@ -63,7 +68,7 @@ class QueryHistory(Base):
     query_config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     report: Mapped[Report | None] = relationship(lazy="selectin")
 
@@ -85,7 +90,7 @@ class Schedule(Base):
     recipient_emails: Mapped[str | None] = mapped_column(Text, nullable=True)  # Comma-separated emails for email delivery
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Who owns/sees this in portal
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     report: Mapped[Report] = relationship(back_populates="schedules", lazy="selectin")
     owner: Mapped[User] = relationship(backref="owned_schedules", foreign_keys=[owner_id], lazy="selectin")
@@ -99,7 +104,7 @@ class Delivery(Base):
     delivery_type: Mapped[str] = mapped_column(String(50), nullable=False)
     config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
 
 class DeliveryRecipient(Base):
@@ -122,7 +127,7 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     output_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("report_outputs.id"), nullable=True)
-    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
 
 from app.models.report import Report

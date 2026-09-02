@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete
 
@@ -25,7 +25,7 @@ async def cleanup_old_outputs(retention_days: int | None = None) -> int:
     if retention_days is None:
         retention_days = settings.REPORT_RETENTION_DAYS
 
-    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
     async with async_session_factory() as db:
         result = await db.execute(
@@ -65,7 +65,7 @@ async def send_failure_notification(
 
 Schedule: {schedule_name}
 Error: {error_message}
-Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
 
 Please check the InstantReports logs for more details."""
 

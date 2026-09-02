@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -26,7 +26,7 @@ async def log_audit(db, action: str, report_id: uuid.UUID | None = None, schedul
             action=action,
             details=details or {},
             output_id=output_id,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(timezone.utc),
         )
         db_session.add(audit_entry)
         await db_session.commit()

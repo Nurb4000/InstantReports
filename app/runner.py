@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,7 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
             schedule_id=schedule.id,
             action="schedule_executed",
             details={"message": f"Schedule '{schedule.name}' execution started"},
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(timezone.utc),
         )
         db.add(audit_entry)
         await db.commit()
@@ -52,7 +52,7 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
             report_id=report.id,
             schedule_id=schedule.id,
             format="pdf",
-            file_name=f"{report.name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf",
+            file_name=f"{report.name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.pdf",
             file_data=pdf_bytes,
             file_size=len(pdf_bytes),
             mime_type="application/pdf",
@@ -69,7 +69,7 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
             action="report_generated",
             details={"message": f"Report '{report.name}' generated successfully", "output_id": str(output.id)},
             output_id=output.id,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(timezone.utc),
         )
         db.add(audit_entry)
         await db.commit()
@@ -161,7 +161,7 @@ async def deliver_report(
 
 async def cleanup_old_outputs(retention_days: int = 90) -> int:
     """Delete report outputs older than retention period."""
-    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
     async with async_session_factory() as db:
         result = await db.execute(

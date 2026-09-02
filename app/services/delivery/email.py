@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ async def log_delivery_audit(action: str, report_id: uuid.UUID | None = None, sc
                 schedule_id=schedule_id,
                 action=action,
                 details=details or {},
-                executed_at=datetime.utcnow(),
+                executed_at=datetime.now(timezone.utc),
             )
             db.add(audit_entry)
             await db.commit()

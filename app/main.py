@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -74,7 +74,7 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 app.state.templates = Jinja2Templates(directory=str(templates_dir))
 app.state.templates.env.globals["mode"] = app_settings.MODE
-app.state.templates.env.globals["now"] = lambda: int(datetime.now().timestamp())
+app.state.templates.env.globals["now"] = lambda: int(datetime.now(timezone.utc).timestamp())
 
 
 @app.get("/", response_class=HTMLResponse)
