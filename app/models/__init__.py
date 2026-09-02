@@ -20,20 +20,20 @@ from app.models.user import AuthSource, User, UserRole
 
 __all__ = [
     "APIKey",
+    "AuditLog",
     "AuthSource",
     "DataConnection",
     "Delivery",
     "DeliveryRecipient",
     "QueryHistory",
     "QueryTemplate",
-    "Schedule",
-    "AuditLog",
     "Report",
     "ReportComment",
     "ReportOutput",
-    "ReportTemplate",
     "ReportTag",
+    "ReportTemplate",
     "ReportVersion",
+    "Schedule",
     "User",
     "UserRole",
 ]

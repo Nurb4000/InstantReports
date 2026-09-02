@@ -367,19 +367,19 @@ class TestCalculatedFields:
     def test_validate_expression_valid(self):
         """Should validate valid expressions."""
         evaluator = CalculatedFieldEvaluator()
-        is_valid, message = evaluator.validate_expression("{{revenue}} - {{cost}}")
+        is_valid, _ = evaluator.validate_expression("{{revenue}} - {{cost}}")
         assert is_valid is True
 
     def test_validate_expression_empty(self):
         """Should reject empty expressions."""
         evaluator = CalculatedFieldEvaluator()
-        is_valid, message = evaluator.validate_expression("")
+        is_valid, _ = evaluator.validate_expression("")
         assert is_valid is False
 
     def test_validate_expression_unbalanced_braces(self):
         """Should reject unbalanced braces."""
         evaluator = CalculatedFieldEvaluator()
-        is_valid, message = evaluator.validate_expression("{{revenue - cost")
+        is_valid, _ = evaluator.validate_expression("{{revenue - cost")
         assert is_valid is False
 
     def test_evaluate_simple_expression(self):

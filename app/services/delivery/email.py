@@ -109,11 +109,11 @@ def _get_mime_subtype(filename: str) -> str:
     """Get MIME subtype from filename extension."""
     if filename.endswith(".pdf"):
         return "pdf"
-    elif filename.endswith(".xlsx") or filename.endswith(".xls"):
+    elif filename.endswith((".xlsx", ".xls")):
         return "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     elif filename.endswith(".csv"):
         return "csv"
-    elif filename.endswith(".html") or filename.endswith(".htm"):
+    elif filename.endswith((".html", ".htm")):
         return "html"
     else:
         return "octet-stream"

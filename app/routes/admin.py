@@ -534,7 +534,7 @@ async def list_schedules(
 
 
 @router.get("/api/schedules/{schedule_id}")
-async def get_schedule(
+async def get_schedule_api(
     schedule_id: uuid.UUID,
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),

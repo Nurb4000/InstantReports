@@ -120,17 +120,7 @@ class PDFExporter:
         """Render a section (header, detail, summary, footer)."""
         section_type = section.get("type", "detail")
 
-        if section_type == "header":
-            for element in section.get("elements", []):
-                self._render_element(story, element, styles)
-            story.append(Spacer(1, 0.25 * inch))
-
-        elif section_type == "detail":
-            for element in section.get("elements", []):
-                self._render_element(story, element, styles)
-            story.append(Spacer(1, 0.25 * inch))
-
-        elif section_type == "summary":
+        if section_type == "header" or section_type == "detail" or section_type == "summary":
             for element in section.get("elements", []):
                 self._render_element(story, element, styles)
             story.append(Spacer(1, 0.25 * inch))

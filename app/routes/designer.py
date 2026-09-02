@@ -128,7 +128,6 @@ async def list_reports(
     reports = result.scalars().all()
     
     # Get all users for the creator filter dropdown
-    from app.models.user import User as UserModel
     user_result = await db.execute(select(UserModel).order_by(UserModel.name.asc()))
     users = user_result.scalars().all()
     

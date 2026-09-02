@@ -39,10 +39,9 @@ async def send_sftp(
         if key_filename:
             connect_kwargs["client_keys"] = [key_filename]
 
-        async with asyncssh.connect(host, port=port, username=username, **connect_kwargs) as conn:
-            async with conn.start_sftp_client() as sftp:
-                remote_file = f"{remote_path.rstrip('/')}/{filename}" if filename else remote_path
-                await sftp.put_file(file_data, remote_file)
+        async with asyncssh.connect(host, port=port, username=username, **connect_kwargs) as conn, conn.start_sftp_client() as sftp:
+            remote_file = f"{remote_path.rstrip('/')}/{filename}" if filename else remote_path
+            await sftp.put_file(file_data, remote_file)
 
         logger.info(f"SFTP file sent to {host}:{remote_path}/{filename}")
         return True

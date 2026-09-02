@@ -173,10 +173,8 @@ Rules:
 
         # Clean up the response
         sql = response.strip()
-        if sql.startswith("```sql"):
-            sql = sql[6:]
-        if sql.endswith("```"):
-            sql = sql[:-3]
+        sql = sql.removeprefix("```sql")
+        sql = sql.removesuffix("```")
         sql = sql.strip()
 
         return sql

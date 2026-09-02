@@ -196,7 +196,7 @@ class GraphQLConnector(DataConnector):
 
             result_data = data.get("data", {})
             if isinstance(result_data, dict):
-                for key, value in result_data.items():
+                for value in result_data.values():
                     if isinstance(value, list):
                         return pd.DataFrame(value)
                     elif isinstance(value, dict):

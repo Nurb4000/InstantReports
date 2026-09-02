@@ -101,9 +101,12 @@ class WhereFilter(BaseModel):
         if self.operator == Operator.LIKE:
             return f"{self.field} LIKE '{self.value}'"
 
-        if self.operator == Operator.BETWEEN:
-            if isinstance(self.value, (list, tuple)) and len(self.value) == 2:
-                return f"{self.field} BETWEEN '{self.value[0]}' AND '{self.value[1]}'"
+        if (
+            self.operator == Operator.BETWEEN
+            and isinstance(self.value, (list, tuple))
+            and len(self.value) == 2
+        ):
+            return f"{self.field} BETWEEN '{self.value[0]}' AND '{self.value[1]}'"
 
         return f"{self.field} {self.operator.value} '{self.value}'"
 

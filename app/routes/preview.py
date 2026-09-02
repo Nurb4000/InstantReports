@@ -47,10 +47,9 @@ async def preview_report(
     # Check authorization
     from app.routes.admin import get_role_value
     role = get_role_value(current_user)
-    if role not in ("admin", "designer"):
+    if role not in ("admin", "designer") and report.created_by != current_user.id:
         # Non-designers can only preview their own reports
-        if report.created_by != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
         
