@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
+
+logger = logging.getLogger(__name__)
 
 
 class MySQLConnector(DataConnector):
@@ -70,8 +73,8 @@ class MySQLConnector(DataConnector):
                 })
 
             await conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Failed to fetch schema for MySQL connection: %s", e)
 
         return {"tables": tables}
 

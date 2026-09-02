@@ -150,7 +150,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
             if db:
                 try:
                     await db.commit()
-                except:
+                except Exception:
                     await db.rollback()
             elem_type = element.get("type", "text")
             props = element.get("properties", {})

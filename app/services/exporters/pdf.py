@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import uuid
 from typing import Any
 
@@ -22,8 +23,10 @@ from reportlab.platypus.doctemplate import PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.platypus.utils import Image
 import pandas as pd
-
 from app.services.engine.chart import ChartGenerator
+
+logger = logging.getLogger(__name__)
+
 
 
 class PDFExporter:
@@ -248,8 +251,8 @@ class PDFExporter:
             img = ImageReader(io.BytesIO(chart_bytes))
             story.append(img)
             story.append(Spacer(1, 0.25 * inch))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Failed to render chart in PDF: %s", e)
 
     def _render_subreport(
         self, story: list, element: dict[str, Any], styles: dict[str, Any]

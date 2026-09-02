@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import httpx
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
+
+logger = logging.getLogger(__name__)
 
 
 class RESTAPIConnector(DataConnector):
@@ -45,8 +48,8 @@ class RESTAPIConnector(DataConnector):
                                 "nullable": value is None,
                             })
                         return {"tables": [{"name": config.get("endpoint", "api"), "columns": columns}]}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Failed to fetch schema for REST API connection: %s", e)
         return {"tables": []}
 
     async def execute_query(
@@ -171,8 +174,8 @@ class GraphQLConnector(DataConnector):
                             "columns": columns,
                         })
                     return {"tables": tables}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Failed to fetch schema for GraphQL connection: %s", e)
         return {"tables": []}
 
     async def execute_query(
