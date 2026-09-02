@@ -165,7 +165,16 @@ def parse_sql_to_config(sql: str) -> QueryConfig:
     if where_match:
         body = where_match.group(1).strip()
         if body:
-            logic_parts = _LOGIC_PATTERN.split(body)
+            # Protect "BETWEEN ... AND ..." so the connector AND inside a BETWEEN
+            # clause isn't mistaken for a logic operator and dropped.
+            protected: list[str] = []
+
+            def _protect_between(match: re.Match) -> str:
+                protected.append(match.group(0))
+                return f"\x00BETWEEN{len(protected) - 1}\x00"
+
+            protected_body = re.sub(r"(?is)\bBETWEEN\b.*?\bAND\b", _protect_between, body)
+            logic_parts = _LOGIC_PATTERN.split(protected_body)
             logic = "AND"
             conditions: list[str] = []
             for i, piece in enumerate(logic_parts):
@@ -175,7 +184,10 @@ def parse_sql_to_config(sql: str) -> QueryConfig:
                 if piece.strip():
                     conditions.append(piece.strip())
             for cond in conditions:
-                parsed = _parse_where_condition(cond)
+                restored = cond
+                for idx, original in enumerate(protected):
+                    restored = restored.replace(f"\x00BETWEEN{idx}\x00", original)
+                parsed = _parse_where_condition(restored)
                 if parsed:
                     parsed.logic = logic
                     where.append(parsed)

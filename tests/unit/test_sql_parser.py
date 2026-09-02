@@ -92,3 +92,24 @@ def test_trailing_semicolon_and_newlines():
     sql = "SELECT *\nFROM orders\n;"
     cfg = parse_sql_to_config(sql)
     assert cfg.from_tables == ["orders"]
+
+
+def test_between_roundtrip_preserved():
+    sql = "SELECT orders.id FROM orders WHERE orders.amount BETWEEN '10' AND '20'"
+    cfg = parse_sql_to_config(sql)
+    assert len(cfg.where) == 1
+    assert cfg.where[0].operator.value == "BETWEEN"
+    regenerated = cfg.to_sql()
+    assert "BETWEEN '10' AND '20'" in regenerated
+
+
+def test_between_among_multiple_conditions():
+    # The connector AND inside BETWEEN must not be split as a logic operator.
+    sql = (
+        "SELECT orders.id FROM orders "
+        "WHERE orders.status = 'open' AND orders.amount BETWEEN '10' AND '20' AND orders.qty > 5"
+    )
+    cfg = parse_sql_to_config(sql)
+    assert len(cfg.where) == 3
+    operators = [f.operator.value for f in cfg.where]
+    assert operators == ["=", "BETWEEN", ">"]

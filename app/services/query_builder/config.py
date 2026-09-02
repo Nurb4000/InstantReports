@@ -94,6 +94,16 @@ class WhereFilter(BaseModel):
         if self.operator == Operator.IS_NOT_NULL:
             return f"{self.field} IS NOT NULL"
 
+        if (
+            self.operator == Operator.BETWEEN
+            and isinstance(self.value, (list, tuple))
+            and len(self.value) == 2
+        ):
+            return f"{self.field} BETWEEN '{self.value[0]}' AND '{self.value[1]}'"
+
+        if self.operator == Operator.LIKE:
+            return f"{self.field} LIKE '{self.value}'"
+
         if isinstance(self.value, list):
             values_str = ", ".join(f"'{v}'" for v in self.value)
             return f"{self.field} IN ({values_str})"
