@@ -4,14 +4,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import select, or_
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.routes.auth import get_current_user_optional
 from app.database import get_db
 from app.models.report import Report, ReportOutput
 from app.models.user import User
+from app.routes.auth import get_current_user_optional
 
 router = APIRouter()
 

@@ -11,7 +11,7 @@ drivers do not break import time or the other backends.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from app.services.query_builder.config import SchemaColumn, SchemaResponse, SchemaTable
 
@@ -268,7 +268,7 @@ async def execute_query(
     connector_type: str,
     config: dict[str, Any],
     sql: str,
-    limit: Optional[int] = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Run a read query and return rows as a list of dicts."""
     ct = (connector_type or "").lower()
@@ -340,7 +340,7 @@ ADAPTERS = {
 
 async def fetch_schema(
     connector_type: str, config: dict[str, Any]
-) -> Optional[SchemaResponse]:
+) -> SchemaResponse | None:
     """Fetch a normalized :class:`SchemaResponse` for the given connector."""
     adapter = ADAPTERS.get((connector_type or "").lower())
     if not adapter:

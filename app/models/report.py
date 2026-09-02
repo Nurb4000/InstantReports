@@ -26,12 +26,12 @@ class Report(Base):
         onupdate=datetime.utcnow,
     )
 
-    creator: Mapped["User"] = relationship(back_populates="reports_created", lazy="selectin")
-    versions: Mapped[list["ReportVersion"]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
-    tags: Mapped[list["ReportTag"]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
-    comments: Mapped[list["ReportComment"]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
-    schedules: Mapped[list["Schedule"]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
-    outputs: Mapped[list["ReportOutput"]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
+    creator: Mapped[User] = relationship(back_populates="reports_created", lazy="selectin")
+    versions: Mapped[list[ReportVersion]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
+    tags: Mapped[list[ReportTag]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
+    comments: Mapped[list[ReportComment]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
+    schedules: Mapped[list[Schedule]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
+    outputs: Mapped[list[ReportOutput]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")
 
 
 class ReportVersion(Base):
@@ -46,8 +46,8 @@ class ReportVersion(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
-    report: Mapped["Report"] = relationship(back_populates="versions", lazy="selectin")
-    author: Mapped["User"] = relationship(back_populates="versions_created", lazy="selectin")
+    report: Mapped[Report] = relationship(back_populates="versions", lazy="selectin")
+    author: Mapped[User] = relationship(back_populates="versions_created", lazy="selectin")
 
 
 class ReportTag(Base):
@@ -61,8 +61,8 @@ class ReportTag(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
-    report: Mapped["Report"] = relationship(back_populates="tags", lazy="selectin")
-    author: Mapped["User"] = relationship(back_populates="tags_created", lazy="selectin")
+    report: Mapped[Report] = relationship(back_populates="tags", lazy="selectin")
+    author: Mapped[User] = relationship(back_populates="tags_created", lazy="selectin")
 
 
 class ReportComment(Base):
@@ -75,8 +75,8 @@ class ReportComment(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
-    report: Mapped["Report"] = relationship(back_populates="comments", lazy="selectin")
-    author: Mapped["User"] = relationship(back_populates="comments_created", lazy="selectin")
+    report: Mapped[Report] = relationship(back_populates="comments", lazy="selectin")
+    author: Mapped[User] = relationship(back_populates="comments_created", lazy="selectin")
 
 
 class ReportOutput(Base):
@@ -94,7 +94,7 @@ class ReportOutput(Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     generated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
-    report: Mapped["Report"] = relationship(back_populates="outputs", lazy="selectin")
+    report: Mapped[Report] = relationship(back_populates="outputs", lazy="selectin")
 
 
 class ReportTemplate(Base):
@@ -113,4 +113,4 @@ class ReportTemplate(Base):
     )
 
 
-from app.models.user import User  # noqa: E402, F811
+from app.models.user import User

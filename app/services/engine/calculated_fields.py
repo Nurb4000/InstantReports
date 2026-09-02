@@ -37,7 +37,7 @@ class CalculatedFieldEvaluator:
             eval_context.update(context)
 
         try:
-            result = eval(processed_expr, eval_context)  # noqa: S307
+            result = eval(processed_expr, eval_context)
             if isinstance(result, pd.Series):
                 return result
             else:

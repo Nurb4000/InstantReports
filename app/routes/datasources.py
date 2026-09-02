@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.routes.auth import get_current_user_optional
 from app.database import get_db
 from app.models.connection import DataConnection
 from app.models.user import User
+from app.routes.auth import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -288,7 +287,7 @@ async def test_query(
             "preview": df.to_dict(orient="records"),
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Query error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Query error: {e!s}")
 
 
 @router.post("/{connection_id}/calculate")
@@ -338,4 +337,4 @@ async def calculate_field(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Calculation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Calculation error: {e!s}")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -45,8 +45,8 @@ class SelectColumn(BaseModel):
 
     table: str
     column: str
-    alias: Optional[str] = None
-    aggregation: Optional[Aggregation] = None
+    alias: str | None = None
+    aggregation: Aggregation | None = None
 
     def to_sql(self) -> str:
         """Generate SQL for this select column."""
@@ -123,12 +123,12 @@ class QueryConfig(BaseModel):
     """Complete query configuration."""
 
     version: str = "1.0"
-    select: List[SelectColumn] = Field(default_factory=list)
-    from_tables: List[str] = Field(default_factory=list)
-    joins: List[JoinConfig] = Field(default_factory=list)
-    where: List[WhereFilter] = Field(default_factory=list)
-    group_by: List[str] = Field(default_factory=list)
-    order_by: List[OrderByField] = Field(default_factory=list)
+    select: list[SelectColumn] = Field(default_factory=list)
+    from_tables: list[str] = Field(default_factory=list)
+    joins: list[JoinConfig] = Field(default_factory=list)
+    where: list[WhereFilter] = Field(default_factory=list)
+    group_by: list[str] = Field(default_factory=list)
+    order_by: list[OrderByField] = Field(default_factory=list)
 
     def to_sql(self) -> str:
         """Generate complete SQL query from configuration."""
@@ -153,7 +153,7 @@ class QueryConfig(BaseModel):
         if self.where:
             where_clauses = [f.to_sql() for f in self.where]
             if len(where_clauses) > 1:
-                logic = " {} ".format(self.where[0].logic)
+                logic = f" {self.where[0].logic} "
                 sql_parts.append(f"WHERE {logic.join(where_clauses)}")
             else:
                 sql_parts.append(f"WHERE {where_clauses[0]}")
@@ -173,9 +173,9 @@ class QueryConfig(BaseModel):
 class QueryTemplate(BaseModel):
     """Saved query template for reuse."""
 
-    id: Optional[uuid.UUID] = None
+    id: uuid.UUID | None = None
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     query_config: QueryConfig
     connection_id: uuid.UUID
     created_by: uuid.UUID
@@ -193,7 +193,7 @@ class SchemaTable(BaseModel):
     """Represents a table in the schema browser."""
 
     name: str
-    columns: List[SchemaColumn]
+    columns: list[SchemaColumn]
 
 
 class SchemaColumn(BaseModel):
@@ -204,12 +204,12 @@ class SchemaColumn(BaseModel):
     nullable: bool = True
     is_primary_key: bool = False
     is_foreign_key: bool = False
-    foreign_key_table: Optional[str] = None
-    foreign_key_column: Optional[str] = None
+    foreign_key_table: str | None = None
+    foreign_key_column: str | None = None
 
 
 class SchemaResponse(BaseModel):
     """Response from schema browser endpoint."""
 
-    tables: List[SchemaTable]
+    tables: list[SchemaTable]
     connection_name: str

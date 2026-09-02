@@ -3,17 +3,17 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.compiler import compiles
 
 from app.database import Base, get_db
-from app.models.user import User, UserRole, AuthSource
-from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
-from sqlalchemy.ext.compiler import compiles
+from app.models.user import AuthSource, User, UserRole
 
 
 # The test DB is SQLite, but the models declare Postgres-only types. Scope each

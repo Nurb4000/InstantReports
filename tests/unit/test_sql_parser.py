@@ -1,8 +1,6 @@
 """Unit tests for the SQL -> QueryConfig parser."""
 from __future__ import annotations
 
-import pytest
-
 from app.services.query_builder.config import Aggregation, JoinType, Operator
 from app.services.query_builder.sql_parser import parse_sql_to_config
 

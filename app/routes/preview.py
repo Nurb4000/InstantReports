@@ -1,20 +1,24 @@
 from __future__ import annotations
 
-import io
 import logging
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, StreamingResponse
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    WebSocketDisconnect,
+)
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.database import get_db
 from app.models.report import Report
 from app.models.user import User
 from app.routes.auth import get_current_user_optional
-from app.services.engine.renderer import ReportRenderer
-from app.services.exporters.pdf import PDFExporter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -49,7 +53,6 @@ async def preview_report(
             raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
-        import json
         
         # If use_current is true, we'll need to get the current canvas state from the request
         # For now, just use the saved definition
@@ -67,7 +70,7 @@ async def preview_report(
         return HTMLResponse(content=html_content)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Preview failed: {e!s}")
 
 
 @router.get("/temp")
@@ -98,13 +101,12 @@ async def preview_temp(
         
         return HTMLResponse(content=html_content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid definition: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid definition: {e!s}")
 
 
 async def render_report_with_data(definition: dict, title: str, description: str = "", db=None) -> str:
     """Render a report definition to HTML with actual data from database."""
     
-    import asyncio
     
     from app.services.engine.data_processor import DataProcessor
     
@@ -120,6 +122,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
         logger.info(f"Looking up connection ID: {conn_id}")
         if conn_id and db:
             from sqlalchemy import select
+
             from app.models.connection import DataConnection
             result = await db.execute(select(DataConnection).where(DataConnection.id == conn_id))
             connection = result.scalar_one_or_none()
@@ -132,6 +135,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
     # If no connection in definition, try to find any PostgreSQL connection
     if not connection_config and db:
         from sqlalchemy import select
+
         from app.models.connection import DataConnection
         result = await db.execute(select(DataConnection).where(DataConnection.connector_type == 'postgresql').limit(1))
         connection = result.scalar_one_or_none()
@@ -215,7 +219,9 @@ async def render_report_with_data(definition: dict, title: str, description: str
                             cf = None
                             if formatting_rules:
                                 try:
-                                    from app.services.engine.conditional_formatting import ConditionalFormatter
+                                    from app.services.engine.conditional_formatting import (
+                                        ConditionalFormatter,
+                                    )
                                     cf = ConditionalFormatter()
                                     formatted_rows = cf.apply_rules(rows, formatting_rules, df)
                                 except Exception as formatting_error:

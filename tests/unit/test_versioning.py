@@ -1,11 +1,14 @@
 """Unit tests for versioning service."""
-import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.report import Report, ReportVersion
-from app.models.user import User, UserRole, AuthSource
-from app.services.versioning import save_version, get_versions, get_version, restore_version
+from app.models.user import User
+from app.services.versioning import (
+    get_version,
+    get_versions,
+    restore_version,
+    save_version,
+)
 from app.services.versioning.diff import ReportDiffEngine
 
 

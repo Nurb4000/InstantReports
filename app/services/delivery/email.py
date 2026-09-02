@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime
-from typing import Any
-
 from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)

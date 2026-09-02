@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
 
 from app.services.query_builder.config import (
     Aggregation,
     JoinConfig,
-    JoinType,
     OrderByField,
-    Operator,
     QueryConfig,
     SelectColumn,
     WhereFilter,
@@ -23,7 +20,7 @@ class SQLGenerator:
     """Generates SQL queries from QueryConfig objects."""
 
     @staticmethod
-    def generate_select(columns: List[SelectColumn]) -> str:
+    def generate_select(columns: list[SelectColumn]) -> str:
         """Generate SELECT clause."""
         if not columns:
             return "*"
@@ -43,14 +40,14 @@ class SQLGenerator:
         return ", ".join(parts)
 
     @staticmethod
-    def generate_from(tables: List[str]) -> str:
+    def generate_from(tables: list[str]) -> str:
         """Generate FROM clause."""
         if not tables:
             return ""
         return f"FROM {tables[0]}"
 
     @staticmethod
-    def generate_joins(joins: List[JoinConfig]) -> str:
+    def generate_joins(joins: list[JoinConfig]) -> str:
         """Generate JOIN clauses."""
         if not joins:
             return ""
@@ -62,7 +59,7 @@ class SQLGenerator:
         return "\n".join(parts)
 
     @staticmethod
-    def generate_where(filters: List[WhereFilter]) -> str:
+    def generate_where(filters: list[WhereFilter]) -> str:
         """Generate WHERE clause."""
         if not filters:
             return ""
@@ -78,14 +75,14 @@ class SQLGenerator:
         return "WHERE " + " ".join(parts)
 
     @staticmethod
-    def generate_group_by(columns: List[str]) -> str:
+    def generate_group_by(columns: list[str]) -> str:
         """Generate GROUP BY clause."""
         if not columns:
             return ""
         return f"GROUP BY {', '.join(columns)}"
 
     @staticmethod
-    def generate_order_by(fields: List[OrderByField]) -> str:
+    def generate_order_by(fields: list[OrderByField]) -> str:
         """Generate ORDER BY clause."""
         if not fields:
             return ""
@@ -133,7 +130,7 @@ class SQLGenerator:
         return "\n".join(parts)
 
     @staticmethod
-    def validate_config(config: QueryConfig) -> tuple[bool, List[str]]:
+    def validate_config(config: QueryConfig) -> tuple[bool, list[str]]:
         """Validate query configuration and return (is_valid, errors)."""
         errors = []
 
@@ -180,6 +177,6 @@ def generate_sql(config: QueryConfig) -> str:
     return SQLGenerator.generate(config)
 
 
-def validate_query(config: QueryConfig) -> tuple[bool, List[str]]:
+def validate_query(config: QueryConfig) -> tuple[bool, list[str]]:
     """Validate query configuration."""
     return SQLGenerator.validate_config(config)

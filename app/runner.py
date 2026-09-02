@@ -5,14 +5,13 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import async_session_factory
 from app.models.connection import Delivery, DeliveryRecipient, Schedule
 from app.models.report import Report, ReportOutput
-from app.models.user import User
 from app.services.delivery import send_email, send_sftp, send_smb, send_webhook
 from app.services.engine.renderer import ReportRenderer
 from app.services.exporters.pdf import PDFExporter

@@ -7,7 +7,7 @@ such as missing indexes on JOIN/WHERE columns and ``SELECT *`` usage.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.services.query_builder.config import (
     QueryConfig,
@@ -31,7 +31,7 @@ def _build_indexed_columns(schema: SchemaResponse) -> dict[str, set[str]]:
     return indexed
 
 
-def _split_field(field: str) -> tuple[Optional[str], Optional[str]]:
+def _split_field(field: str) -> tuple[str | None, str | None]:
     """Split a 'table.column' string into its parts."""
     if "." in field:
         table, column = field.rsplit(".", 1)
@@ -41,10 +41,10 @@ def _split_field(field: str) -> tuple[Optional[str], Optional[str]]:
 
 def analyze_query(
     config: QueryConfig,
-    schema: Optional[SchemaResponse] = None,
-) -> List[Dict[str, Any]]:
+    schema: SchemaResponse | None = None,
+) -> list[dict[str, Any]]:
     """Return a list of optimization suggestions for the given query config."""
-    suggestions: List[Dict[str, Any]] = []
+    suggestions: list[dict[str, Any]] = []
     indexed = _build_indexed_columns(schema)
 
     # 1. SELECT * (no explicit columns).
@@ -108,6 +108,6 @@ def analyze_query(
 
 
 # Convenience function
-def optimize_query(config: QueryConfig, schema: Optional[SchemaResponse] = None) -> List[Dict[str, Any]]:
+def optimize_query(config: QueryConfig, schema: SchemaResponse | None = None) -> list[dict[str, Any]]:
     """Analyze a query config and return optimization suggestions."""
     return analyze_query(config, schema)

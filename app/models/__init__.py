@@ -1,12 +1,4 @@
-from app.models.user import AuthSource, User, UserRole
-from app.models.report import (
-    Report,
-    ReportComment,
-    ReportOutput,
-    ReportTemplate,
-    ReportTag,
-    ReportVersion,
-)
+from app.models.api_key import APIKey
 from app.models.connection import (
     AuditLog,
     DataConnection,
@@ -16,7 +8,15 @@ from app.models.connection import (
     QueryTemplate,
     Schedule,
 )
-from app.models.api_key import APIKey
+from app.models.report import (
+    Report,
+    ReportComment,
+    ReportOutput,
+    ReportTag,
+    ReportTemplate,
+    ReportVersion,
+)
+from app.models.user import AuthSource, User, UserRole
 
 __all__ = [
     "APIKey",

@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.api_key import APIKey
 from app.models.user import User
-from app.services.api_key import generate_api_key, list_user_keys, revoke_api_key, validate_api_key
+from app.services.api_key import (
+    generate_api_key,
+    list_user_keys,
+    revoke_api_key,
+    validate_api_key,
+)
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 security = HTTPBearer(auto_error=False)

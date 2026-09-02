@@ -69,10 +69,11 @@ async def send_webhook(
         True if successful, False otherwise
     """
     try:
-        import httpx
-        import hmac
         import hashlib
+        import hmac
         from datetime import datetime, timezone
+
+        import httpx
 
         request_headers = headers or {}
         request_headers["Content-Type"] = "application/json"
@@ -148,10 +149,11 @@ async def test_webhook_connection(
         return False, "A webhook URL is required"
 
     try:
-        import httpx
-        import hmac
         import hashlib
+        import hmac
         from datetime import datetime, timezone
+
+        import httpx
 
         payload = {"test": True, "timestamp": datetime.now(timezone.utc).isoformat()}
         body = __import__("json").dumps(payload).encode()

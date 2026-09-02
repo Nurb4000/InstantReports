@@ -25,7 +25,7 @@ class DataConnection(Base):
         onupdate=datetime.utcnow,
     )
 
-    creator: Mapped["User"] = relationship(lazy="selectin")
+    creator: Mapped[User] = relationship(lazy="selectin")
 
 
 class QueryTemplate(Base):
@@ -46,7 +46,7 @@ class QueryTemplate(Base):
         onupdate=datetime.utcnow,
     )
 
-    connection: Mapped["DataConnection"] = relationship(lazy="selectin")
+    connection: Mapped[DataConnection] = relationship(lazy="selectin")
 
 
 class QueryHistory(Base):
@@ -65,7 +65,7 @@ class QueryHistory(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
-    report: Mapped["Report | None"] = relationship(lazy="selectin")
+    report: Mapped[Report | None] = relationship(lazy="selectin")
 
 
 class Schedule(Base):
@@ -87,8 +87,8 @@ class Schedule(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
-    report: Mapped["Report"] = relationship(back_populates="schedules", lazy="selectin")
-    owner: Mapped["User"] = relationship(backref="owned_schedules", foreign_keys=[owner_id], lazy="selectin")
+    report: Mapped[Report] = relationship(back_populates="schedules", lazy="selectin")
+    owner: Mapped[User] = relationship(backref="owned_schedules", foreign_keys=[owner_id], lazy="selectin")
 
 
 class Delivery(Base):
@@ -125,4 +125,4 @@ class AuditLog(Base):
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
-from app.models.report import Report  # noqa: E402
+from app.models.report import Report

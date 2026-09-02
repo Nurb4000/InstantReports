@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
+from sqlalchemy import Boolean, DateTime, Enum, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -39,7 +39,7 @@ class User(Base):
         onupdate=datetime.utcnow,
     )
 
-    reports_created: Mapped[list["Report"]] = relationship(back_populates="creator", lazy="selectin")
-    versions_created: Mapped[list["ReportVersion"]] = relationship(back_populates="author", lazy="selectin")
-    tags_created: Mapped[list["ReportTag"]] = relationship(back_populates="author", lazy="selectin")
-    comments_created: Mapped[list["ReportComment"]] = relationship(back_populates="author", lazy="selectin")
+    reports_created: Mapped[list[Report]] = relationship(back_populates="creator", lazy="selectin")
+    versions_created: Mapped[list[ReportVersion]] = relationship(back_populates="author", lazy="selectin")
+    tags_created: Mapped[list[ReportTag]] = relationship(back_populates="author", lazy="selectin")
+    comments_created: Mapped[list[ReportComment]] = relationship(back_populates="author", lazy="selectin")

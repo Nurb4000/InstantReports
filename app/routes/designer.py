@@ -4,23 +4,31 @@ import json
 import logging
 import os
 import uuid
-from sqlalchemy.orm import selectinload
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.routes.auth import get_current_user_optional
 from app.config import settings as app_settings
 from app.database import get_db
-from app.models.report import Report, ReportTemplate
-from app.services.report.definition import normalize_report_definition
-from app.models.user import User
-from app.routes.admin import get_role_value
 
 # Import app for static file serving
-from app.main import app
+from app.models.report import Report, ReportTemplate
+from app.models.user import User
+from app.routes.admin import get_role_value
+from app.routes.auth import get_current_user_optional
+from app.services.report.definition import normalize_report_definition
 
 logger = logging.getLogger(__name__)
 
@@ -388,7 +396,6 @@ async def upload_image(
     filename = f"{uuid.uuid4()}.{ext}"
 
     # Save to static/img directory
-    import os
     from pathlib import Path
     upload_dir = Path(app_settings.STATIC_DIR) / "img"
     upload_dir.mkdir(parents=True, exist_ok=True)

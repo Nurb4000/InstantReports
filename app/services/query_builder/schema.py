@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +24,7 @@ class SchemaService:
     @staticmethod
     async def get_schema(
         db: AsyncSession, connection_id: str
-    ) -> Optional[SchemaResponse]:
+    ) -> SchemaResponse | None:
         """Get schema information for a database connection.
 
         Args:
@@ -201,6 +200,6 @@ class SchemaService:
 
 
 # Convenience function
-async def get_schema(db: AsyncSession, connection_id: str) -> Optional[SchemaResponse]:
+async def get_schema(db: AsyncSession, connection_id: str) -> SchemaResponse | None:
     """Get schema for a database connection."""
     return await SchemaService.get_schema(db, connection_id)

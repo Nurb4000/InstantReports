@@ -2,27 +2,24 @@ from __future__ import annotations
 
 import io
 import logging
-import uuid
 from typing import Any
 
+import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import inch, cm
+from reportlab.lib.units import cm, inch
 from reportlab.platypus import (
+    BaseDocTemplate,
     Frame,
     PageTemplate,
-    BaseDocTemplate,
-    KeepTogether,
     Paragraph,
     Spacer,
     Table,
     TableStyle,
 )
-from reportlab.platypus.doctemplate import PageBreak
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.platypus.utils import Image
-import pandas as pd
+
 from app.services.engine.chart import ChartGenerator
 
 logger = logging.getLogger(__name__)

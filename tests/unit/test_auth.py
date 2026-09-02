@@ -1,10 +1,14 @@
 """Unit tests for authentication."""
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import hash_password, verify_password, create_access_token, decode_access_token
-from app.models.user import User, UserRole, AuthSource
+from app.auth import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
 
 
 class TestPasswordHashing:
@@ -61,8 +65,9 @@ class TestUserModel:
     @pytest.mark.asyncio
     async def test_create_user(self, db_session: AsyncSession):
         """Should create a user in the database."""
-        from app.models.user import User, UserRole, AuthSource
         import uuid
+
+        from app.models.user import AuthSource, User, UserRole
 
         user = User(
             id=uuid.uuid4(),
@@ -84,8 +89,9 @@ class TestUserModel:
     @pytest.mark.asyncio
     async def test_user_roles(self, db_session: AsyncSession):
         """Should support different user roles."""
-        from app.models.user import User, UserRole, AuthSource
         import uuid
+
+        from app.models.user import AuthSource, User, UserRole
 
         for role in [UserRole.ADMIN, UserRole.DESIGNER, UserRole.VIEWER]:
             user = User(

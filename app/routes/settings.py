@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-import uuid
-from typing import Any
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.routes.auth import get_current_user_optional
 from app.config import settings
-from app.database import get_db
 from app.models.user import User
+from app.routes.auth import get_current_user_optional
 from app.services.delivery.email import send_email
 
 router = APIRouter()
@@ -129,7 +123,7 @@ async def test_email(
         else:
             raise HTTPException(status_code=500, detail="Failed to send test email")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Email test failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Email test failed: {e!s}")
 
 
 def get_role_value(user):

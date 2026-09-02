@@ -11,10 +11,9 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime
-from typing import Any, List
+from typing import Any
 
 from app.services.query_builder.config import QueryConfig
-
 
 EXPORT_VERSION = "1.0"
 
@@ -44,7 +43,7 @@ def template_to_dict(template: Any) -> dict:
     }
 
 
-def export_templates(templates: List[Any]) -> dict:
+def export_templates(templates: list[Any]) -> dict:
     """Wrap one or more templates in a portable export bundle."""
     return {
         "version": EXPORT_VERSION,
@@ -52,7 +51,7 @@ def export_templates(templates: List[Any]) -> dict:
     }
 
 
-def parse_import_payload(data: Any) -> List[dict]:
+def parse_import_payload(data: Any) -> list[dict]:
     """Validate an import payload and return a list of template dicts.
 
     Accepts either a full export bundle (``{"version": ..., "templates": [...]}``)
@@ -71,7 +70,7 @@ def parse_import_payload(data: Any) -> List[dict]:
     if not isinstance(items, list):
         raise ValueError("'templates' must be a list")
 
-    parsed: List[dict] = []
+    parsed: list[dict] = []
     for item in items:
         if not isinstance(item, dict):
             raise ValueError("each template must be an object")

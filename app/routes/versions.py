@@ -4,20 +4,19 @@ import json
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.routes.auth import get_current_user_optional
 from app.database import get_db
-from app.models.report import Report, ReportVersion
+from app.models.report import Report
 from app.models.user import User
+from app.routes.auth import get_current_user_optional
 from app.services.versioning import (
     add_comment,
     add_tag,
     delete_comment,
     get_comments,
-    get_tags,
     get_version,
     get_versions,
     remove_tag,

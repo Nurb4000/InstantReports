@@ -1,10 +1,10 @@
 """Unit tests for report engine."""
 import pandas as pd
 
-from app.services.engine.renderer import ReportRenderer
-from app.services.engine.data_processor import DataProcessor
-from app.services.engine.conditional_formatting import ConditionalFormatter
 from app.services.engine.calculated_fields import CalculatedFieldEvaluator
+from app.services.engine.conditional_formatting import ConditionalFormatter
+from app.services.engine.data_processor import DataProcessor
+from app.services.engine.renderer import ReportRenderer
 
 
 class TestReportRenderer:

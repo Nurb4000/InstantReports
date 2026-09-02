@@ -8,7 +8,12 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import authenticate_ldap_user, authenticate_user, create_access_token, decode_access_token, get_current_user
+from app.auth import (
+    authenticate_ldap_user,
+    authenticate_user,
+    create_access_token,
+    decode_access_token,
+)
 from app.config import settings
 from app.database import get_db
 from app.models.user import User

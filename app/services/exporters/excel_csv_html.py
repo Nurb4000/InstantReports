@@ -168,19 +168,19 @@ class HTMLExporter:
                         html_parts.append("<thead><tr>")
                         for col in columns:
                             header = col.get("header", col.get("field", ""))
-                            html_parts.append("<th>{}</th>".format(header))
+                            html_parts.append(f"<th>{header}</th>")
                         html_parts.append("</tr></thead>")
                         html_parts.append("<tbody>")
                         for row in data:
                             row_style = self._row_style(row)
-                            row_open = '<tr style="{}">'.format(row_style) if row_style else "<tr>"
+                            row_open = f'<tr style="{row_style}">' if row_style else "<tr>"
                             html_parts.append(row_open)
                             for col in columns:
                                 field = col.get("field", "")
                                 value = row.get(field, "")
                                 cell_style = self._cell_style(row, field)
-                                tag_open = '<td style="{}">'.format(cell_style) if cell_style else "<td>"
-                                html_parts.append("{}{}</td>".format(tag_open, value))
+                                tag_open = f'<td style="{cell_style}">' if cell_style else "<td>"
+                                html_parts.append(f"{tag_open}{value}</td>")
                             html_parts.append("</tr>")
                         html_parts.append("</tbody>")
                         html_parts.append("</table>")

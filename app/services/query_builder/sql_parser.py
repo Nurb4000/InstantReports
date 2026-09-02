@@ -10,14 +10,13 @@ ORDER BY. It is intentionally forgiving rather than a full SQL grammar.
 from __future__ import annotations
 
 import re
-from typing import Any, List
 
 from app.services.query_builder.config import (
     Aggregation,
     JoinConfig,
     JoinType,
-    OrderByField,
     Operator,
+    OrderByField,
     QueryConfig,
     SelectColumn,
     WhereFilter,
@@ -47,11 +46,11 @@ _OPERATOR_PATTERN = re.compile(
 _LOGIC_PATTERN = re.compile(r"\b(AND|OR)\b", re.IGNORECASE)
 
 
-def _split_top_level(text: str, separator: str) -> List[str]:
+def _split_top_level(text: str, separator: str) -> list[str]:
     """Split ``text`` on ``separator`` (a regex) respecting parentheses."""
-    parts: List[str] = []
+    parts: list[str] = []
     depth = 0
-    current: List[str] = []
+    current: list[str] = []
     for ch in text:
         if ch == "(":
             depth += 1
@@ -132,21 +131,21 @@ def parse_sql_to_config(sql: str) -> QueryConfig:
         return QueryConfig()
 
     # FROM tables (everything after FROM up to the next clause keyword).
-    from_tables: List[str] = []
+    from_tables: list[str] = []
     from_match = re.search(r"\bFROM\s+([\w\"]+)", normalized, re.IGNORECASE)
     if from_match:
         from_tables = [from_match.group(1).strip('"')]
 
     # SELECT clause.
     select_match = re.search(r"\bSELECT\s+(.*?)\s+\bFROM\b", normalized, re.IGNORECASE | re.DOTALL)
-    columns: List[SelectColumn] = []
+    columns: list[SelectColumn] = []
     if select_match:
         select_body = select_match.group(1)
         if select_body.strip() != "*":
             columns = [_parse_select(c) for c in _split_top_level(select_body, ",")]
 
     # JOINs.
-    joins: List[JoinConfig] = []
+    joins: list[JoinConfig] = []
     for m in _JOIN_PATTERN.finditer(normalized):
         join_type = JoinType(m.group(1).upper())
         joins.append(
@@ -161,14 +160,14 @@ def parse_sql_to_config(sql: str) -> QueryConfig:
         )
 
     # WHERE clause (up to GROUP BY / ORDER BY / LIMIT / end).
-    where: List[WhereFilter] = []
+    where: list[WhereFilter] = []
     where_match = re.search(r"\bWHERE\s+(.*?)(?:\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|$)", normalized, re.IGNORECASE | re.DOTALL)
     if where_match:
         body = where_match.group(1).strip()
         if body:
             logic_parts = _LOGIC_PATTERN.split(body)
             logic = "AND"
-            conditions: List[str] = []
+            conditions: list[str] = []
             for i, piece in enumerate(logic_parts):
                 if i % 2 == 1:
                     logic = piece.upper()
@@ -182,13 +181,13 @@ def parse_sql_to_config(sql: str) -> QueryConfig:
                     where.append(parsed)
 
     # GROUP BY.
-    group_by: List[str] = []
+    group_by: list[str] = []
     group_match = re.search(r"\bGROUP\s+BY\s+(.*?)(?:\bORDER\s+BY\b|\bLIMIT\b|$)", normalized, re.IGNORECASE | re.DOTALL)
     if group_match:
         group_by = _split_top_level(group_match.group(1), ",")
 
     # ORDER BY.
-    order_by: List[OrderByField] = []
+    order_by: list[OrderByField] = []
     order_match = re.search(r"\bORDER\s+BY\s+(.+)", normalized, re.IGNORECASE | re.DOTALL)
     if order_match:
         for expr in _split_top_level(order_match.group(1).strip(), ","):

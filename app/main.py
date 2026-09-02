@@ -13,8 +13,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings as app_settings
-from app.database import engine
-from app.models import *  # noqa: F401,F403 - ensure all models are imported for Alembic
+from app.models import *
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +83,19 @@ async def index(request: Request):
 
 
 if app_settings.MODE == "designer":
-    from app.routes import auth, designer, datasources, preview, ai, admin, versions, api_keys, portal, settings  # noqa: F401
-    from app.routes.api import query_builder  # noqa: F401
+    from app.routes import (
+        admin,
+        ai,
+        api_keys,
+        auth,
+        datasources,
+        designer,
+        portal,
+        preview,
+        settings,
+        versions,
+    )
+    from app.routes.api import query_builder
 
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(designer.router, prefix="/designer", tags=["designer"])
@@ -100,7 +110,7 @@ if app_settings.MODE == "designer":
     app.include_router(query_builder.router)
 
 elif app_settings.MODE == "runner":
-    from app.routes import auth, portal, admin, api_keys  # noqa: F401
+    from app.routes import admin, api_keys, auth, portal
 
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(portal.router, prefix="/portal", tags=["portal"])
@@ -112,8 +122,9 @@ elif app_settings.MODE == "runner":
 async def startup_event():
     # Start scheduler in runner mode OR if SEPARATE_MODE is disabled (dev mode)
     if app_settings.MODE == "runner" or not app_settings.SEPARATE_MODE:
-        from app.runner import run_scheduler
         import asyncio
+
+        from app.runner import run_scheduler
         asyncio.create_task(run_scheduler())
 
 

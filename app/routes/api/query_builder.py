@@ -2,7 +2,6 @@
 
 import logging
 import uuid
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -14,6 +13,7 @@ from app.database import get_db
 from app.models.connection import DataConnection, QueryTemplate
 from app.models.user import User
 from app.services.ai.client import AIClient, AISQLGenerator
+from app.services.query_builder.adapter import execute_query
 from app.services.query_builder.config import QueryConfig
 from app.services.query_builder.generator import validate_query
 from app.services.query_builder.history import (
@@ -22,11 +22,13 @@ from app.services.query_builder.history import (
     list_snapshots,
     save_snapshot,
 )
-from app.services.query_builder.adapter import execute_query
 from app.services.query_builder.optimizer import analyze_query
 from app.services.query_builder.schema import get_schema
 from app.services.query_builder.sql_parser import parse_sql_to_config
-from app.services.query_builder.template_io import export_templates, parse_import_payload
+from app.services.query_builder.template_io import (
+    export_templates,
+    parse_import_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +135,7 @@ async def test_query_endpoint(
             "sql": sql,
             "row_count": 0,
             "preview": [],
-            "message": f"Query execution failed: {str(e)}",
+            "message": f"Query execution failed: {e!s}",
             "error": str(e),
         }
 
@@ -150,7 +152,7 @@ async def test_query_endpoint(
 async def save_query_template(
     query_config: QueryConfig,
     name: str = Query(...),
-    description: Optional[str] = Query(None),
+    description: str | None = Query(None),
     connection_id: str = Query(...),
     current_user: User | None = Depends(get_current_user_simple),
     db: AsyncSession = Depends(get_db),
@@ -190,7 +192,7 @@ async def save_query_template(
 
 @router.get("/templates")
 async def list_query_templates(
-    connection_id: Optional[str] = Query(None),
+    connection_id: str | None = Query(None),
     current_user: User | None = Depends(get_current_user_simple),
     db: AsyncSession = Depends(get_db),
 ):
@@ -279,7 +281,7 @@ async def export_templates_endpoint(
     if not requested:
         raise HTTPException(status_code=400, detail="at least one template id is required")
 
-    templates: List[QueryTemplate] = []
+    templates: list[QueryTemplate] = []
     for part in requested:
         try:
             tmpl_uuid = uuid.UUID(part)
@@ -320,7 +322,7 @@ async def import_templates_endpoint(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    created: List[QueryTemplate] = []
+    created: list[QueryTemplate] = []
     for item in items:
         template = QueryTemplate(
             name=item["name"],
@@ -349,9 +351,9 @@ async def import_templates_endpoint(
 async def save_query_history(
     query_config: QueryConfig,
     connection_id: str = Query(...),
-    report_id: Optional[str] = Query(None),
-    element_id: Optional[str] = Query(None),
-    label: Optional[str] = Query(None),
+    report_id: str | None = Query(None),
+    element_id: str | None = Query(None),
+    label: str | None = Query(None),
     current_user: User | None = Depends(get_current_user_simple),
     db: AsyncSession = Depends(get_db),
 ):
@@ -388,15 +390,15 @@ async def save_query_history(
 
 @router.get("/history")
 async def list_query_history(
-    connection_id: Optional[str] = Query(None),
-    report_id: Optional[str] = Query(None),
-    element_id: Optional[str] = Query(None),
+    connection_id: str | None = Query(None),
+    report_id: str | None = Query(None),
+    element_id: str | None = Query(None),
     limit: int = Query(default=50, ge=1, le=200),
     current_user: User | None = Depends(get_current_user_simple),
     db: AsyncSession = Depends(get_db),
 ):
     """List query-history snapshots for a connection/report/element."""
-    def _to_uuid(value: Optional[str], name: str) -> Optional[uuid.UUID]:
+    def _to_uuid(value: str | None, name: str) -> uuid.UUID | None:
         if value is None:
             return None
         try:
@@ -477,7 +479,7 @@ async def delete_query_history(
 @router.post("/optimize")
 async def optimize_query_endpoint(
     query_config: QueryConfig,
-    connection_id: Optional[str] = Query(None),
+    connection_id: str | None = Query(None),
     current_user: User | None = Depends(get_current_user_simple),
     db: AsyncSession = Depends(get_db),
 ):
