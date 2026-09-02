@@ -1,0 +1,24 @@
+# Ruff configuration for InstantReports.
+#
+# Intentionally does NOT set `lint.select`: omitting it preserves ruff's built-in
+# default rule set, so new rules are picked up automatically and we don't have to
+# maintain an explicit allow-list. Only the two intentional-pattern ignores below
+# are added — see the comments for why each is suppressed project-wide rather than
+# fixed inline.
+
+[lint]
+
+# B008 (function-call-in-default-argument): FastAPI route handlers declare their
+# dependencies as `= Depends(...)` / `= Body(...)` / `= Query(...)` defaults. That
+# is the idiomatic FastAPI pattern; moving the calls into the function body would
+# break dependency injection. 164 occurrences across app/routes/*. Suppressing
+# project-wide avoids 164 noisy noqa comments.
+ignore = [
+    "B008",
+    # RUF012 (mutable-class-attribute): several class-level attributes are
+    # intentionally mutable shared state — the connector registry (`_connectors`),
+    # per-connector `config_fields` schemas, and Pydantic `Config.json_encoders`.
+    # Annotating them as ClassVar would be semantically wrong (Pydantic reads these
+    # by convention). 10 occurrences.
+    "RUF012",
+]
