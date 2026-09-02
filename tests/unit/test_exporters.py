@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from app.services.exporters.excel_csv_html import CSVExporter, HTMLExporter
 from app.services.engine.renderer import ReportRenderer
+from app.services.exporters.excel_csv_html import CSVExporter, HTMLExporter
 
 
 class TestHTMLExporter:
