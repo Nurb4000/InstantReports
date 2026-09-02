@@ -102,7 +102,14 @@ class CSVExporter:
                     if element.get("type") == "table":
                         data = element.get("data", [])
                         if data:
-                            df = pd.DataFrame(data)
+                            columns = element.get("columns") or []
+                            if columns:
+                                fields = [c.get("field", "") for c in columns]
+                                headers = [c.get("header") or c.get("field") or "" for c in columns]
+                                df = pd.DataFrame(data, columns=fields)
+                                df.columns = headers
+                            else:
+                                df = pd.DataFrame(data)
                             csv_buffer = io.StringIO()
                             df.to_csv(csv_buffer, index=False)
                             buffers.append(csv_buffer.getvalue())
