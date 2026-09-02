@@ -361,7 +361,54 @@ class TestConditionalFormatting:
         assert "font-weight: bold" in css
 
 
-class TestCalculatedFields:
+class TestConditionalFormatterOperators:
+    """Exercise every comparison operator in ConditionalFormatter._check_condition."""
+
+    def _matches(self, operator, cell_value, condition_value):
+        formatter = ConditionalFormatter()
+        rule = {
+            "target": "row",
+            "condition": {"field": "v", "operator": operator, "value": condition_value},
+            "format": {"background": "#fff"},
+        }
+        result = formatter.apply_rules([{"v": cell_value}], [rule])
+        return result[0]["formatting"]["row"] is not None
+
+    def test_equality_and_inequality(self):
+        assert self._matches("==", 5, 5) is True
+        assert self._matches("!=", 5, 6) is True
+        assert self._matches("==", 5, 6) is False
+
+    def test_numeric_ordering_coerces_strings(self):
+        # Cell values arrive as strings from DB rows; operators must coerce.
+        assert self._matches(">", "90", 80) is True
+        assert self._matches("<=", "80", "80") is True
+        assert self._matches(">", "10", 80) is False
+
+    def test_between_and_not_between(self):
+        assert self._matches("between", 50, [10, 100]) is True
+        assert self._matches("between", 200, [10, 100]) is False
+        assert self._matches("not_between", 200, [10, 100]) is True
+
+    def test_contains_and_not_contains(self):
+        assert self._matches("contains", "John", "ohn") is True
+        assert self._matches("contains", "John", "xyz") is False
+        assert self._matches("not_contains", "John", "xyz") is True
+
+    def test_starts_with_and_ends_with(self):
+        assert self._matches("starts_with", "Hello", "He") is True
+        assert self._matches("ends_with", "Hello", "lo") is True
+        assert self._matches("starts_with", "Hello", "lo") is False
+
+    def test_is_empty_and_is_not_empty(self):
+        assert self._matches("is_empty", "", None) is True
+        assert self._matches("is_empty", None, None) is True
+        assert self._matches("is_not_empty", "x", None) is True
+        assert self._matches("is_not_empty", "", None) is False
+
+    def test_mismatched_types_do_not_raise(self):
+        # Comparing a string cell to a non-numeric condition must not crash.
+        assert self._matches(">", "abc", 5) is False
     """Test calculated field evaluation."""
 
     def test_validate_expression_valid(self):
@@ -390,3 +437,125 @@ class TestCalculatedFields:
         result = evaluator.evaluate("{{revenue}} - {{cost}}", df)
         
         assert list(result) == [50, 100]
+
+
+class TestElementRenderers:
+    """Cover chart/crosstab/image rendering via _render_element (the real dispatch).
+
+    These element types were previously untested; a regression here would silently
+    break report rendering for users who add charts, crosstabs, or images. Testing
+    through _render_element also exercises the element_label threading that the
+    private _render_* methods require as a parameter.
+    """
+
+    def test_render_chart_uses_defaults(self):
+        renderer = ReportRenderer()
+        result = renderer._render_element({"type": "chart"}, {})
+        assert result["type"] == "chart"
+        assert result["chart_type"] == "bar"
+        assert result["width"] == "100%"
+        assert result["height"] == "200px"
+
+    def test_render_chart_reads_config(self):
+        renderer = ReportRenderer()
+        element_def = {
+            "type": "chart",
+            "chart_type": "line",
+            "x_field": "month",
+            "y_field": "sales",
+            "width": "600px",
+            "label": "Sales Trend",
+        }
+        result = renderer._render_element(element_def, {})
+        assert result["chart_type"] == "line"
+        assert result["x_field"] == "month"
+        assert result["y_field"] == "sales"
+        assert result["label"] == "Sales Trend"
+
+    def test_render_crosstab_empty_data(self):
+        renderer = ReportRenderer()
+        element_def = {
+            "type": "crosstab",
+            "data_source": "ds1",
+            "rowField": "region",
+            "columnField": "product",
+            "valueField": "sales",
+        }
+        result = renderer._render_element(element_def, {"ds1": pd.DataFrame()})
+        assert result["type"] == "crosstab"
+        assert result["data"] == []
+
+    def test_render_crosstab_missing_required_fields(self):
+        renderer = ReportRenderer()
+        element_def = {"type": "crosstab", "data_source": "ds1", "rowField": "region"}
+        df = pd.DataFrame({"region": ["N"], "sales": [1]})
+        result = renderer._render_element(element_def, {"ds1": df})
+        assert result.get("error") == "Missing required fields"
+
+    def test_render_crosstab_pivots_correctly(self):
+        renderer = ReportRenderer()
+        element_def = {
+            "type": "crosstab",
+            "data_source": "ds1",
+            "rowField": "region",
+            "columnField": "product",
+            "valueField": "sales",
+            "aggregation": "sum",
+        }
+        df = pd.DataFrame(
+            [
+                {"region": "North", "product": "A", "sales": 10},
+                {"region": "North", "product": "B", "sales": 20},
+                {"region": "South", "product": "A", "sales": 30},
+                {"region": "South", "product": "B", "sales": 40},
+            ]
+        )
+        result = renderer._render_element(element_def, {"ds1": df})
+
+        assert result["type"] == "crosstab"
+        # pivot produces one record per (region, Total) combination
+        by_region = {row["region"]: row for row in result["data"]}
+        assert by_region["North"]["A"] == 10
+        assert by_region["North"]["B"] == 20
+        assert by_region["North"]["Total"] == 30
+        assert by_region["South"]["A"] == 30
+        assert by_region["South"]["B"] == 40
+        assert by_region["South"]["Total"] == 70
+        assert by_region["Total"]["A"] == 40
+        assert by_region["Total"]["B"] == 60
+        assert by_region["Total"]["Total"] == 100
+
+    def test_render_crosstab_aggregation_avg(self):
+        renderer = ReportRenderer()
+        element_def = {
+            "type": "crosstab",
+            "data_source": "ds1",
+            "rowField": "region",
+            "columnField": "product",
+            "valueField": "sales",
+            "aggregation": "mean",
+        }
+        df = pd.DataFrame(
+            [
+                {"region": "North", "product": "A", "sales": 10},
+                {"region": "North", "product": "A", "sales": 20},
+            ]
+        )
+        result = renderer._render_element(element_def, {"ds1": df})
+        north_a = [r for r in result["data"] if r.get("region") == "North" and "A" in r]
+        assert north_a and north_a[0]["A"] == 15.0
+
+    def test_render_image_defaults(self):
+        renderer = ReportRenderer()
+        element_def = {"type": "image", "source": "/img/logo.png", "label": "Logo"}
+        result = renderer._render_element(element_def, {})
+        assert result["type"] == "image"
+        assert result["source"] == "/img/logo.png"
+        assert result["position"] == "left"
+        assert result["label"] == "Logo"
+
+    def test_render_unknown_element_type(self):
+        renderer = ReportRenderer()
+        result = renderer._render_element({"type": "widget"}, {})
+        assert result["type"] == "widget"
+        assert "error" in result

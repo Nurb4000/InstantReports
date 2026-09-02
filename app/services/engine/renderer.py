@@ -182,10 +182,17 @@ class ReportRenderer:
         if df.empty:
             return {"type": "crosstab", "data": []}
 
-        rows = element_def.get("rows", [])
-        columns = element_def.get("columns", [])
-        value_field = element_def.get("value")
-        aggregate = element_def.get("aggregate", "sum")
+        # The designer stores crosstab config under rowField/columnField/
+        # valueField/aggregation; accept those primarily and fall back to the
+        # older rows/columns/value/aggregate keys for saved definitions.
+        rows = element_def.get("rowField") or element_def.get("rows") or []
+        columns = element_def.get("columnField") or element_def.get("columns") or []
+        value_field = element_def.get("valueField") or element_def.get("value")
+        aggregate = (
+            element_def.get("aggregation")
+            or element_def.get("aggregate")
+            or "sum"
+        )
 
         if not rows or not columns or not value_field:
             return {"type": "crosstab", "error": "Missing required fields"}
