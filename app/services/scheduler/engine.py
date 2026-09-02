@@ -13,7 +13,7 @@ from apscheduler.triggers.date_trigger import DateTrigger
 logger = logging.getLogger(__name__)
 
 
-async def log_audit(db, action: str, report_id: uuid.UUID = None, schedule_id: uuid.UUID = None, details: dict = None, output_id: uuid.UUID = None):
+async def log_audit(db, action: str, report_id: uuid.UUID | None = None, schedule_id: uuid.UUID | None = None, details: dict | None = None, output_id: uuid.UUID | None = None):
     """Log an audit event to the database."""
     from app.database import get_db
     from app.models.connection import AuditLog

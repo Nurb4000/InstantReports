@@ -82,7 +82,7 @@ async def get_version_detail(
 async def create_version(
     report_id: uuid.UUID,
     request: Request,
-    commit_message: str = None,
+    commit_message: str | None = None,
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -131,7 +131,7 @@ async def create_version(
 async def restore_version_endpoint(
     report_id: uuid.UUID,
     version_number: int,
-    commit_message: str = None,
+    commit_message: str | None = None,
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -158,7 +158,7 @@ async def tag_version(
     report_id: uuid.UUID,
     version_number: int,
     tag_name: str,
-    comment: str = None,
+    comment: str | None = None,
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):

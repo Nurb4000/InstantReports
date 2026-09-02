@@ -21,4 +21,14 @@ ignore = [
     # Annotating them as ClassVar would be semantically wrong (Pydantic reads these
     # by convention). 10 occurrences.
     "RUF012",
+    # BLE001 (blind-except): the codebase uses intentional graceful-degradation and
+    # expected-failure returns throughout — `test_connection()`/cleanup methods
+    # return False on failure, calculated-field eval returns null for a bad
+    # expression, crosstab/pivot failures render empty rather than crash the report.
+    # Ruff 0.16 only accepts BLE001 satisfaction via logger.exception() or re-raise;
+    # forcing full tracebacks on every *expected* failure (e.g. a wrong password
+    # during a manual connection test) would spam error logs. The pattern is
+    # deliberate and consistent, so it is documented here rather than annotated
+    # at ~55 individual sites.
+    "BLE001",
 ]

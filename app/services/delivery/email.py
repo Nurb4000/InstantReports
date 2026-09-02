@@ -8,7 +8,7 @@ from email.message import EmailMessage
 logger = logging.getLogger(__name__)
 
 
-async def log_delivery_audit(action: str, report_id: uuid.UUID = None, schedule_id: uuid.UUID = None, details: dict = None):
+async def log_delivery_audit(action: str, report_id: uuid.UUID | None = None, schedule_id: uuid.UUID | None = None, details: dict | None = None):
     """Log delivery audit event to database."""
     try:
         from app.database import async_session_factory

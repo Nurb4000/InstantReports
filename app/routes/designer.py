@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -74,9 +75,9 @@ async def designer_index(
 @router.get("/reports")
 async def list_reports(
     request: Request,
-    search: str = None,
-    status_filter: str = None,
-    creator_filter: str = None,
+    search: str | None = None,
+    status_filter: str | None = None,
+    creator_filter: str | None = None,
     sort_by: str = "updated_at",
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
@@ -401,8 +402,7 @@ async def upload_image(
     filepath = upload_dir / filename
 
     contents = await file.read()
-    with open(filepath, 'wb') as f:
-        f.write(contents)
+    await asyncio.to_thread(filepath.write_bytes, contents)
 
     return {
         "status": "ok",

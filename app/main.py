@@ -56,7 +56,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    logger.error(f"Unhandled exception: {exc}", exc_info=exc)
     if app_settings.MODE == "runner" or not app_settings.DEBUG:
         return JSONResponse(
             status_code=500,

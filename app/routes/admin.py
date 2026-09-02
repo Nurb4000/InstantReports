@@ -426,8 +426,8 @@ async def delete_schedule(
 @router.get("/api/audit-log")
 async def get_audit_log(
     limit: int = Query(50, ge=1, le=200),
-    search: str = None,
-    action_filter: str = None,
+    search: str | None = None,
+    action_filter: str | None = None,
     sort_by: str = "executed_at",
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
@@ -472,8 +472,8 @@ async def get_audit_log(
 
 @router.get("/api/schedules")
 async def list_schedules(
-    search: str = None,
-    status_filter: str = None,
+    search: str | None = None,
+    status_filter: str | None = None,
     sort_by: str = "created_at",
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
@@ -566,9 +566,9 @@ async def get_schedule_api(
 
 @router.get("/api/users")
 async def list_users(
-    search: str = None,
-    role_filter: str = None,
-    status_filter: str = None,
+    search: str | None = None,
+    role_filter: str | None = None,
+    status_filter: str | None = None,
     sort_by: str = "created_at",
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),

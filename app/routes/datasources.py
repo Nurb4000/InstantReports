@@ -28,8 +28,8 @@ def _require_designer(user):
 
 @router.get("/")
 async def list_connections(
-    search: str = None,
-    type_filter: str = None,
+    search: str | None = None,
+    type_filter: str | None = None,
     sort_by: str = "updated_at",
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
