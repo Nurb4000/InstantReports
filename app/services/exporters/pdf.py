@@ -4,7 +4,6 @@ import io
 import logging
 from typing import Any
 
-import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.styles import getSampleStyleSheet
@@ -12,13 +11,13 @@ from reportlab.lib.units import cm, inch
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
+    Image,
     PageTemplate,
     Paragraph,
     Spacer,
     Table,
     TableStyle,
 )
-from reportlab.platypus.utils import Image
 
 from app.services.engine.chart import ChartGenerator
 
@@ -53,10 +52,10 @@ class PDFExporter:
         buffer = io.BytesIO()
         
         # Create frames for header, body, and footer
-        left_margin = cm(2)
-        right_margin = cm(2)
-        top_margin = cm(2)
-        bottom_margin = cm(2)
+        left_margin = 2 * cm
+        right_margin = 2 * cm
+        top_margin = 2 * cm
+        bottom_margin = 2 * cm
         
         body_height = page_size[1] - top_margin - bottom_margin - inch
         
@@ -79,7 +78,7 @@ class PDFExporter:
         def header(canvas, doc):
             canvas.saveState()
             canvas.setFont('Helvetica', 8)
-            canvas.drawString(left_margin, page_size[1] - top_margin + cm(0.5), 
+            canvas.drawString(left_margin, page_size[1] - top_margin + 0.5 * cm, 
                             rendered_report.get("name", ""))
             canvas.restoreState()
 
@@ -88,7 +87,7 @@ class PDFExporter:
             canvas.setFont('Helvetica', 8)
             page_num = canvas.getPageNumber()
             text = f"Page {page_num}"
-            canvas.drawCentredString(page_size[0] / 2.0, bottom_margin - cm(1), text)
+            canvas.drawCentredString(page_size[0] / 2.0, bottom_margin - 1 * cm, text)
             canvas.restoreState()
 
         # Create page template and add to document
@@ -232,8 +231,9 @@ class PDFExporter:
         if not data_source_id:
             return
 
+        chart_data = element.get("data")
         try:
-            chart_bytes = self.chart_generator.generate(element, pd.DataFrame())
+            chart_bytes = self.chart_generator.generate(element, chart_data)
             from reportlab.lib.utils import ImageReader
             img = ImageReader(io.BytesIO(chart_bytes))
             story.append(img)

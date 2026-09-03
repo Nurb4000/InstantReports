@@ -163,7 +163,7 @@ class ReportRenderer:
         config = element_def.get("properties") or {}
         data_source_id = element_def.get("data_source")
 
-        return {
+        rendered = {
             "type": "chart",
             "chart_type": config.get("type") or element_def.get("chart_type", "bar"),
             "x_field": config.get("xField") or element_def.get("x_field"),
@@ -174,6 +174,13 @@ class ReportRenderer:
             "data_source": data_source_id,
             "label": element_label,
         }
+
+        # Attach the underlying DataFrame when available so server-side
+        # exporters (e.g. PDF) can plot the chart instead of an empty series.
+        if data_source_id and data_source_id in data:
+            rendered["data"] = data[data_source_id]
+
+        return rendered
 
     def _render_crosstab(
         self, element_def: dict[str, Any], data: dict[str, pd.DataFrame], element_label: str = ""
