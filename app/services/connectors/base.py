@@ -58,3 +58,43 @@ class ConnectorFactory:
 def get_connector(connector_type: str) -> DataConnector:
     """Convenience function to get a connector instance."""
     return ConnectorFactory.get_connector(connector_type)
+
+
+async def resolve_data_source_connector(db, definition: dict) -> tuple[DataConnector | None, dict | None]:
+    """Resolve the ``(connector, config)`` for a report's primary data source.
+
+    Resolution order:
+      1. The connection referenced by the first ``data_source`` in ``definition``.
+      2. Otherwise the first PostgreSQL connection in the database.
+
+    Returns ``(None, None)`` when no connection is available. The connector is
+    always selected from the ``DataConnection.connector_type`` model column, so
+    non-PostgreSQL sources resolve to the correct connector regardless of what
+    lives inside the config dict. Shared by the preview route and the runner so
+    the two never drift apart.
+    """
+    # Lazy imports avoid a circular dependency: app.models -> app.database ->
+    # app.config, none of which import the connectors package.
+    from sqlalchemy import select
+
+    from app.models.connection import DataConnection
+
+    data_sources = definition.get("data_sources") or []
+    connection = None
+
+    if data_sources:
+        conn_id = data_sources[0].get("connection_id")
+        if conn_id and db is not None:
+            result = await db.execute(select(DataConnection).where(DataConnection.id == conn_id))
+            connection = result.scalar_one_or_none()
+
+    if connection is None and db is not None:
+        result = await db.execute(
+            select(DataConnection).where(DataConnection.connector_type == "postgresql").limit(1)
+        )
+        connection = result.scalar_one_or_none()
+
+    if connection is None:
+        return None, None
+
+    return get_connector(connection.connector_type), connection.config

@@ -107,41 +107,19 @@ async def render_report_with_data(definition: dict, title: str, description: str
     """Render a report definition to HTML with actual data from database."""
     
     
+    from app.services.connectors.base import resolve_data_source_connector
     from app.services.engine.data_processor import DataProcessor
-    
-    # Get the first data source connection for query execution
+
+    # Resolve the primary data source connector + config once and reuse it for
+    # every element. Connector type comes from the model column, so non-
+    # PostgreSQL sources (MySQL/SQL Server/REST/...) use the right connector.
     data_sources = definition.get("data_sources", [])
-    connection_config = None
-    
+    connector, connection_config = await resolve_data_source_connector(db, definition)
+
     logger.info(f"Data sources in definition: {len(data_sources)}")
-    
-    # Try to get connection from report definition
-    if data_sources:
-        conn_id = data_sources[0].get("connection_id")
-        logger.info(f"Looking up connection ID: {conn_id}")
-        if conn_id and db:
-            from sqlalchemy import select
+    if connector is None:
+        logger.warning("No usable data connection found for preview")
 
-            from app.models.connection import DataConnection
-            result = await db.execute(select(DataConnection).where(DataConnection.id == conn_id))
-            connection = result.scalar_one_or_none()
-            if connection:
-                connection_config = connection.config
-                logger.info(f"Found connection: {connection.name}")
-            else:
-                logger.warning(f"Connection not found for ID: {conn_id}")
-    
-    # If no connection in definition, try to find any PostgreSQL connection
-    if not connection_config and db:
-        from sqlalchemy import select
-
-        from app.models.connection import DataConnection
-        result = await db.execute(select(DataConnection).where(DataConnection.connector_type == 'postgresql').limit(1))
-        connection = result.scalar_one_or_none()
-        if connection:
-            connection_config = connection.config
-            logger.info(f"Using fallback connection: {connection.name}")
-    
     sections_html = ""
     for section in definition.get("layout", {}).get("sections", []):
         section_type = section.get("type", "detail")
@@ -183,16 +161,10 @@ async def render_report_with_data(definition: dict, title: str, description: str
             elif elem_type == "table":
                 query = props.get("query", "")
                 
-                # Try to execute the query using the data source connector
-                if query and connection_config:
+                # Try to execute the query using the resolved data source connector
+                if query and connection_config and connector:
                     try:
-                        connector_type = connection_config.get('connector_type', 'postgresql')
-                        
-                        # Import and use the appropriate connector
-                        from app.services.connectors.base import get_connector
-                        connector = get_connector(connector_type)
-                        
-                        logger.info(f"Executing query using {connector_type} connector")
+                        logger.info("Executing query against data source")
                         logger.info(f"Query: {query[:100]}...")
                         
                         # Execute query using the connector
@@ -301,14 +273,10 @@ async def render_report_with_data(definition: dict, title: str, description: str
                 
                 # Execute query for chart data using connector (same as tables)
                 chart_data = []
-                if connection_config:
+                if connection_config and connector:
                     try:
                         import logging
                         logger_chart = logging.getLogger(__name__)
-                        
-                        connector_type = connection_config.get('connector_type', 'postgresql')
-                        from app.services.connectors.base import get_connector
-                        connector = get_connector(connector_type)
                         
                         query = props.get("query", "")
                         if query:
