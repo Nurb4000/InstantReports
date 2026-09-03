@@ -16,7 +16,6 @@ from app.models.report import Report, ReportOutput
 from app.services.connectors.base import get_connector
 from app.services.delivery import send_email, send_sftp, send_smb, send_webhook
 from app.services.engine.renderer import ReportRenderer
-from app.services.exporters.pdf import PDFExporter
 
 logger = logging.getLogger(__name__)
 
@@ -114,21 +113,32 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
             logger.error(f"Report {schedule.report_id} not found")
             return None
 
+        # Honor the schedule's configured output_format (pdf/xlsx/csv/html)
+        # instead of always emitting PDF. export_report() normalizes str
+        # exporters (HTML) to bytes for the BYTEA file_data column.
+        from app.services.exporters import (
+            export_report,
+            get_file_extension,
+            get_mime_type,
+            normalize_output_format,
+        )
+
+        fmt = normalize_output_format(schedule.output_format)
+
         renderer = ReportRenderer()
-        exporter = PDFExporter()
 
         element_data = await _fetch_element_data(schedule, db, report.definition)
         rendered = renderer.render(report.definition, element_data)
-        pdf_bytes = exporter.export(rendered)
+        report_bytes = export_report(rendered, fmt)
 
         output = ReportOutput(
             report_id=report.id,
             schedule_id=schedule.id,
-            format="pdf",
-            file_name=f"{report.name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.pdf",
-            file_data=pdf_bytes,
-            file_size=len(pdf_bytes),
-            mime_type="application/pdf",
+            format=fmt,
+            file_name=f"{report.name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.{get_file_extension(fmt)}",
+            file_data=report_bytes,
+            file_size=len(report_bytes),
+            mime_type=get_mime_type(fmt),
             parameters_used=schedule.parameters or {},
         )
         db.add(output)
