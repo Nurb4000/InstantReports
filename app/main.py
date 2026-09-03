@@ -39,18 +39,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Custom exception handler to hide sensitive error details
+# Custom exception handlers. Every error returns a consistent JSON payload:
+#   {"detail": "<user-facing message>", "status_code": <int>}
+# so the client-side toast can surface meaningful messages instead of a generic
+# "An error occurred". 4xx client errors carry app-controlled, non-sensitive
+# detail (validation/auth/not-found), so it is always surfaced. 5xx may embed
+# internals (str(exc) from a caught exception), so those are hidden in
+# production and only shown when debug mode is enabled.
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    logger.error(f"HTTP Error {exc.status_code}: {exc.detail}")
-    if app_settings.MODE == "runner" or not app_settings.DEBUG:
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": "An error occurred"},
-        )
+    status_code = exc.status_code
+    if status_code >= 500 and (app_settings.MODE == "runner" or not app_settings.DEBUG):
+        detail = "An internal error occurred"
+    else:
+        detail = exc.detail
+    logger.error(f"HTTP Error {status_code}: {detail}")
     return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail},
+        status_code=status_code,
+        content={"detail": detail, "status_code": status_code},
     )
 
 
@@ -58,13 +64,12 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 async def general_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {exc}", exc_info=exc)
     if app_settings.MODE == "runner" or not app_settings.DEBUG:
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "An internal error occurred"},
-        )
+        detail = "An internal error occurred"
+    else:
+        detail = str(exc)
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc)},
+        content={"detail": detail, "status_code": 500},
     )
 
 static_dir = Path(app_settings.STATIC_DIR)
