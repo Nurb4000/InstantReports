@@ -368,6 +368,39 @@
     .diagram-join {
         color: #495057;
     }
+    .editor-toast {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        max-width: 420px;
+        width: calc(100% - 40px);
+        z-index: 1050;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        padding: 12px 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 14px;
+        line-height: 1.4;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .editor-toast.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #84211b; }
+    .editor-toast.warn { background: #fff3cd; border: 1px solid #ffc107; color: #664d03; }
+    .editor-toast.success { background: #d1e7dd; border: 1px solid #bdf9a4; color: #0f5132; }
+    .editor-toast.info { background: #cfe2ff; border: 1px solid #9ec5fe; color: #084298; }
+    .editor-toast-message { flex: 1; word-break: break-word; }
+    .editor-toast-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        color: inherit;
+        opacity: 0.7;
+        padding: 0;
+    }
+    .editor-toast-close:hover { opacity: 1; }
 </style>
 {% endblock %}
 
@@ -421,6 +454,10 @@
             </li>
             {% endif %}
         </ul>
+        <div id="editor-toast" class="editor-toast" role="status" aria-live="polite" style="display: none;">
+            <span id="editor-toast-message" class="editor-toast-message"></span>
+            <button type="button" class="editor-toast-close" aria-label="Dismiss" onclick="hideEditorToast()">&times;</button>
+        </div>
         <div class="tab-content" id="designerTabContent">
             <div class="tab-pane fade show active" id="design" role="tabpanel">
                 <div class="designer-layout">
@@ -688,6 +725,45 @@
     </div>
 
 <script>
+    // Inline notification system: replaces blocking alert() dialogs with a
+    // non-modal, auto-dismissing toast. Errors/warns stay until dismissed and
+    // are logged server-side via console for debugging. Success/info toasts
+    // hide automatically after a few seconds.
+    let editorToastTimer = null;
+
+    function showEditorToast(message, type = 'info', duration = 5000) {
+        const toast = document.getElementById('editor-toast');
+        const messageEl = document.getElementById('editor-toast-message');
+        if (!toast || !messageEl) return;
+        toast.className = 'editor-toast ' + (type || 'info');
+        messageEl.innerHTML = message;
+        toast.style.display = 'flex';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        });
+        clearTimeout(editorToastTimer);
+        if (duration && duration > 0) {
+            editorToastTimer = setTimeout(() => hideEditorToast(), duration);
+        }
+    }
+
+    function hideEditorToast() {
+        const toast = document.getElementById('editor-toast');
+        if (!toast) return;
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(() => { toast.style.display = 'none'; }, 250);
+    }
+
+    function logError(context, error) {
+        const detail = error && error.detail ? error.detail : (error && error.message ? error.message : String(error || ''));
+        console.error['apply'](console, ['[' + context + ']'].concat([detail]));
+        return detail;
+    }
+
     let currentElement = null;
     let currentSectionIndex = null;
     let currentElementIndex = null;
@@ -984,10 +1060,10 @@
                 body: JSON.stringify({})
             });
             if (response.ok) {
-                alert('Version restored successfully!');
+                showEditorToast('Version restored.', 'success', 4000);
                 loadVersions(reportId);
             } else {
-                alert('Failed to restore version');
+                showEditorToast('Failed to restore version.', 'error', 0);
             }
         } catch (error) {
             console.error('Error restoring version:', error);
@@ -1426,14 +1502,16 @@
             if (response.ok) {
                 const data = await response.json();
                 document.getElementById('prop-src').value = data.url;
-                alert('Image uploaded successfully!');
+                showEditorToast('Image uploaded.', 'success', 4000);
             } else {
-                const error = await response.json();
-                alert('Upload failed: ' + (error.detail || 'Unknown error'));
+                let detail = 'Unknown error';
+                try { detail = (await response.json()).detail || detail; } catch { /* non-JSON body */ }
+                logError('Upload failed', new Error(detail));
+                showEditorToast('Upload failed: ' + detail, 'error', 0);
             }
         } catch (error) {
-            console.error('Upload error:', error);
-            alert('Upload failed: ' + error.message);
+            const detail = logError('Upload error', error);
+            showEditorToast('Upload failed: ' + detail, 'error', 0);
         }
     }
 
@@ -1569,7 +1647,7 @@
     function addFormattingRule() {
         var fieldEl = document.getElementById('prop-cond-field');
         var field = fieldEl ? fieldEl.value.trim() : '';
-        if (!field) { alert('Enter a field name for the formatting rule.'); return; }
+        if (!field) { showEditorToast('Enter a field name for the formatting rule.', 'warn', 4000); return; }
 
         var target = document.getElementById('prop-cond-target').value;
         var operator = document.getElementById('prop-cond-operator').value;
@@ -1705,8 +1783,8 @@
             
             window.open(previewUrl, '_blank');
         } catch (error) {
-            console.error('Preview error:', error);
-            alert('Failed to generate preview: ' + error.message);
+            const detail = logError('Preview error', error);
+            showEditorToast('Failed to generate preview: ' + detail, 'error', 0);
         }
     }
 
@@ -1736,7 +1814,7 @@
             });
 
             if (response.ok || (response.status >= 300 && response.status < 400)) {
-                alert('Report saved successfully!');
+                showEditorToast('Report saved successfully.', 'success', 4000);
                 const location = response.headers.get('location');
                 if (location && !reportId) {
                     const idMatch = location.match(/\/reports\/([a-f0-9-]+)/);
@@ -1753,15 +1831,21 @@
                 let errorMessage = 'Unknown error';
                 try {
                     const errorData = JSON.parse(errorText);
-                    errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
+                    // FastAPI validation errors arrive as a list of messages.
+                    if (Array.isArray(errorData.detail)) {
+                        errorMessage = errorData.detail.join('; ');
+                    } else {
+                        errorMessage = errorData.detail || errorData.message || 'Unknown error';
+                    }
                 } catch {
                     errorMessage = errorText || 'Unknown error';
                 }
-                alert('Failed to save report: ' + errorMessage);
+                logError('Failed to save report', new Error(errorMessage));
+                showEditorToast('Failed to save report: ' + errorMessage, 'error', 0);
             }
         } catch (error) {
-            console.error('Error saving report:', error);
-            alert('An error occurred while saving: ' + error.message);
+            const detail = logError('Error saving report', error);
+            showEditorToast('An error occurred while saving: ' + detail, 'error', 0);
         }
     });
 
@@ -1861,7 +1945,8 @@
             document.querySelector('#new-connection-form h5').textContent = 'Edit Connection';
             document.querySelector('#new-connection-form .btn-primary').textContent = 'Save Changes';
         } catch (e) {
-            alert('Error loading connection: ' + e.message);
+            const detail = logError('Error loading connection', e);
+            showEditorToast('Error loading connection: ' + detail, 'error', 0);
         }
     }
 
@@ -1869,7 +1954,7 @@
         const type = document.getElementById('nc-type').value;
         const name = document.getElementById('nc-name').value.trim();
         if (!type || !name) {
-            alert('Please select a type and enter a name.');
+            showEditorToast('Please select a type and enter a name.', 'warn', 4000);
             return;
         }
 
@@ -1898,15 +1983,31 @@
                 });
             }
             
-            if (!res.ok) throw new Error('Failed to save connection');
+            if (!res.ok) {
+                let detail = 'Failed to save connection';
+                try {
+                    const errData = await res.json();
+                    if (errData && Array.isArray(errData.detail)) {
+                        detail = errData.detail.join('; ');
+                    } else if (errData && errData.detail) {
+                        detail = errData.detail;
+                    }
+                } catch {
+                    /* non-JSON error body; keep default message */
+                }
+                throw new Error(detail);
+            }
             const data = await res.json();
 
             // Refresh the connections list
             await loadAllConnections();
             hideNewConnectionForm();
+            showEditorToast('Connection saved.', 'success', 4000);
         } catch (e) {
-            alert('Error saving connection: ' + e.message);
+            const detail = logError('Error saving connection', e);
+            showEditorToast('Error saving connection: ' + detail, 'error', 0);
         }
+    }
     }
 
     function showNewConnectionForm() {
@@ -1966,7 +2067,7 @@
         const type = document.getElementById('nc-type').value;
         const name = document.getElementById('nc-name').value.trim();
         if (!type || !name) {
-            alert('Please select a type and enter a name.');
+            showEditorToast('Please select a type and enter a name.', 'warn', 4000);
             return;
         }
 
@@ -1995,8 +2096,10 @@
             linkedConnectionIds.push(data.id);
             hideNewConnectionForm();
             renderConnectionsList();
+            showEditorToast('Connection created.', 'success', 4000);
         } catch (e) {
-            alert('Error creating connection: ' + e.message);
+            const detail = logError('Error creating connection', e);
+            showEditorToast('Error creating connection: ' + detail, 'error', 0);
         }
     }
 
@@ -2004,7 +2107,7 @@
         const type = document.getElementById('nc-type').value;
         const name = document.getElementById('nc-name').value.trim();
         if (!type || !name) {
-            alert('Please fill in all required fields.');
+            showEditorToast('Please select a connection type and enter a name.', 'warn', 4000);
             return;
         }
 
@@ -2027,7 +2130,7 @@
             const testData = await testRes.json();
 
             if (testData.success) {
-                alert('Connection successful!');
+                showEditorToast('Connection successful!', 'success', 4000);
                 allConnections.unshift({
                     id: data.id,
                     name: name,
@@ -2039,10 +2142,11 @@
                 renderConnectionsList();
             } else {
                 await fetch(`/datasources/${data.id}`, {method: 'DELETE'});
-                alert('Connection failed: ' + (testData.message || 'Could not connect'));
+                showEditorToast('Connection failed: ' + (testData.message || 'Could not connect'), 'error', 0);
             }
         } catch (e) {
-            alert('Error testing connection: ' + e.message);
+            const detail = logError('Error testing connection', e);
+            showEditorToast('Error testing connection: ' + detail, 'error', 0);
         }
     }
 
@@ -2053,9 +2157,14 @@
             btn.textContent = '...';
             const res = await fetch(`/datasources/test/${connId}`, { method: 'POST' });
             const data = await res.json();
-            alert(data.success ? 'Connection successful!' : 'Connection failed: ' + (data.message || ''));
+            if (data.success) {
+                showEditorToast('Connection successful!', 'success', 4000);
+            } else {
+                showEditorToast('Connection failed: ' + (data.message || ''), 'error', 0);
+            }
         } catch (e) {
-            alert('Error testing connection: ' + e.message);
+            const detail = logError('Error testing connection', e);
+            showEditorToast('Error testing connection: ' + detail, 'error', 0);
         } finally {
             const btn = event.target;
             btn.disabled = false;
@@ -2081,9 +2190,16 @@
                 allConnections = allConnections.filter(c => c.id !== connId);
                 linkedConnectionIds = linkedConnectionIds.filter(id => id !== connId);
                 renderConnectionsList();
+                showEditorToast('Connection deleted.', 'success', 4000);
+            } else {
+                let detail = 'Could not delete connection';
+                try { detail = (await res.json()).detail || detail; } catch { /* ignore */ }
+                logError('Error deleting connection', new Error(detail));
+                showEditorToast('Error deleting connection: ' + detail, 'error', 0);
             }
         } catch (e) {
-            alert('Error deleting connection: ' + e.message);
+            const detail = logError('Error deleting connection', e);
+            showEditorToast('Error deleting connection: ' + detail, 'error', 0);
         }
     }
 
@@ -2297,20 +2413,20 @@
         const expression = exprEl ? exprEl.value.trim() : '';
 
         if (!name) {
-            alert('Please enter a name for the calculated field.');
+            showEditorToast('Please enter a name for the calculated field.', 'warn', 4000);
             return;
         }
         if (!expression) {
-            alert('Please enter an expression for the calculated field.');
+            showEditorToast('Please enter an expression for the calculated field.', 'warn', 4000);
             return;
         }
         if (calculatedFieldsList.find(cf => cf.name.toLowerCase() === name.toLowerCase())) {
-            alert('A calculated field with that name already exists.');
+            showEditorToast('A calculated field with that name already exists.', 'warn', 4000);
             return;
         }
         const isValid = validateCalculatedField(expression);
         if (!isValid) {
-            alert('Expression is not valid: ' + isValid);
+            showEditorToast('Expression is not valid: ' + isValid, 'error', 0);
             return;
         }
         calculatedFieldsList.push({ name, expression });
@@ -2420,13 +2536,13 @@
     async function testQuery() {
         const connId = document.getElementById('fields-connection-select').value;
         if (!connId) {
-            alert('Select a connection first.');
+            showEditorToast('Select a connection first.', 'warn', 4000);
             return;
         }
 
         const query = buildQuery();
         if (query.startsWith('SELECT ...')) {
-            alert('No fields selected to test.');
+            showEditorToast('No fields selected to test.', 'warn', 4000);
             return;
         }
 
@@ -2437,8 +2553,11 @@
                 body: JSON.stringify({query, limit: 100}),
             });
             if (!res.ok) {
-                const err = await res.json();
-                alert('Query failed: ' + (err.detail || 'Unknown error'));
+                let err;
+                try { err = await res.json(); } catch { err = {}; }
+                const detail = escapeHtml(String(err.detail || 'Unknown error'));
+                logError('Query failed', new Error(detail));
+                showEditorToast('Query failed: ' + detail, 'error', 0);
                 return;
             }
 
@@ -2464,7 +2583,8 @@
             html += '</tbody></table>';
             tableDiv.innerHTML = html;
         } catch (e) {
-            alert('Error testing query: ' + e.message);
+            const detail = escapeHtml(logError('Error testing query', e));
+            showEditorToast('Error testing query: ' + detail, 'error', 0);
         }
     }
 
