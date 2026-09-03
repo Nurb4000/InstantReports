@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,8 @@ async def send_sftp(
 
         async with asyncssh.connect(host, port=port, username=username, **connect_kwargs) as conn, conn.start_sftp_client() as sftp:
             remote_file = f"{remote_path.rstrip('/')}/{filename}" if filename else remote_path
-            await sftp.put_file(file_data, remote_file)
+            # put_file needs a binary stream (or local path), not raw bytes.
+            await sftp.put_file(io.BytesIO(file_data), remote_file)
 
         logger.info(f"SFTP file sent to {host}:{remote_path}/{filename}")
         return True
