@@ -533,7 +533,7 @@ async function loadSchedules() {
             }
         } catch (error) {
             console.error('Error opening modal:', error);
-            alert('Failed to open schedule form: ' + error.message);
+            showToast('Failed to open schedule form: ' + (error.message || error), 'error', 0);
         }
     }
 
@@ -712,7 +712,7 @@ function generateCronExpression() {
         console.log('submitCreateSchedule called');
         const createForm = document.getElementById('create-schedule-form');
         if (!createForm) {
-            alert('Create form not found');
+            showToast('Create schedule form not found.', 'error', 0);
             return;
         }
         
@@ -725,7 +725,7 @@ function generateCronExpression() {
         console.log('submitEditSchedule called');
         const editForm = document.getElementById('edit-schedule-form');
         if (!editForm) {
-            alert('Edit form not found');
+            showToast('Edit schedule form not found.', 'error', 0);
             return;
         }
         
@@ -784,38 +784,38 @@ function generateCronExpression() {
         
         // Validate required fields
         if (!data.name || !data.report_id || !data.cron_expression) {
-            alert('Please fill in all required fields (Name, Report ID, Cron Expression)');
+            showToast('Please fill in all required fields (Name, Report ID, Cron Expression).', 'warn', 5000);
             return;
         }
-        
+
         console.log('Create form data:', data);
-        
+
         try {
             const response = await fetch('/admin/schedules', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data),
             });
-            
+
             console.log('Response status:', response.status);
-            
+
             if (response.ok) {
                 hideCreateScheduleModal();
                 loadSchedules();
+                showToast('Schedule created.', 'success', 5000);
             } else {
-                const errorText = await response.text();
                 let errorMessage = 'Unknown error';
                 try {
-                    const errorData = JSON.parse(errorText);
+                    const errorData = JSON.parse(await response.text());
                     errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData) || 'Unknown error';
                 } catch {
-                    errorMessage = errorText || 'Unknown error';
+                    errorMessage = 'Unknown error';
                 }
-                alert('Failed to create schedule: ' + errorMessage);
+                showToast('Failed to create schedule: ' + errorMessage, 'error', 0);
             }
         } catch (error) {
             console.error('Error creating schedule:', error);
-            alert('Error creating schedule: ' + error.message);
+            showToast('Error creating schedule: ' + (error.message || error), 'error', 0);
         }
     }
 
@@ -883,7 +883,7 @@ function generateCronExpression() {
         const scheduleId = document.getElementById('edit-schedule-id')?.value;
         
         if (!scheduleId) {
-            alert('No schedule ID found');
+            showToast('No schedule ID found.', 'error', 0);
             return;
         }
         
@@ -914,7 +914,7 @@ function generateCronExpression() {
         
         // Validate required fields
         if (!data.name || !data.report_id || !data.cron_expression) {
-            alert('Please fill in all required fields (Name, Report ID, Cron Expression)');
+            showToast('Please fill in all required fields (Name, Report ID, Cron Expression).', 'warn', 5000);
             return;
         }
         
@@ -967,11 +967,11 @@ function generateCronExpression() {
                 } catch {
                     errorMessage = responseText || 'Unknown error';
                 }
-                alert('Failed to update schedule: ' + errorMessage);
+                showToast('Failed to update schedule: ' + errorMessage, 'error', 0);
             }
         } catch (error) {
             console.error('Error updating schedule:', error);
-            alert('Error updating schedule: ' + error.message);
+            showToast('Error updating schedule: ' + (error.message || error), 'error', 0);
         }
     }
 
@@ -1090,11 +1090,11 @@ async function editSchedule(scheduleId) {
                 }
             } catch (error) {
                 console.error('Error in editSchedule:', error);
-                alert('Failed to load schedule: ' + error.message);
+                showToast('Failed to load schedule: ' + (error.message || error), 'error', 0);
             }
         } catch (error) {
             console.error('Error opening edit modal:', error);
-            alert('Failed to open schedule editor: ' + error.message);
+            showToast('Failed to open schedule editor: ' + (error.message || error), 'error', 0);
         }
     }
 
@@ -1248,7 +1248,7 @@ function updateEditDeliveryFields() {
                 
                 // Validate required fields
                 if (!data.name || !data.report_id || !data.cron_expression) {
-                    alert('Please fill in all required fields (Name, Report ID, Cron Expression)');
+                    showToast('Please fill in all required fields (Name, Report ID, Cron Expression).', 'warn', 5000);
                     return;
                 }
                 
@@ -1301,11 +1301,11 @@ function updateEditDeliveryFields() {
                         } catch {
                             errorMessage = responseText || 'Unknown error';
                         }
-                        alert('Failed to update schedule: ' + errorMessage);
+                        showToast('Failed to update schedule: ' + errorMessage, 'error', 0);
                     }
                 } catch (error) {
                     console.error('Error updating schedule:', error);
-                    alert('Error updating schedule: ' + error.message);
+                    showToast('Error updating schedule: ' + (error.message || error), 'error', 0);
                 }
             });
         }
@@ -1321,12 +1321,15 @@ async function deleteSchedule(scheduleId) {
             
             if (response.ok) {
                 loadSchedules();
+                showToast('Schedule deleted.', 'success', 5000);
             } else {
-                const error = await response.json();
-                alert('Failed to delete schedule: ' + (error.detail || 'Unknown error'));
+                let detail = 'Unknown error';
+                try { detail = (await response.json()).detail || detail; } catch { detail = 'Failed to delete schedule'; }
+                showToast('Failed to delete schedule: ' + detail, 'error', 0);
             }
         } catch (error) {
             console.error('Error deleting schedule:', error);
+            showToast('Error deleting schedule: ' + (error.message || error), 'error', 0);
         }
     }
 </script>

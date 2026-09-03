@@ -157,11 +157,12 @@ async function importReport(event) {
         if (response.ok || (response.status >= 300 && response.status < 400)) {
             window.location.href = response.headers.get('location') || '/designer/reports';
         } else {
-            const error = await response.json();
-            alert('Import failed: ' + (error.detail || 'Unknown error'));
+            let detail = 'Unknown error';
+            try { detail = (await response.json()).detail || detail; } catch { detail = 'Import failed'; }
+            showToast('Import failed: ' + detail, 'error', 0);
         }
     } catch (err) {
-        alert('Import error: ' + err.message);
+        showToast('Import error: ' + (err.message || err), 'error', 0);
     }
 
     event.target.value = '';
@@ -219,11 +220,12 @@ async function createFromTemplate(id) {
             closeTemplates();
             window.location.href = response.headers.get('location') || '/designer/reports';
         } else {
-            const error = await response.json();
-            alert('Failed to create report: ' + (error.detail || 'Unknown error'));
+            let detail = 'Unknown error';
+            try { detail = (await response.json()).detail || detail; } catch { detail = 'Failed to create report'; }
+            showToast('Failed to create report: ' + detail, 'error', 0);
         }
     } catch (error) {
-        alert('Error: ' + error.message);
+        showToast('Error: ' + (error.message || error), 'error', 0);
     }
 }
 
@@ -232,12 +234,14 @@ async function deleteTemplate(id) {
         const response = await fetch('/designer/reports/templates/' + id, { method: 'DELETE' });
         if (response.ok) {
             await loadTemplates();
+            showToast('Template deleted.', 'success', 4000);
         } else {
-            const error = await response.json();
-            alert('Failed to delete template: ' + (error.detail || 'Unknown error'));
+            let detail = 'Unknown error';
+            try { detail = (await response.json()).detail || detail; } catch { detail = 'Failed to delete template'; }
+            showToast('Failed to delete template: ' + detail, 'error', 0);
         }
     } catch (error) {
-        alert('Error: ' + error.message);
+        showToast('Error: ' + (error.message || error), 'error', 0);
     }
 }
 

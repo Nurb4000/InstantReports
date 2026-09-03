@@ -44,10 +44,57 @@
         {% block content %}{% endblock %}
     </main>
 
+    <div id="global-toast" class="global-toast" role="status" aria-live="polite" style="display: none;">
+        <span id="global-toast-message" class="global-toast-message"></span>
+        <button type="button" class="global-toast-close" aria-label="Dismiss" onclick="hideGlobalToast()">&times;</button>
+    </div>
+
     <script src="{{ url_for('static', path='/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ url_for('static', path='/js/htmx.min.js') }}"></script>
     <script src="{{ url_for('static', path='/js/alpine.min.js') }}" defer></script>
     <script src="{{ url_for('static', path='/js/sortable.min.js') }}"></script>
     {% block extra_scripts %}{% endblock %}
+
+    <script>
+        // Global toast notification system (shared by admin pages). Replaces
+        // blocking alert() dialogs with a non-modal, severity-coded banner.
+        // Errors/warns persist until dismissed; success/info auto-dismiss.
+        let globalToastTimer = null;
+
+        function showToast(message, type, duration) {
+            type = type || 'info';
+            duration = (duration === undefined) ? (type === 'error' || type === 'warn' ? 0 : 5000) : duration;
+            var toast = document.getElementById('global-toast');
+            var messageEl = document.getElementById('global-toast-message');
+            if (!toast || !messageEl) { console.error('[toast] container missing', message); return; }
+            toast.className = 'global-toast ' + type;
+            messageEl.innerHTML = message;
+            toast.style.display = 'block';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-8px)';
+            requestAnimationFrame(function () {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+            clearTimeout(globalToastTimer);
+            if (duration && duration > 0) {
+                globalToastTimer = setTimeout(function () { hideGlobalToast(); }, duration);
+            }
+        }
+
+        function hideGlobalToast() {
+            var toast = document.getElementById('global-toast');
+            if (!toast) return;
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-8px)';
+            setTimeout(function () { toast.style.display = 'none'; }, 250);
+        }
+
+        function logToastError(context, error) {
+            var detail = error && error.detail ? error.detail : (error && error.message ? error.message : String(error || ''));
+            console.error.apply(console, ['[' + context + ']'].concat([detail]));
+            return detail;
+        }
+    </script>
 </body>
 </html>
