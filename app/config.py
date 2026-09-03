@@ -53,6 +53,10 @@ class Settings(BaseSettings):
 
     # Report storage
     REPORT_RETENTION_DAYS: int = 90
+
+    # Runner mode: how often (seconds) the scheduler re-syncs schedules from the
+    # DB so new/changed schedules take effect without a runner restart.
+    SCHEDULE_SYNC_INTERVAL_SECONDS: int = 60
     
     # Use mokapi for testing (set to false in production)
     USE_MOKAPI: bool = False

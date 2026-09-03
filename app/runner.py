@@ -251,9 +251,11 @@ async def run_scheduler():
     scheduler = ReportScheduler(settings.DATABASE_URL)
 
     # Restore active schedules from the database so runner mode executes reports
-    # that were created/updated while another process was running.
+    # that were created/updated while another process was running. sync_schedules
+    # reconciles the job registry with the schedules table (add/update active,
+    # remove deactivated/deleted) so changes take effect without a restart.
     async with async_session_factory() as db:
-        await scheduler.load_schedules(db)
+        await scheduler.sync_schedules(db)
 
     scheduler.start()
 
@@ -266,11 +268,21 @@ async def run_scheduler():
         replace_existing=True,
     )
 
-    logger.info("Runner mode started with cleanup scheduler")
+    logger.info(
+        "Runner mode started with cleanup scheduler; re-syncing schedules every %s s",
+        settings.SCHEDULE_SYNC_INTERVAL_SECONDS,
+    )
 
     try:
         while True:
-            await asyncio.sleep(60)
+            await asyncio.sleep(settings.SCHEDULE_SYNC_INTERVAL_SECONDS)
+            async with async_session_factory() as db:
+                try:
+                    # Re-apply the schedules table so new/changed/deactivated
+                    # schedules are picked up by the live runner.
+                    await scheduler.sync_schedules(db)
+                except Exception as exc:
+                    logger.error("Periodic schedule sync failed: %s", exc)
     except KeyboardInterrupt:
         logger.info("Shutting down runner...")
         scheduler.shutdown()

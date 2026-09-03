@@ -41,19 +41,25 @@ class ReportScheduler:
         self.database_url = database_url
         self.scheduler = AsyncIOScheduler(jobstores={"default": MemoryJobStore()})
 
-    async def load_schedules(self, db) -> int:
-        """Load every active schedule from the DB into the scheduler.
+    async def sync_schedules(self, db) -> int:
+        """Reconcile the in-memory job registry with the schedules table.
 
-        Returns the number of schedules registered. Schedules whose report no
-        longer exists are skipped rather than aborting the whole load.
+        Adds every active schedule (updating its trigger in place via
+        ``replace_existing`` so cron/run_at changes take effect) and removes any
+        loaded job that no longer maps to an active schedule. This lets the runner
+        pick up schedules created or edited while it is running, and stop firing
+        for schedules that were deactivated or deleted, without a restart.
+
+        Returns the number of active schedules found in the DB. Schedules whose
+        trigger is invalid are skipped rather than aborting the whole sync.
         """
         from app.models.connection import Schedule
 
         result = await db.execute(select(Schedule).where(Schedule.is_active.is_(True)))
-        schedules = result.scalars().all()
+        active_schedules = result.scalars().all()
 
-        loaded = 0
-        for schedule in schedules:
+        active_ids: set[str] = set()
+        for schedule in active_schedules:
             try:
                 self.add_schedule(
                     job_id=str(schedule.id),
@@ -61,14 +67,40 @@ class ReportScheduler:
                     run_at=schedule.run_at,
                     timezone=schedule.timezone or "UTC",
                 )
-                loaded += 1
+                active_ids.add(str(schedule.id))
             except Exception as exc:
                 logger.error(
                     "Skipping schedule '%s' (%s): %s", schedule.name, schedule.id, exc
                 )
 
-        logger.info("Loaded %d active schedule(s) into runner", loaded)
-        return loaded
+        # Drop loaded jobs that no longer correspond to an active schedule. Only
+        # UUID-shaped job ids are candidates; the runner's own cleanup job and any
+        # other non-schedule job are left untouched.
+        for job in self.scheduler.get_jobs():
+            job_id = job.id
+            if job_id.startswith("cleanup_"):
+                continue
+            try:
+                uuid.UUID(job_id)
+            except (ValueError, AttributeError, TypeError):
+                continue
+            if job_id not in active_ids:
+                try:
+                    self.scheduler.remove_job(job_id)
+                    logger.info("Removed stale schedule job %s", job_id)
+                except Exception:
+                    logger.debug("Could not remove stale job %s", job_id)
+
+        logger.info("Synced %d active schedule(s) into runner", len(active_ids))
+        return len(active_ids)
+
+    async def load_schedules(self, db) -> int:
+        """Backward-compatible entry point delegating to :meth:`sync_schedules`.
+
+        At startup there are no stale jobs yet, so reconciliation is equivalent to
+        the historical "load every active schedule" behavior.
+        """
+        return await self.sync_schedules(db)
 
     def start(self) -> None:
         """Start the scheduler."""
