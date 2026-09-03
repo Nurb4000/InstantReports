@@ -249,6 +249,12 @@ async def run_scheduler():
     from app.services.scheduler.engine import ReportScheduler
 
     scheduler = ReportScheduler(settings.DATABASE_URL)
+
+    # Restore active schedules from the database so runner mode executes reports
+    # that were created/updated while another process was running.
+    async with async_session_factory() as db:
+        await scheduler.load_schedules(db)
+
     scheduler.start()
 
     # Schedule cleanup job to run daily at 2 AM

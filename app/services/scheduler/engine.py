@@ -5,10 +5,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date_trigger import DateTrigger
+from apscheduler.triggers.date import DateTrigger
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +38,37 @@ class ReportScheduler:
     """APScheduler-based scheduler for report execution."""
 
     def __init__(self, database_url: str):
-        self.scheduler = AsyncIOScheduler()
-        self.jobstores = {
-            "default": SQLAlchemyJobStore(url=database_url)
-        }
-        self.scheduler.configure(jobstores=self.jobstores)
+        self.database_url = database_url
+        self.scheduler = AsyncIOScheduler(jobstores={"default": MemoryJobStore()})
+
+    async def load_schedules(self, db) -> int:
+        """Load every active schedule from the DB into the scheduler.
+
+        Returns the number of schedules registered. Schedules whose report no
+        longer exists are skipped rather than aborting the whole load.
+        """
+        from app.models.connection import Schedule
+
+        result = await db.execute(select(Schedule).where(Schedule.is_active.is_(True)))
+        schedules = result.scalars().all()
+
+        loaded = 0
+        for schedule in schedules:
+            try:
+                self.add_schedule(
+                    job_id=str(schedule.id),
+                    cron_expression=schedule.cron_expression,
+                    run_at=schedule.run_at,
+                    timezone=schedule.timezone or "UTC",
+                )
+                loaded += 1
+            except Exception as exc:
+                logger.error(
+                    "Skipping schedule '%s' (%s): %s", schedule.name, schedule.id, exc
+                )
+
+        logger.info("Loaded %d active schedule(s) into runner", loaded)
+        return loaded
 
     def start(self) -> None:
         """Start the scheduler."""
@@ -79,6 +106,7 @@ class ReportScheduler:
             self._execute_report,
             trigger=trigger,
             id=job_id,
+            args=[job_id],  # APScheduler 3.x passes only these to the job fn
             replace_existing=True,
             misfire_grace_time=3600,
             coalesce=True,
@@ -101,18 +129,38 @@ class ReportScheduler:
         logger.info(f"Resumed schedule job: {job_id}")
 
     async def _execute_report(self, *args: Any, **kwargs: Any) -> None:
-        """Execute a report (to be overridden by the runner)."""
-        logger.info("Report execution triggered")
-        
-        # Log audit event for schedule execution
-        job_id = kwargs.get('job_id') or args[0] if args else None
-        if job_id:
+        """Execute the report referenced by a scheduled job.
+
+        Runs inside APScheduler's event loop; opens its own DB session and
+        delegates to ``runner.execute_report`` via a lazy import to avoid a
+        circular dependency at module load time.
+        """
+        from app.runner import execute_report
+
+        args_tuple = args if args else ()
+        job_id = kwargs.get("job_id") or (args_tuple[0] if args_tuple else None)
+        if not job_id:
+            logger.warning("Report triggered without a job id; ignoring")
+            return
+
+        try:
+            schedule_id = uuid.UUID(str(job_id))
+        except (ValueError, AttributeError, TypeError):
+            logger.error("Invalid schedule id in job: %r", job_id)
+            return
+
+        from app.database import async_session_factory
+        from app.models.connection import Schedule
+
+        async with async_session_factory() as db:
+            result = await db.execute(
+                select(Schedule).where(Schedule.id == schedule_id)
+            )
+            schedule = result.scalar_one_or_none()
+            if not schedule:
+                logger.error("Schedule %s not found; skipping execution", schedule_id)
+                return
             try:
-                await log_audit(
-                    db=None,  # Will be passed from runner
-                    action="schedule_executed",
-                    schedule_id=uuid.UUID(job_id) if job_id else None,
-                    details={"message": "Schedule execution started"}
-                )
-            except Exception as e:
-                logger.warning(f"Failed to log audit event: {e}")
+                await execute_report(schedule, db)
+            except Exception as exc:
+                logger.error("Report execution failed for schedule %s: %s", schedule_id, exc)
