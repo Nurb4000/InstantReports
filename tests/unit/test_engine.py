@@ -83,6 +83,47 @@ class TestReportRenderer:
         assert len(table_element["data"]) == 2
         assert table_element["total_rows"] == 2
 
+    def test_render_table_autoderives_columns_when_missing(self):
+        """A query-only table with no explicit columns derives them from the DataFrame."""
+        renderer = ReportRenderer()
+        df = pd.DataFrame({"name": ["Alice", "Bob"], "score": [95, 87]})
+
+        definition = {
+            "layout": {
+                "sections": [
+                    {
+                        "type": "detail",
+                        "data_source": "ds1",
+                        "elements": [{"type": "table", "data_source": "ds1"}],
+                    }
+                ]
+            },
+            "data_sources": {"ds1": df},
+        }
+
+        result = renderer.render(definition, {"ds1": df})
+        table_element = result["sections"][0]["elements"][0]
+
+        assert table_element["columns"], "columns should be auto-derived"
+        fields = [c["field"] for c in table_element["columns"]]
+        assert fields == ["name", "score"]
+        assert table_element["total_rows"] == 2
+
+    def test_render_table_autoderives_preserves_int_column_keys(self):
+        """Auto-derived column keys keep their original type for exporter lookups."""
+        renderer = ReportRenderer()
+        df = pd.DataFrame({0: ["a"], 1: ["b"]})
+
+        result = renderer.render(
+            {"layout": {"sections": [{"type": "detail", "data_source": "ds1",
+                                      "elements": [{"type": "table", "data_source": "ds1"}]}]},
+             "data_sources": {"ds1": df}},
+            {"ds1": df},
+        )
+        table_element = result["sections"][0]["elements"][0]
+        assert table_element["columns"][0]["field"] == 0
+        assert table_element["data"][0][0] == "a"
+
     def test_render_table_applies_conditional_formatting(self):
         """Should attach formatting to rows that match rules."""
         renderer = ReportRenderer()

@@ -127,6 +127,12 @@ class ReportRenderer:
         df = data.get(data_source_id, pd.DataFrame())
 
         columns = config.get("columns") or element_def.get("columns", [])
+        if not columns and not df.empty:
+            # Query-only tables may ship without explicit column definitions.
+            # Exporters (PDF/Excel/CSV/HTML) require at least one column, so
+            # derive them from the DataFrame here; keep the original key type
+            # so exporter row lookups match to_dict(orient="records") output.
+            columns = [{"field": c, "header": str(c)} for c in df.columns]
         if columns and not df.empty:
             available_cols = [c["field"] for c in columns if c.get("field") in df.columns]
             df = df[available_cols]
