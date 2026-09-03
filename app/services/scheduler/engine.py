@@ -14,6 +14,20 @@ from sqlalchemy import select
 logger = logging.getLogger(__name__)
 
 
+def is_past_one_shot(schedule) -> bool:
+    """True for a one-shot (``run_at``) schedule whose run time has passed.
+
+    Recurring schedules (``cron_expression`` set) are never past one-shots. A
+    past one-shot must not be re-added during sync: APScheduler fires a past
+    ``DateTrigger`` immediately (within misfire grace), so re-adding an
+    already-run one-shot on every sync cycle would re-execute it repeatedly.
+    """
+    if getattr(schedule, "cron_expression", None):
+        return False
+    run_at = getattr(schedule, "run_at", None)
+    return run_at is not None and run_at < datetime.now(timezone.utc)
+
+
 async def log_audit(db, action: str, report_id: uuid.UUID | None = None, schedule_id: uuid.UUID | None = None, details: dict | None = None, output_id: uuid.UUID | None = None):
     """Log an audit event to the database."""
     from app.database import get_db
@@ -60,6 +74,9 @@ class ReportScheduler:
 
         active_ids: set[str] = set()
         for schedule in active_schedules:
+            if is_past_one_shot(schedule):
+                logger.debug("Skipping past one-shot schedule %s (%s)", schedule.name, schedule.id)
+                continue
             try:
                 self.add_schedule(
                     job_id=str(schedule.id),
