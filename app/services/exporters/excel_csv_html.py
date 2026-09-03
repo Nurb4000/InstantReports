@@ -191,6 +191,8 @@ class HTMLExporter:
                             html_parts.append("</tr>")
                         html_parts.append("</tbody>")
                         html_parts.append("</table>")
+                elif element.get("type") == "chart":
+                    html_parts.append(self._render_chart_html(element))
 
             html_parts.append("</div>")
 
@@ -198,3 +200,27 @@ class HTMLExporter:
         html_parts.append("</html>")
 
         return "\n".join(html_parts)
+
+    def _render_chart_html(self, element: dict[str, Any]) -> str:
+        """Render a chart element as an inline base64 PNG.
+
+        Mirrors the PDF exporter's behaviour so HTML (the "view in browser"
+        format) does not silently drop charts the way Excel/CSV do.
+        """
+        import base64
+
+        from app.services.engine.chart import ChartGenerator
+
+        chart_data = element.get("data")
+        if chart_data is None or len(chart_data) == 0:
+            return '<p class="text-muted">No data for chart.</p>'
+        try:
+            png_bytes = ChartGenerator().generate(element, chart_data)
+        except Exception as exc:
+            return f'<p class="text-danger">Chart failed to render: {exc}</p>'
+        b64 = base64.b64encode(png_bytes).decode("ascii")
+        return (
+            '<div class="report-chart" style="text-align:center; margin:12px 0;">'
+            f'<img src="data:image;base64,{b64}" style="max-width:100%; height:auto;" alt="chart"/>'
+            "</div>"
+        )

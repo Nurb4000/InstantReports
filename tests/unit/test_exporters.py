@@ -162,3 +162,41 @@ class TestRenderExportIntegration:
         assert "<table>" in html
         assert "Widget" in html and "Gadget" in html
         assert ">10<" in html or "10" in html
+
+    def _rendered_report_with_chart(self) -> dict:
+        df = pd.DataFrame({"region": ["N", "S", "E"], "sales": [100, 150, 75]})
+        definition = {
+            "name": "Sales by Region",
+            "layout": {
+                "sections": [
+                    {
+                        "type": "detail",
+                        "data_source": "ds1",
+                        "elements": [
+                            {
+                                "type": "chart",
+                                "data_source": "ds1",
+                                "properties": {"type": "bar", "xField": "region", "yField": "sales"},
+                            }
+                        ],
+                    }
+                ]
+            },
+            "data_sources": {"ds1": df},
+        }
+        return ReportRenderer().render(definition, {"ds1": df})
+
+    def test_html_export_inlines_chart_as_base64_png(self):
+        """Charts must render in HTML (the browser-view format), not be dropped.
+
+        PDF already renders charts; Excel/CSV are tabular and intentionally omit
+        them. This closes the gap where an HTML export of a chart-only report
+        produced an empty body.
+        """
+        rendered = self._rendered_report_with_chart()
+        html = HTMLExporter().export(rendered)
+
+        assert "data:image;base64," in html
+        # The chart element carries the plotted DataFrame from the renderer.
+        chart_element = rendered["sections"][0]["elements"][0]
+        assert len(chart_element["data"]) == 3
