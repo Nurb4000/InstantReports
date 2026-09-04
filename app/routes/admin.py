@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.connection import Schedule
 from app.models.user import User
 from app.routes.auth import get_current_user_optional
+from app.services.exporters import normalize_output_format
 
 router = APIRouter()
 
@@ -137,6 +138,20 @@ async def create_schedule(
         smb_remote_path = body.get('smb_remote_path', smb_remote_path)
         webhook_url = body.get('webhook_url', webhook_url)
         webhook_secret = body.get('webhook_secret', webhook_secret)
+
+    # Validate output_format up front so a bad value fails with a clear 400
+    # instead of silently breaking the schedule at run time (the runner catches
+    # normalize_output_format's ValueError and returns None).
+    try:
+        output_format = normalize_output_format(output_format)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid output_format: {output_format!r}. "
+                "Use one of: pdf, xlsx, csv, html."
+            ),
+        )
 
     # Parse recipient emails
     emails = [e.strip() for e in recipient_emails.split(",") if e.strip()] if recipient_emails else []
@@ -360,7 +375,16 @@ async def update_schedule(
     if timezone:
         schedule.timezone = timezone
     if output_format:
-        schedule.output_format = output_format
+        try:
+            schedule.output_format = normalize_output_format(output_format)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid output_format: {output_format!r}. "
+                    "Use one of: pdf, xlsx, csv, html."
+                ),
+            )
     if delivery_type:
         schedule.delivery_type = delivery_type
         

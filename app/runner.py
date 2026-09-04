@@ -150,7 +150,13 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
             report_id=report.id,
             schedule_id=schedule.id,
             action="report_generated",
-            details={"message": f"Report '{report.name}' generated successfully", "output_id": str(output.id)},
+            details={
+                "message": f"Report '{report.name}' generated successfully",
+                "output_id": str(output.id),
+                "format": fmt,
+                "mime_type": output.mime_type,
+                "file_size": output.file_size,
+            },
             output_id=output.id,
             executed_at=datetime.now(timezone.utc),
         )
