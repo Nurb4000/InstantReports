@@ -596,6 +596,8 @@ async def preview_websocket(
     report_id: str,
     current_user: User | None = Depends(get_current_user_optional),
 ):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     await websocket.accept()
 
     try:
