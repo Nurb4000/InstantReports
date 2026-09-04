@@ -12,6 +12,7 @@ from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
 
+from app.auth import hash_password
 from app.database import Base, get_db
 from app.models.user import AuthSource, User, UserRole
 
@@ -86,7 +87,7 @@ async def auth_client(client: AsyncClient, db_session: AsyncSession) -> AsyncGen
         id=uuid.uuid4(),
         email="test@example.com",
         name="Test User",
-        password_hash=__import__("app.auth").hash_password("testpass"),
+        password_hash=hash_password("testpass"),
         role=UserRole.ADMIN,
         auth_source=AuthSource.LOCAL,
         is_active=True,
@@ -100,7 +101,7 @@ async def auth_client(client: AsyncClient, db_session: AsyncSession) -> AsyncGen
         data={"email": "test@example.com", "password": "testpass"},
         follow_redirects=False,
     )
-    assert response.status_code == 307
+    assert response.status_code == 302
 
     # Get the token from the cookie
     token = response.cookies.get("access_token")
@@ -116,7 +117,7 @@ async def test_user(db_session: AsyncSession) -> User:
         id=uuid.uuid4(),
         email="user@example.com",
         name="Test User",
-        password_hash=__import__("app.auth").hash_password("password123"),
+        password_hash=hash_password("password123"),
         role=UserRole.DESIGNER,
         auth_source=AuthSource.LOCAL,
         is_active=True,

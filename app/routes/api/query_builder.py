@@ -222,6 +222,31 @@ async def list_query_templates(
     ]
 
 
+@router.get("/templates/export")
+async def export_templates_endpoint(
+    ids: str = Query(..., description="Comma-separated template UUIDs to export"),
+    current_user: User | None = Depends(get_current_user_simple),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export one or more templates as a portable JSON bundle."""
+    requested = [part.strip() for part in ids.split(",") if part.strip()]
+    if not requested:
+        raise HTTPException(status_code=400, detail="at least one template id is required")
+
+    templates: list[QueryTemplate] = []
+    for part in requested:
+        try:
+            tmpl_uuid = uuid.UUID(part)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"invalid template id: {part}")
+        template = await db.get(QueryTemplate, tmpl_uuid)
+        if not template:
+            raise HTTPException(status_code=404, detail=f"template {part} not found")
+        templates.append(template)
+
+    return export_templates(templates)
+
+
 @router.get("/templates/{template_id}")
 async def get_query_template(
     template_id: str,
@@ -269,30 +294,6 @@ async def delete_query_template(
     await db.commit()
     return {"message": f"Template {template_id} deleted", "id": str(template_id)}
 
-
-@router.get("/templates/export")
-async def export_templates_endpoint(
-    ids: str = Query(..., description="Comma-separated template UUIDs to export"),
-    current_user: User | None = Depends(get_current_user_simple),
-    db: AsyncSession = Depends(get_db),
-):
-    """Export one or more templates as a portable JSON bundle."""
-    requested = [part.strip() for part in ids.split(",") if part.strip()]
-    if not requested:
-        raise HTTPException(status_code=400, detail="at least one template id is required")
-
-    templates: list[QueryTemplate] = []
-    for part in requested:
-        try:
-            tmpl_uuid = uuid.UUID(part)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"invalid template id: {part}")
-        template = await db.get(QueryTemplate, tmpl_uuid)
-        if not template:
-            raise HTTPException(status_code=404, detail=f"template {part} not found")
-        templates.append(template)
-
-    return export_templates(templates)
 
 
 @router.post("/templates/import")

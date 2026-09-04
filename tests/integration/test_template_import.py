@@ -13,7 +13,7 @@ from app.models.user import AuthSource, User, UserRole
 async def _seed_connection(db: AsyncSession) -> DataConnection:
     user = User(
         id=uuid.uuid4(),
-        email="conn@example.com",
+        email=f"conn_{uuid.uuid4().hex[:8]}@example.com",
         name="Conn Owner",
         password_hash="dummy",
         role=UserRole.ADMIN,

@@ -2,6 +2,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.report import Report
 from app.models.user import User
 from app.services.versioning import (
     get_version,
@@ -67,17 +68,23 @@ class TestVersioningService:
     @pytest.mark.asyncio
     async def test_restore_version(self, db_session: AsyncSession, test_user: User):
         """Should restore a previous version."""
+        report = Report(name="Restore Test", created_by=test_user.id)
+        db_session.add(report)
+        await db_session.commit()
+        await db_session.refresh(report)
+        report_id = report.id
+
         # Save two versions
         await save_version(
             db=db_session,
-            report_id=test_user.id,
+            report_id=report_id,
             definition={"data": "v1"},
             commit_message="Version 1",
             user_id=test_user.id,
         )
         await save_version(
             db=db_session,
-            report_id=test_user.id,
+            report_id=report_id,
             definition={"data": "v2"},
             commit_message="Version 2",
             user_id=test_user.id,
@@ -86,7 +93,7 @@ class TestVersioningService:
         # Restore version 1
         new_version = await restore_version(
             db=db_session,
-            report_id=test_user.id,
+            report_id=report_id,
             version_number=1,
             user_id=test_user.id,
         )

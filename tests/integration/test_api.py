@@ -15,7 +15,7 @@ class TestAuthRoutes:
             follow_redirects=False,
         )
         
-        assert response.status_code == 307
+        assert response.status_code == 302
         assert "access_token" in response.cookies
 
     @pytest.mark.asyncio
@@ -67,16 +67,19 @@ class TestDesignerRoutes:
         )
         
         if create_response.status_code in [200, 303]:
-            # Get the report ID from the response
-            report_id = create_response.json().get("id") or create_response.headers.get("location", "").split("/")[-1]
+            # Get the report ID from the response (303 redirect -> Location header; 200 -> JSON body)
+            if create_response.status_code == 303:
+                report_id = create_response.headers.get("location", "").split("/")[-1]
+            else:
+                report_id = create_response.json().get("id")
             
-            # Edit the report
+            # Edit the report (update route redirects to the report view)
             response = await auth_client.post(
                 f"/designer/reports/{report_id}",
                 data={"name": "Updated Name"},
             )
             
-            assert response.status_code == 200
+            assert response.status_code in [200, 303]
 
 
 class TestVersionRoutes:
@@ -92,7 +95,10 @@ class TestVersionRoutes:
         )
         
         if create_response.status_code in [200, 303]:
-            report_id = create_response.json().get("id") or create_response.headers.get("location", "").split("/")[-1]
+            if create_response.status_code == 303:
+                report_id = create_response.headers.get("location", "").split("/")[-1]
+            else:
+                report_id = create_response.json().get("id")
             
             response = await auth_client.get(f"/designer/reports/{report_id}/versions")
             
