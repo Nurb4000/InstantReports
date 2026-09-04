@@ -99,16 +99,29 @@ class WhereFilter(BaseModel):
             and isinstance(self.value, (list, tuple))
             and len(self.value) == 2
         ):
-            return f"{self.field} BETWEEN '{self.value[0]}' AND '{self.value[1]}'"
+            return (
+                f"{self.field} BETWEEN {self._quote(self.value[0])} "
+                f"AND {self._quote(self.value[1])}"
+            )
 
         if self.operator == Operator.LIKE:
-            return f"{self.field} LIKE '{self.value}'"
+            return f"{self.field} LIKE {self._quote(self.value)}"
 
         if isinstance(self.value, list):
-            values_str = ", ".join(f"'{v}'" for v in self.value)
+            values_str = ", ".join(self._quote(v) for v in self.value)
             return f"{self.field} IN ({values_str})"
 
-        return f"{self.field} {self.operator.value} '{self.value}'"
+        return f"{self.field} {self.operator.value} {self._quote(self.value)}"
+
+    @staticmethod
+    def _quote(value: Any) -> str:
+        """Wrap ``value`` in a SQL string literal, escaping embedded quotes.
+
+        Single quotes are doubled per the SQL standard so values containing
+        apostrophes (e.g. ``O'Brien``) don't break the query and untrusted
+        input can't escape the literal (SQL injection).
+        """
+        return "'" + str(value).replace("'", "''") + "'"
 
 
 class OrderByField(BaseModel):

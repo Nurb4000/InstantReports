@@ -77,6 +77,32 @@ def test_where_filter_like():
     assert where.to_sql() == "orders.note LIKE 'foo'"
 
 
+def test_where_filter_escapes_single_quotes():
+    # Embedded single quotes must be doubled (SQL standard) so values with
+    # apostrophes don't break the query and untrusted input can't escape it.
+    assert WhereFilter(field="t.name", operator="=", value="O'Brien").to_sql() == (
+        "t.name = 'O''Brien'"
+    )
+    assert WhereFilter(field="t.n", operator="LIKE", value="o'b").to_sql() == (
+        "t.n LIKE 'o''b'"
+    )
+    assert WhereFilter(field="t.n", operator="BETWEEN", value=["a'b", "c'd"]).to_sql() == (
+        "t.n BETWEEN 'a''b' AND 'c''d'"
+    )
+    assert WhereFilter(field="t.n", operator="IN", value=["x'y", "z"]).to_sql() == (
+        "t.n IN ('x''y', 'z')"
+    )
+
+
+def test_where_filter_no_injection_via_quotes():
+    where = WhereFilter(field="t.name", operator="=", value="' OR '1'='1")
+    sql = where.to_sql()
+    assert sql == "t.name = ''' OR ''1''=''1'"
+    # The injected quotes are escaped (doubled), so the literal stays a single
+    # string and cannot break out to alter the query.
+    assert sql.count("''") >= 4
+
+
 def test_where_filter_is_null_and_not_null():
     # IS NULL / IS NOT NULL filters carry value=None (see sql_parser._parse_where_condition)
     assert WhereFilter(field="t.a", operator="IS NULL", value=None).to_sql() == "t.a IS NULL"
