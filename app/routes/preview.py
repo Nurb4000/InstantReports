@@ -180,8 +180,16 @@ async def render_report_with_data(definition: dict, title: str, description: str
                             except Exception as processing_error:
                                 logger.warning(f"Calculated field processing failed: {processing_error}")
 
-                            # Convert DataFrame to HTML table
-                            columns = list(df.columns)
+                            # Convert DataFrame to HTML table. Honor the element's configured
+                            # column headers so the preview matches export; fall back to raw
+                            # df columns for query-only tables with no configured columns.
+                            configured_cols = element.get("columns") or []
+                            if configured_cols:
+                                fields = [c.get("field", "") for c in configured_cols]
+                                headers = [c.get("header") or c.get("field") or "" for c in configured_cols]
+                            else:
+                                fields = [str(c) for c in df.columns]
+                                headers = list(fields)
                             rows = df.head(50).to_dict('records')  # Limit to 50 rows
 
                             # Apply conditional formatting rules if defined
@@ -199,22 +207,23 @@ async def render_report_with_data(definition: dict, title: str, description: str
                                     logger.warning(f"Conditional formatting failed: {formatting_error}")
                                     formatted_rows = rows
 
-                            # Build table HTML
-                            th_cells = ''.join('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">' + str(col) + '</th>' for col in columns)
+                            # Build table HTML. Display configured headers; look up cell values
+                            # and per-cell formatting by field so they stay aligned with export.
+                            th_cells = ''.join('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">' + str(header) + '</th>' for header in headers)
                             td_rows = ''
                             for row in formatted_rows:
                                 fmt = row.get("formatting") or {}
                                 row_css = cf.get_css_styles(fmt) if cf else ''
                                 tr_style = f' style="{row_css}"' if row_css else ''
                                 td_cells = ''
-                                for col in columns:
-                                    cell_fmt = fmt.get("cells", {}).get(col)
+                                for field, header in zip(fields, headers):
+                                    cell_fmt = fmt.get("cells", {}).get(field)
                                     cell_style = ''
                                     if cf is not None and cell_fmt:
-                                        cell_css = cf.get_css_styles({"row": None, "cells": {col: cell_fmt}})
+                                        cell_css = cf.get_css_styles({"row": None, "cells": {field: cell_fmt}})
                                         if cell_css:
                                             cell_style = f' style="{cell_css}"'
-                                    td_cells += '<td style="border: 1px solid #ddd; padding: 6px;"' + cell_style + str(row.get(col, '')) + '</td>'
+                                    td_cells += '<td style="border: 1px solid #ddd; padding: 6px;"' + cell_style + str(row.get(field, '')) + '</td>'
                                 td_rows += '<tr' + tr_style + '>' + td_cells + '</tr>\n'
                             
                             table_html = f'''
