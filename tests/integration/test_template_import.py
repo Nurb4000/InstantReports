@@ -49,11 +49,11 @@ async def _seed_template(db: AsyncSession, connection: DataConnection) -> QueryT
     return template
 
 
-async def test_export_templates(client, db_session):
+async def test_export_templates(auth_client, db_session):
     connection = await _seed_connection(db_session)
     template = await _seed_template(db_session, connection)
 
-    resp = await client.get(
+    resp = await auth_client.get(
         f"/api/query-builder/templates/export?ids={template.id}"
     )
     assert resp.status_code == 200
@@ -63,36 +63,36 @@ async def test_export_templates(client, db_session):
     assert body["templates"][0]["name"] == "Exported"
 
 
-async def test_export_multiple_templates(client, db_session):
+async def test_export_multiple_templates(auth_client, db_session):
     connection = await _seed_connection(db_session)
     t1 = await _seed_template(db_session, connection)
     t2 = await _seed_template(db_session, connection)
 
-    resp = await client.get(
+    resp = await auth_client.get(
         f"/api/query-builder/templates/export?ids={t1.id},{t2.id}"
     )
     assert resp.status_code == 200
     assert len(resp.json()["templates"]) == 2
 
 
-async def test_export_missing_template(client, db_session):
+async def test_export_missing_template(auth_client, db_session):
     missing = uuid.uuid4()
-    resp = await client.get(f"/api/query-builder/templates/export?ids={missing}")
+    resp = await auth_client.get(f"/api/query-builder/templates/export?ids={missing}")
     assert resp.status_code == 404
 
 
-async def test_export_invalid_id(client, db_session):
-    resp = await client.get("/api/query-builder/templates/export?ids=not-a-uuid")
+async def test_export_invalid_id(auth_client, db_session):
+    resp = await auth_client.get("/api/query-builder/templates/export?ids=not-a-uuid")
     assert resp.status_code == 400
 
 
-async def test_import_templates(client, db_session):
+async def test_import_templates(auth_client, db_session):
     connection = await _seed_connection(db_session)
     bundle = {
         "version": "1.0",
         "templates": [{"name": "Imported", "query_config": {"from_tables": ["t"]}}],
     }
-    resp = await client.post(
+    resp = await auth_client.post(
         f"/api/query-builder/templates/import?connection_id={connection.id}",
         json=bundle,
     )
@@ -108,7 +108,7 @@ async def test_import_templates(client, db_session):
     assert rows[0].connection_id == connection.id
 
 
-async def test_import_rebinds_to_connection(client, db_session):
+async def test_import_rebinds_to_connection(auth_client, db_session):
     source = await _seed_connection(db_session)
     importer = await _seed_connection(db_session)
     assert source.id != importer.id
@@ -122,7 +122,7 @@ async def test_import_rebinds_to_connection(client, db_session):
             }
         ]
     }
-    resp = await client.post(
+    resp = await auth_client.post(
         f"/api/query-builder/templates/import?connection_id={importer.id}",
         json=bundle,
     )
@@ -133,26 +133,33 @@ async def test_import_rebinds_to_connection(client, db_session):
     assert row.connection_id == importer.id
 
 
-async def test_import_invalid_connection(client, db_session):
-    resp = await client.post(
+async def test_import_invalid_connection(auth_client, db_session):
+    resp = await auth_client.post(
         "/api/query-builder/templates/import?connection_id=not-a-uuid",
         json={"templates": [{"query_config": {}}]},
     )
     assert resp.status_code == 400
 
 
-async def test_import_missing_connection(client, db_session):
-    resp = await client.post(
+async def test_import_missing_connection(auth_client, db_session):
+    resp = await auth_client.post(
         f"/api/query-builder/templates/import?connection_id={uuid.uuid4()}",
         json={"templates": [{"query_config": {}}]},
     )
     assert resp.status_code == 404
 
 
-async def test_import_malformed_payload(client, db_session):
+async def test_import_malformed_payload(auth_client, db_session):
     connection = await _seed_connection(db_session)
-    resp = await client.post(
+    resp = await auth_client.post(
         f"/api/query-builder/templates/import?connection_id={connection.id}",
         json={"templates": [{"name": "no config"}]},
     )
     assert resp.status_code == 400
+
+
+async def test_export_requires_authentication(client):
+    """The query-builder API must reject unauthenticated requests (security fix:
+    the old get_current_user_simple stub returned None, leaving every route open)."""
+    resp = await client.get("/api/query-builder/templates/export?ids=not-a-uuid")
+    assert resp.status_code == 401

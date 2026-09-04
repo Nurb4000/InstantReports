@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.connection import DataConnection, QueryTemplate
 from app.models.user import User
+from app.routes.auth import get_current_user_optional
 from app.services.ai.client import AIClient, AISQLGenerator
 from app.services.query_builder.adapter import execute_query
 from app.services.query_builder.config import QueryConfig
@@ -37,15 +38,25 @@ router = APIRouter(prefix="/api/query-builder", tags=["query-builder"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-async def get_current_user_simple(request: Request) -> User | None:
-    """Simple current user dependency without database."""
-    return None
+async def require_auth(
+    current_user: User | None = Depends(get_current_user_optional),
+) -> User:
+    """Require an authenticated user for the query-builder API.
+
+    Every endpoint here runs against real DB connections (schema introspection,
+    raw-SQL /test, template save/import, AI nl-to-query), so it must sit behind
+    auth like the rest of the app. The previous get_current_user_simple stub
+    returned None unconditionally, leaving all 17 routes effectively anonymous.
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return current_user
 
 
 @router.get("/schema/{connection_id}")
 async def get_schema_endpoint(
     connection_id: str,
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Get schema information for a database connection."""
@@ -63,7 +74,7 @@ async def get_schema_endpoint(
 @router.post("/validate")
 async def validate_query_endpoint(
     query_config: QueryConfig,
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
 ):
     """Validate a query configuration."""
     is_valid, errors = validate_query(query_config)
@@ -78,7 +89,7 @@ async def validate_query_endpoint(
 @router.post("/generate-sql")
 async def generate_sql_endpoint(
     query_config: QueryConfig,
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
 ):
     """Generate SQL from a query configuration."""
     sql = query_config.to_sql()
@@ -90,7 +101,7 @@ async def test_query_endpoint(
     query_config: QueryConfig,
     connection_id: str,
     limit: int = Query(default=100, ge=1, le=1000),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Test a query against the database."""
@@ -154,7 +165,7 @@ async def save_query_template(
     name: str = Query(...),
     description: str | None = Query(None),
     connection_id: str = Query(...),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Persist a query configuration as a reusable template."""
@@ -193,7 +204,7 @@ async def save_query_template(
 @router.get("/templates")
 async def list_query_templates(
     connection_id: str | None = Query(None),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """List saved query templates, optionally filtered by connection."""
@@ -225,7 +236,7 @@ async def list_query_templates(
 @router.get("/templates/export")
 async def export_templates_endpoint(
     ids: str = Query(..., description="Comma-separated template UUIDs to export"),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Export one or more templates as a portable JSON bundle."""
@@ -250,7 +261,7 @@ async def export_templates_endpoint(
 @router.get("/templates/{template_id}")
 async def get_query_template(
     template_id: str,
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Fetch a specific query template with its full configuration."""
@@ -277,7 +288,7 @@ async def get_query_template(
 @router.delete("/templates/{template_id}")
 async def delete_query_template(
     template_id: str,
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a saved query template."""
@@ -300,7 +311,7 @@ async def delete_query_template(
 async def import_templates_endpoint(
     payload: dict,
     connection_id: str = Query(..., description="Connection to bind imported templates to"),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Import templates from a portable bundle, binding them to a connection.
@@ -355,7 +366,7 @@ async def save_query_history(
     report_id: str | None = Query(None),
     element_id: str | None = Query(None),
     label: str | None = Query(None),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Record a snapshot of the current query configuration."""
@@ -395,7 +406,7 @@ async def list_query_history(
     report_id: str | None = Query(None),
     element_id: str | None = Query(None),
     limit: int = Query(default=50, ge=1, le=200),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """List query-history snapshots for a connection/report/element."""
@@ -434,7 +445,7 @@ async def list_query_history(
 @router.get("/history/{snapshot_id}")
 async def get_query_history(
     snapshot_id: str,
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Fetch a single query-history snapshot with its full configuration."""
@@ -461,7 +472,7 @@ async def get_query_history(
 @router.delete("/history/{snapshot_id}")
 async def delete_query_history(
     snapshot_id: str,
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a query-history snapshot."""
@@ -481,7 +492,7 @@ async def delete_query_history(
 async def optimize_query_endpoint(
     query_config: QueryConfig,
     connection_id: str | None = Query(None),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Analyze a query configuration and return optimization suggestions."""
@@ -507,7 +518,7 @@ async def optimize_query_endpoint(
 async def nl_to_query_endpoint(
     request: Request,
     connection_id: str = Query(...),
-    current_user: User | None = Depends(get_current_user_simple),
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a QueryConfig from a natural-language prompt for a connection."""
