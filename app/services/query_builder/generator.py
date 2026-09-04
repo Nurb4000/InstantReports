@@ -11,6 +11,7 @@ from app.services.query_builder.config import (
     QueryConfig,
     SelectColumn,
     WhereFilter,
+    resolve_select_names,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,17 +26,18 @@ class SQLGenerator:
         if not columns:
             return "*"
 
+        resolved_names = resolve_select_names(columns)
         parts = []
-        for col in columns:
+        for col, name in zip(columns, resolved_names):
             if col.aggregation and col.aggregation != Aggregation.NONE:
                 expr = f"{col.aggregation.value}({col.table}.{col.column})"
             else:
                 expr = f"{col.table}.{col.column}"
 
-            if col.alias:
-                parts.append(f"{expr} AS {col.alias}")
-            else:
+            if name == col.base_name():
                 parts.append(expr)
+            else:
+                parts.append(f"{expr} AS {name}")
 
         return ", ".join(parts)
 

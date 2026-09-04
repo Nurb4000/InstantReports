@@ -48,16 +48,56 @@ class SelectColumn(BaseModel):
     alias: str | None = None
     aggregation: Aggregation | None = None
 
+    def expression(self) -> str:
+        """Return the raw SQL expression for this column (no alias)."""
+        if self.aggregation and self.aggregation != Aggregation.NONE:
+            return f"{self.aggregation.value}({self.table}.{self.column})"
+        return f"{self.table}.{self.column}"
+
+    def base_name(self) -> str:
+        """Return the result-column name this column produces without an alias.
+
+        A plain column yields its bare name while an aggregate gets a synthetic
+        ``{FUNC}_{table}_{column}`` name so collisions are detected consistently.
+        """
+        if self.aggregation and self.aggregation != Aggregation.NONE:
+            return f"{self.aggregation.value.lower()}_{self.table}.{self.column}"
+        return self.column
+
     def to_sql(self) -> str:
         """Generate SQL for this select column."""
-        if self.aggregation and self.aggregation != Aggregation.NONE:
-            col_expr = f"{self.aggregation.value}({self.table}.{self.column})"
-        else:
-            col_expr = f"{self.table}.{self.column}"
-
+        col_expr = self.expression()
         if self.alias:
             return f"{col_expr} AS {self.alias}"
         return col_expr
+
+
+def resolve_select_names(columns: list[SelectColumn]) -> list[str]:
+    """Return a collision-free result-column name for each select column.
+
+    Explicit aliases always win and are never rewritten. Otherwise the natural
+    name (bare column, or synthetic aggregate name) is used. When two columns
+    share a natural name -- the classic ``SELECT a.id, b.id`` join collision
+    that would otherwise be silently dropped during result materialization --
+    the later column is qualified as ``table__name`` and further duplicates get
+    an incrementing suffix so every selected column survives with a unique key.
+    """
+    resolved: list[str] = []
+    for col in columns:
+        if col.alias:
+            resolved.append(col.alias)
+            continue
+        base = col.base_name()
+        if base not in resolved:
+            resolved.append(base)
+            continue
+        candidate = f"{col.table}__{base}"
+        suffix = 2
+        while candidate in resolved:
+            candidate = f"{col.table}__{base}_{suffix}"
+            suffix += 1
+        resolved.append(candidate)
+    return resolved
 
 
 class JoinConfig(BaseModel):
@@ -152,7 +192,17 @@ class QueryConfig(BaseModel):
 
         # SELECT
         if self.select:
-            select_cols = [col.to_sql() for col in self.select]
+            resolved_names = resolve_select_names(self.select)
+            select_cols = []
+            for col, name in zip(self.select, resolved_names):
+                expr = col.expression()
+                # Only emit a resolver-added alias when the collision resolver
+                # had to rename the column; otherwise keep the natural form
+                # (explicit aliases are always emitted via ``expr AS``).
+                if name == col.base_name():
+                    select_cols.append(expr)
+                else:
+                    select_cols.append(f"{expr} AS {name}")
             sql_parts.append(f"SELECT {', '.join(select_cols)}")
         else:
             sql_parts.append("SELECT *")

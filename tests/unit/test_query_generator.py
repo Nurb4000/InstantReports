@@ -8,6 +8,7 @@ from app.services.query_builder.config import (
     QueryConfig,
     SelectColumn,
     WhereFilter,
+    resolve_select_names,
 )
 from app.services.query_builder.generator import (
     SQLGenerator,
@@ -271,3 +272,73 @@ def test_convenience_functions():
     assert generate_sql(config).startswith("SELECT t.a")
     is_valid, _ = validate_query(config)
     assert is_valid is True
+
+
+def test_generate_select_disambiguates_duplicate_plain_columns():
+    cols = [
+        SelectColumn(table="a", column="id"),
+        SelectColumn(table="b", column="id"),
+    ]
+    out = SQLGenerator.generate_select(cols)
+    assert out == "a.id, b.id AS b__id"
+
+
+def test_generate_select_disambiguates_three_way_collision():
+    cols = [
+        SelectColumn(table="a", column="id"),
+        SelectColumn(table="b", column="id"),
+        SelectColumn(table="c", column="id"),
+    ]
+    out = SQLGenerator.generate_select(cols)
+    assert out == "a.id, b.id AS b__id, c.id AS c__id"
+
+
+def test_generate_select_respects_explicit_alias_over_collision():
+    cols = [
+        SelectColumn(table="a", column="id", alias="aid"),
+        SelectColumn(table="b", column="id"),
+    ]
+    out = SQLGenerator.generate_select(cols)
+    assert out == "a.id AS aid, b.id"
+
+
+def test_generate_select_no_collision_unchanged():
+    cols = [
+        SelectColumn(table="orders", column="order_id"),
+        SelectColumn(table="orders", column="amount"),
+    ]
+    out = SQLGenerator.generate_select(cols)
+    assert out == "orders.order_id, orders.amount"
+
+
+def test_query_config_to_sql_aliases_join_collisions():
+    config = QueryConfig(
+        select=[
+            SelectColumn(table="a", column="id"),
+            SelectColumn(table="b", column="id"),
+        ],
+        from_tables=["a"],
+        joins=[
+            JoinConfig(
+                join_type="INNER",
+                table="b",
+                on_left_table="a",
+                on_left_column="bid",
+                on_right_table="b",
+                on_right_column="bid",
+            )
+        ],
+    )
+    sql = config.to_sql()
+    assert "SELECT a.id, b.id AS b__id" in sql
+
+
+def test_resolve_select_names_helper():
+    names = resolve_select_names(
+        [
+            SelectColumn(table="a", column="id"),
+            SelectColumn(table="b", column="id"),
+            SelectColumn(table="a", column="status"),
+        ]
+    )
+    assert names == ["id", "b__id", "status"]
