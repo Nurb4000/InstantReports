@@ -42,7 +42,6 @@ class ChartGenerator:
             self._plot_scatter(ax, data, x_field, y_field)
 
         ax.set_title(chart_def.get("title", "Chart"))
-        ax.legend()
 
         buf = io.BytesIO()
         fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
