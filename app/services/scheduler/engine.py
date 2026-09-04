@@ -11,6 +11,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from sqlalchemy import select
 
+from app.models.report import ReportOutput
+
 logger = logging.getLogger(__name__)
 
 
@@ -210,6 +212,53 @@ class ReportScheduler:
                 logger.error("Schedule %s not found; skipping execution", schedule_id)
                 return
             try:
-                await execute_report(schedule, db)
+                output = await execute_report(schedule, db)
+                if output is not None:
+                    await _deliver_scheduled(output, schedule_id, db)
             except Exception as exc:
                 logger.error("Report execution failed for schedule %s: %s", schedule_id, exc)
+
+
+async def _deliver_scheduled(
+    output: ReportOutput, schedule_id: uuid.UUID, db
+) -> None:
+    """Deliver a freshly generated report to the schedule's configured recipients.
+
+    ``execute_report`` only writes the ``ReportOutput`` row; delivery was never
+    wired up, so scheduled reports accumulated in the portal but were never sent
+    via email/SFTP/SMB/webhook. Loads active deliveries for this schedule plus
+    their recipients and delegates to ``runner.deliver_report``. Reports with no
+    delivery config (portal-only schedules) are simply not delivered. Runs inside
+    the caller's DB session so ``output.file_data`` (a BYTEA) stays loaded.
+    """
+    from app.models.connection import Delivery, DeliveryRecipient
+    from app.runner import deliver_report
+
+    result = await db.execute(
+        select(Delivery).where(
+            Delivery.schedule_id == schedule_id,
+            Delivery.is_active.is_(True),
+        )
+    )
+    deliveries = list(result.scalars().all())
+    if not deliveries:
+        return
+
+    delivery_ids = [d.id for d in deliveries]
+    recip_result = await db.execute(
+        select(DeliveryRecipient).where(
+            DeliveryRecipient.delivery_id.in_(delivery_ids)
+        )
+    )
+    recipients = list(recip_result.scalars().all())
+
+    try:
+        delivered = await deliver_report(output, deliveries, recipients)
+        logger.info(
+            "Delivery %s for schedule %s (output %s)",
+            "ok" if delivered else "failed",
+            schedule_id,
+            output.id,
+        )
+    except Exception as exc:
+        logger.error("Delivery failed for schedule %s: %s", schedule_id, exc)
