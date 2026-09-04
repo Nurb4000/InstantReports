@@ -324,6 +324,27 @@ class TestDataProcessor:
 
         assert list(result["total"]) == [15.0, 50.0]
 
+    def test_process_calculated_field_allows_whitespace_in_refs(self):
+        """{{ col }} with surrounding whitespace must evaluate, not yield nulls.
+
+        Regression: DataProcessor used a \\w+-only regex that rejected spaces, so
+        natural expressions like '{{ revenue }} - {{ cost }}' evaluated to all
+        None in preview/scheduled export even though the Fields-tab Test path
+        (CalculatedFieldEvaluator) handled them fine.
+        """
+        processor = DataProcessor()
+        df = pd.DataFrame({"revenue": [100, 200], "cost": [40, 50]})
+
+        definition = {
+            "calculated_fields": [
+                {"name": "profit", "expression": "{{ revenue }} - {{ cost }}"},
+            ],
+        }
+
+        result = processor.process(df, definition)
+
+        assert list(result["profit"]) == [60, 150]
+
     def test_process_missing_calculated_field_is_null(self):
         """Should leave a calculated field null when its expression fails."""
         processor = DataProcessor()

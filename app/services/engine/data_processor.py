@@ -41,18 +41,15 @@ class DataProcessor:
         return df
 
     def _evaluate_expression(self, df: pd.DataFrame, expression: str) -> pd.Series:
-        """Evaluate a simple expression against DataFrame columns."""
-        import re
+        """Evaluate a calculated-field expression against DataFrame columns.
 
-        column_refs = re.findall(r"\{\{(\w+)\}\}", expression)
-        for col in column_refs:
-            if col in df.columns:
-                expression = expression.replace(f"{{{{{col}}}}}", f"df['{col}']")
+        Delegates to :class:`CalculatedFieldEvaluator` so the preview/scheduled
+        export path stays in sync with the Fields-tab Test path -- most importantly
+        both accept ``{{ column }}`` expressions with surrounding whitespace.
+        """
+        from app.services.engine.calculated_fields import CalculatedFieldEvaluator
 
-        try:
-            return eval(expression, {"df": df, "__builtins__": {}}, {})
-        except Exception:
-            return pd.Series([None] * len(df), index=df.index)
+        return CalculatedFieldEvaluator().evaluate(expression, df)
 
     def _apply_grouping(
         self, df: pd.DataFrame, definition: dict[str, Any]
