@@ -83,6 +83,25 @@ def test_where_filter_is_null_and_not_null():
     assert WhereFilter(field="t.a", operator="IS NOT NULL", value=None).to_sql() == "t.a IS NOT NULL"
 
 
+def test_query_config_where_honors_per_filter_logic():
+    # Regression: multiple WHERE filters must be joined using each filter's own
+    # logic operator, not a single shared operator.
+    q = QueryConfig(
+        where=[
+            WhereFilter(field="a", operator="=", value=1),
+            WhereFilter(field="b", operator="=", value=2, logic="OR"),
+            WhereFilter(field="c", operator="=", value=3, logic="AND"),
+        ]
+    )
+    sql = q.to_sql().splitlines()[-1]
+    assert sql == "WHERE a = '1' OR b = '2' AND c = '3'"
+
+
+def test_query_config_single_where_filter():
+    q = QueryConfig(where=[WhereFilter(field="a", operator="=", value=1, logic="OR")])
+    assert q.to_sql().splitlines()[-1] == "WHERE a = '1'"
+
+
 def test_order_by_field_to_sql():
     assert OrderByField(field="orders.order_id", direction="DESC").to_sql() == "orders.order_id DESC"
 

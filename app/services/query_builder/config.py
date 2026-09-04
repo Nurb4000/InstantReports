@@ -108,16 +108,6 @@ class WhereFilter(BaseModel):
             values_str = ", ".join(f"'{v}'" for v in self.value)
             return f"{self.field} IN ({values_str})"
 
-        if self.operator == Operator.LIKE:
-            return f"{self.field} LIKE '{self.value}'"
-
-        if (
-            self.operator == Operator.BETWEEN
-            and isinstance(self.value, (list, tuple))
-            and len(self.value) == 2
-        ):
-            return f"{self.field} BETWEEN '{self.value[0]}' AND '{self.value[1]}'"
-
         return f"{self.field} {self.operator.value} '{self.value}'"
 
 
@@ -165,11 +155,16 @@ class QueryConfig(BaseModel):
         # WHERE
         if self.where:
             where_clauses = [f.to_sql() for f in self.where]
-            if len(where_clauses) > 1:
-                logic = f" {self.where[0].logic} "
-                sql_parts.append(f"WHERE {logic.join(where_clauses)}")
-            else:
+            if len(where_clauses) == 1:
                 sql_parts.append(f"WHERE {where_clauses[0]}")
+            else:
+                # Each filter's ``logic`` describes how it joins to the previous
+                # filter; honour it per-filter rather than reusing the first one.
+                joined = where_clauses[0]
+                for i in range(1, len(where_clauses)):
+                    op = self.where[i].logic
+                    joined = f"{joined} {op} {where_clauses[i]}"
+                sql_parts.append(f"WHERE {joined}")
 
         # GROUP BY
         if self.group_by:
