@@ -70,10 +70,14 @@ async def send_email(
         msg.set_content(body)
 
         if attachment and attachment_filename:
+            subtype = _get_mime_subtype(attachment_filename)
+            # text/* attachments (CSV, HTML) must not be force-wrapped as
+            # application/* — email clients then fail to open them correctly.
+            maintype = "text" if subtype in {"csv", "html"} else "application"
             msg.add_attachment(
                 attachment,
-                maintype="application",
-                subtype=_get_mime_subtype(attachment_filename),
+                maintype=maintype,
+                subtype=subtype,
                 filename=attachment_filename,
             )
 
