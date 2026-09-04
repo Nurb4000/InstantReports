@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
+
+logger = logging.getLogger(__name__)
 
 
 class CSVConnector(DataConnector):
@@ -98,11 +101,21 @@ class ExcelConnector(DataConnector):
         sheet_name = config.get("sheet", 0)
         df = await asyncio.to_thread(pd.read_excel, config.get("file_path", ""), sheet_name=sheet_name)
 
-        if parameters and query:
+        if query:
             try:
                 import pandasql as psql
+
                 df = psql.sqldf(query, locals())
             except ImportError:
-                pass
+                logger.warning(
+                    "pandasql not installed; ignoring SQL query for Excel connector. "
+                    "Parameters are still applied below."
+                )
+
+        if parameters:
+            for key, value in parameters.items():
+                col = key.replace("$", "")
+                if col in df.columns and value is not None:
+                    df = df[df[col] == value]
 
         return df
