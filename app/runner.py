@@ -5,15 +5,13 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import pandas as pd
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import async_session_factory
-from app.models.connection import DataConnection, Delivery, DeliveryRecipient, Schedule
+from app.models.connection import Delivery, DeliveryRecipient, Schedule
 from app.models.report import Report, ReportOutput
-from app.services.connectors.base import get_connector
 from app.services.delivery import send_email, send_sftp, send_smb, send_webhook
 from app.services.engine.renderer import ReportRenderer
 
@@ -23,71 +21,16 @@ logger = logging.getLogger(__name__)
 async def _fetch_element_data(schedule, db, definition):
     """Execute each data-bearing element's query against its connection.
 
-    Scheduled exports must render against *live* data at run time, so every
-    table/chart element that carries a ``properties.query`` is executed against
-    the report's primary connection and the resulting DataFrame is keyed into a
-    ``data`` dict that ``ReportRenderer.render`` consumes. Element
-    ``data_source`` ids are set to match the keys so the renderer can locate
-    them (the designer does not persist a per-element data_source).
+    Thin wrapper over :func:`fetch_element_data` that threads the schedule's
+    parameters and name through; kept for the scheduled-export path so the
+    live-data fetching logic lives in one native-friendly module.
     """
-    data_sources = definition.get("data_sources") or []
-    connections = {}
-    for ds in data_sources:
-        raw_id = ds.get("connection_id")
-        if not raw_id:
-            continue
-        # connection_id is stored as a string after JSON round-trip; coerce to a
-        # UUID so the query works against the typed column on every dialect.
-        try:
-            conn_id = uuid.UUID(str(raw_id))
-        except (ValueError, AttributeError, TypeError):
-            logger.warning("Invalid connection_id '%s' in schedule '%s'", raw_id, schedule.name)
-            continue
-        result = await db.execute(
-            select(DataConnection).where(DataConnection.id == conn_id)
-        )
-        conn = result.scalar_one_or_none()
-        if conn:
-            connections[conn_id] = conn
+    from app.services.report.rendering import fetch_element_data
 
-    if not connections:
-        logger.warning(
-            "No data connections found for schedule '%s' — report will render empty",
-            schedule.name,
-        )
-        return {}
-
-    primary = next(iter(connections.values()))
-    try:
-        connector = get_connector(primary.connector_type)
-    except Exception as exc:
-        logger.error("Could not load connector '%s': %s", primary.connector_type, exc)
-        return {}
-
-    parameters = schedule.parameters or None
-    element_data = {}
-    sections = definition.get("layout", {}).get("sections", [])
-    for section in sections:
-        for element in section.get("elements", []):
-            if element.get("type") not in ("table", "chart"):
-                continue
-            query = (element.get("properties") or {}).get("query")
-            if not query:
-                continue
-            try:
-                df = await connector.execute_query(primary.config, query, parameters)
-                key = f"ds_{len(element_data)}"
-                element["data_source"] = key
-                element_data[key] = df if df is not None else pd.DataFrame()
-            except Exception as exc:
-                logger.error(
-                    "Failed to execute query for %s in schedule '%s': %s",
-                    element.get("type"),
-                    schedule.name,
-                    exc,
-                )
-
-    return element_data
+    parameters = getattr(schedule, "parameters", None) or None
+    return await fetch_element_data(
+        definition, db, parameters=parameters, label=getattr(schedule, "name", "schedule")
+    )
 
 
 async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput | None:

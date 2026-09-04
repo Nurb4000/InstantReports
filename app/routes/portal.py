@@ -12,6 +12,12 @@ from app.database import get_db
 from app.models.report import Report, ReportOutput
 from app.models.user import User
 from app.routes.auth import get_current_user_optional
+from app.services.exporters import (
+    get_file_extension,
+    get_mime_type,
+    normalize_output_format,
+)
+from app.services.report.rendering import fetch_element_data, render_report_bytes
 
 router = APIRouter()
 
@@ -148,6 +154,52 @@ async def download_report_output(
         content=output.file_data,
         media_type=output.mime_type,
         headers={"Content-Disposition": f'attachment; filename="{output.file_name}"'},
+    )
+
+
+@router.get("/reports/{report_id}/export")
+async def export_report(
+    report_id: uuid.UUID,
+    format: str = Query("pdf"),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render a saved report against live data and stream it as a download.
+
+    Reuses the scheduled-export render/export core (app.services.report.rendering)
+    so on-demand exports stay consistent with scheduled ones, but returns the
+    bytes directly instead of persisting a ReportOutput row.
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await db.execute(
+        select(Report).where(Report.id == report_id, Report.is_active.is_(True))
+    )
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    try:
+        fmt = normalize_output_format(format)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid format: {format!r}. Use one of: pdf, xlsx, csv, html.",
+        )
+
+    definition = report.definition or {}
+    element_data = await fetch_element_data(
+        definition, db, parameters=definition.get("parameters"), label=report.name
+    )
+    report_bytes = render_report_bytes(definition, element_data, fmt)
+
+    return Response(
+        content=report_bytes,
+        media_type=get_mime_type(fmt),
+        headers={
+            "Content-Disposition": f'attachment; filename="{report.name}.{get_file_extension(fmt)}"'
+        },
     )
 
 
