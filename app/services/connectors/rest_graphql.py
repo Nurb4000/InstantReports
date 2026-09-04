@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -9,6 +10,28 @@ import pandas as pd
 from app.services.connectors.base import DataConnector
 
 logger = logging.getLogger(__name__)
+
+
+def _coerce_json_field(value: Any, default: dict | None = None) -> dict:
+    """Coerce a config field that the frontend stores as a JSON textarea string into a dict.
+
+    Connection forms serialize text-area fields (e.g. GraphQL ``headers``) as raw JSON
+    strings, while other fields arrive already-parsed as dicts. This normalizes both to a
+    dict so callers can safely index/unpack them. Empty or malformed input yields
+    ``default`` (or ``{}``).
+    """
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return dict(default) if default else {}
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return dict(default) if default else {}
+        return parsed if isinstance(parsed, dict) else (dict(default) if default else {})
+    return dict(default) if default else {}
 
 
 class ConnectorError(Exception):
@@ -90,21 +113,21 @@ class RESTAPIConnector(DataConnector):
         parameters: dict[str, Any] | None = None,
     ) -> httpx.Response:
         url = config.get("url", "")
-        headers = config.get("headers", {})
-        auth = config.get("auth", {})
+        headers = _coerce_json_field(config.get("headers"), {})
+        auth_type = config.get("auth_type", "none")
 
-        if auth.get("type") == "bearer":
-            headers["Authorization"] = f"Bearer {auth.get('token', '')}"
-        elif auth.get("type") == "basic":
+        if auth_type == "bearer":
+            headers["Authorization"] = f"Bearer {config.get('auth_token', '')}"
+        elif auth_type == "basic":
             import base64
             credentials = base64.b64encode(
-                f"{auth.get('username', '')}:{auth.get('password', '')}".encode()
+                f'{config.get("auth_username", "")}:{config.get("auth_password", "")}'.encode()
             ).decode()
             headers["Authorization"] = f"Basic {credentials}"
 
-        params = parameters or {}
+        params = dict(parameters or {})
         if config.get("params"):
-            params.update(config["params"])
+            params.update(_coerce_json_field(config.get("params"), {}))
 
         response = await client.request(
             method,
@@ -222,7 +245,7 @@ class GraphQLConnector(DataConnector):
         url = config.get("url", "")
         headers = {
             "Content-Type": "application/json",
-            **(config.get("headers", {})),
+            **_coerce_json_field(config.get("headers"), {}),
         }
 
         payload = {"query": query}
