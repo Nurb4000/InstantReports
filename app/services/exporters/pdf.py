@@ -157,11 +157,7 @@ class PDFExporter:
 
         elif element_type == "image":
             source = element.get("source", "")
-            if source.startswith("http"):
-                from reportlab.lib.utils import ImageReader
-                img = ImageReader(source)
-            else:
-                img = Image(source)
+            img = Image(source)
             story.append(img)
 
         elif element_type == "subreport":
@@ -225,6 +221,25 @@ class PDFExporter:
                 if cell_format.get("bold"):
                     table_style.add("FONTNAME", (col_idx, base_row), (col_idx, base_row), "Helvetica-Bold")
 
+    @staticmethod
+    def _scaled_chart_image(chart_bytes: bytes, max_width: float = 480.0) -> Image:
+        """Build a reportlab Image scaled to ``max_width`` using the PNG aspect ratio.
+
+        ChartGenerator emits PNG at high DPI, which overflows the page frame at
+        natural size. Reading width/height from the PNG header lets us set an
+        explicit height so reportlab doesn't render with an unknown (overflowing)
+        dimension.
+        """
+        import struct
+
+        buf = io.BytesIO(chart_bytes)
+        if chart_bytes[:8] == b"\x89PNG\r\n\x1a\n":
+            nat_w, nat_h = struct.unpack(">II", chart_bytes[16:24])
+            if nat_w and nat_h:
+                scale = min(max_width / nat_w, 1.0)
+                return Image(buf, width=max_width, height=nat_h * scale)
+        return Image(buf, width=max_width)
+
     def _render_chart(self, story: list, element: dict[str, Any]) -> None:
         """Render a chart element."""
         data_source_id = element.get("data_source")
@@ -234,8 +249,11 @@ class PDFExporter:
         chart_data = element.get("data")
         try:
             chart_bytes = self.chart_generator.generate(element, chart_data)
-            from reportlab.lib.utils import ImageReader
-            img = ImageReader(io.BytesIO(chart_bytes))
+            # Charts render at high resolution and overflow the page frame, so
+            # constrain width to the content area and compute a matching height
+            # from the PNG header (ChartGenerator always emits PNG). Setting both
+            # dimensions explicitly avoids reportlab's unknown-height overflow.
+            img = self._scaled_chart_image(chart_bytes, max_width=480)
             story.append(img)
             story.append(Spacer(1, 0.25 * inch))
         except Exception as e:
