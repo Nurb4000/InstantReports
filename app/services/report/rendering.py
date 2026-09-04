@@ -18,6 +18,7 @@ from sqlalchemy import select
 
 from app.models.connection import DataConnection
 from app.services.connectors.base import get_connector
+from app.services.engine.data_processor import DataProcessor
 from app.services.engine.renderer import ReportRenderer
 from app.services.exporters import export_report, normalize_output_format
 
@@ -79,6 +80,13 @@ async def fetch_element_data(
                 continue
             try:
                 df = await connector.execute_query(primary.config, query, parameters)
+                # Apply report-level calculated fields / grouping for table
+                # elements so the scheduled and on-demand export paths match the
+                # live-preview path (preview.py calls DataProcessor.process there).
+                # Without this the calculated_fields stored in the definition are
+                # silently dropped from every exported report.
+                if df is not None and not df.empty and element.get("type") == "table":
+                    df = DataProcessor().process(df, definition)
                 key = f"ds_{len(element_data)}"
                 element["data_source"] = key
                 element_data[key] = df if df is not None else pd.DataFrame()
