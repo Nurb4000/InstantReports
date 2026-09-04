@@ -159,3 +159,38 @@ class TestReportDiffEngine:
         diff = engine.diff(old_def, new_def)
         
         assert len(diff["sections_modified"]) > 0
+
+    def test_diff_first_of_duplicate_type_sections_detected(self):
+        """A change to the first of two same-type sections must not be missed.
+
+        Regression: sections were keyed by type -> single index, so duplicate
+        section types (e.g. extra Detail bands) collapsed to the last one and
+        earlier changes were silently dropped from the diff.
+        """
+        engine = ReportDiffEngine()
+        old_def = {
+            "layout": {"sections": [
+                {"type": "detail", "elements": [{"type": "table", "sort": "name ASC"}]},
+                {"type": "detail", "elements": [{"type": "table", "sort": "x ASC"}]},
+            ]}
+        }
+        new_def = {
+            "layout": {"sections": [
+                {"type": "detail", "elements": [{"type": "table", "sort": "name DESC"}]},
+                {"type": "detail", "elements": [{"type": "table", "sort": "x ASC"}]},
+            ]}
+        }
+
+        diff = engine.diff(old_def, new_def)
+
+        assert len(diff["sections_modified"]) == 1
+
+    def test_diff_extra_duplicate_type_section_is_added(self):
+        """Adding a second section of an existing type reports one addition."""
+        engine = ReportDiffEngine()
+        old_def = {"layout": {"sections": [{"type": "detail"}]}}
+        new_def = {"layout": {"sections": [{"type": "detail"}, {"type": "detail"}]}}
+
+        diff = engine.diff(old_def, new_def)
+
+        assert diff["sections_added"].count("detail") == 1

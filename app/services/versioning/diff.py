@@ -21,23 +21,32 @@ class ReportDiffEngine:
         old_sections = self._get_sections(old_def)
         new_sections = self._get_sections(new_def)
 
-        old_section_types = {s.get("type"): i for i, s in enumerate(old_sections)}
-        new_section_types = {s.get("type"): i for i, s in enumerate(new_sections)}
+        # Group section indices by type, preserving document order. A report may
+        # contain multiple sections of the same type (e.g. extra Detail bands);
+        # mapping a type to a single index drops every section but the last and
+        # silently misses changes to earlier duplicates.
+        old_by_type: dict[str, list[int]] = {}
+        new_by_type: dict[str, list[int]] = {}
+        for i, s in enumerate(old_sections):
+            old_by_type.setdefault(s.get("type"), []).append(i)
+        for i, s in enumerate(new_sections):
+            new_by_type.setdefault(s.get("type"), []).append(i)
 
-        for section_type in set(old_section_types.keys()) | set(new_section_types.keys()):
-            if section_type not in old_section_types and section_type in new_section_types:
-                changes["sections_added"].append(section_type)
-            elif section_type in old_section_types and section_type not in new_section_types:
-                changes["sections_removed"].append(section_type)
-            else:
-                old_section = old_sections[old_section_types[section_type]]
-                new_section = new_sections[new_section_types[section_type]]
-                section_changes = self._diff_section(old_section, new_section)
+        for section_type in set(old_by_type) | set(new_by_type):
+            old_idx = old_by_type.get(section_type, [])
+            new_idx = new_by_type.get(section_type, [])
+            for oi, ni in zip(old_idx, new_idx):
+                section_changes = self._diff_section(old_sections[oi], new_sections[ni])
                 if section_changes:
                     changes["sections_modified"].append({
                         "type": section_type,
                         "changes": section_changes,
                     })
+            # Sections of this type present on only one side are added/removed.
+            for _ in new_idx[len(old_idx):]:
+                changes["sections_added"].append(section_type)
+            for _ in old_idx[len(new_idx):]:
+                changes["sections_removed"].append(section_type)
 
         old_ds = {ds["id"]: ds for ds in old_def.get("data_sources", [])}
         new_ds = {ds["id"]: ds for ds in new_def.get("data_sources", [])}
