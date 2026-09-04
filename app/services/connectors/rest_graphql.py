@@ -11,6 +11,14 @@ from app.services.connectors.base import DataConnector
 logger = logging.getLogger(__name__)
 
 
+class ConnectorError(Exception):
+    """Raised when a connector fails to execute a request or process a response.
+
+    Lets callers distinguish connector failures from other errors instead of
+    catching a bare ``Exception``.
+    """
+
+
 class RESTAPIConnector(DataConnector):
     """Connector for REST API endpoints."""
 
@@ -61,7 +69,7 @@ class RESTAPIConnector(DataConnector):
             response = await self._make_request(client, config, "GET", parameters)
 
             if response.status_code != 200:
-                raise Exception(f"API request failed: {response.status_code}")
+                raise ConnectorError(f"API request failed: {response.status_code}")
 
             data = response.json()
 
@@ -187,12 +195,12 @@ class GraphQLConnector(DataConnector):
             response = await self._make_request(client, config, query, parameters)
 
             if response.status_code != 200:
-                raise Exception(f"GraphQL request failed: {response.status_code}")
+                raise ConnectorError(f"GraphQL request failed: {response.status_code}")
 
             data = response.json()
             errors = data.get("errors")
             if errors:
-                raise Exception(f"GraphQL errors: {errors}")
+                raise ConnectorError(f"GraphQL errors: {errors}")
 
             result_data = data.get("data", {})
             if isinstance(result_data, dict):
