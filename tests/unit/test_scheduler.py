@@ -216,3 +216,54 @@ async def test_execute_report_skips_delivery_when_no_output(monkeypatch):
 
     assert calls == []
     await engine.dispose()
+
+
+async def test_execute_report_attributes_output_to_schedule_owner(monkeypatch):
+    """Regression: scheduled outputs record generated_by = schedule.owner_id so
+    the portal can attribute executions to the owning user. Previously
+    ReportOutput.generated_by was left NULL, so non-admin visibility depended
+    solely on schedule ownership."""
+    from app.database import Base
+    from app.models.report import Report
+    from app.runner import execute_report
+
+    engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # Stub the heavy render/export core; we only care about output attribution.
+    async def _fake_fetch(schedule, db, definition):
+        return {}
+
+    def _fake_export(rendered, fmt):
+        return b"fake-csv-bytes"
+
+    monkeypatch.setattr("app.runner._fetch_element_data", _fake_fetch)
+    monkeypatch.setattr("app.services.exporters.export_report", _fake_export)
+
+    owner = uuid.uuid4()
+    async with factory() as db:
+        report = Report(
+            id=uuid.uuid4(), name="Attributed Report", created_by=owner,
+            definition={"layout": {"sections": []}},
+        )
+        db.add(report)
+        await db.commit()
+
+        schedule = Schedule(
+            id=uuid.uuid4(), report_id=report.id, owner_id=owner,
+            created_by=owner, name="x", output_format="csv", is_active=True,
+        )
+        db.add(schedule)
+        await db.commit()
+        await db.refresh(schedule)
+
+        output = await execute_report(schedule, db)
+
+    assert output is not None, "execute_report should have produced an output"
+    assert output.generated_by == owner, (
+        f"generated_by={output.generated_by} expected {owner}"
+    )
+
+    await engine.dispose()

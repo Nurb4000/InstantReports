@@ -77,6 +77,7 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
         output = ReportOutput(
             report_id=report.id,
             schedule_id=schedule.id,
+            generated_by=schedule.owner_id,
             format=fmt,
             file_name=f"{report.name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.{get_file_extension(fmt)}",
             file_data=report_bytes,
