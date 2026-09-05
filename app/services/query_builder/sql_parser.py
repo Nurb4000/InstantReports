@@ -24,11 +24,6 @@ from app.services.query_builder.config import (
 
 _AGG_PATTERN = re.compile(r"^(COUNT|SUM|AVG|MIN|MAX)\s*\((.*)\)$", re.IGNORECASE)
 
-_OPERATOR_PATTERN = re.compile(
-    r"^(\w+)\.(\w+)\s*(=|!=|<|<=|>|>=|LIKE|IN|BETWEEN|IS\s+NULL|IS\s+NOT\s+NULL)$",
-    re.IGNORECASE,
-)
-
 # Matches: <type> JOIN <table> ON <ltable>.<lcol> = <rtable>.<rcol>
 _JOIN_PATTERN = re.compile(
     r"\b(INNER|LEFT|RIGHT|FULL)\s+JOIN\s+(\w+)\s+ON\s+"
@@ -174,22 +169,26 @@ def parse_sql_to_config(sql: str) -> QueryConfig:
                 return f"\x00BETWEEN{len(protected) - 1}\x00"
 
             protected_body = re.sub(r"(?is)\bBETWEEN\b.*?\bAND\b", _protect_between, body)
+            # ``split`` alternates condition / operator: [cond, op, cond, op, ...].
+            # Pair each condition with the operator that precedes it so mixed
+            # AND/OR clauses survive the round-trip; tagging every condition with
+            # the last-seen operator would silently rewrite query semantics.
             logic_parts = _LOGIC_PATTERN.split(protected_body)
-            logic = "AND"
-            conditions: list[str] = []
+            conditions: list[tuple[str, str]] = []
+            current_logic = "AND"
             for i, piece in enumerate(logic_parts):
                 if i % 2 == 1:
-                    logic = piece.upper()
+                    current_logic = piece.upper()
                     continue
                 if piece.strip():
-                    conditions.append(piece.strip())
-            for cond in conditions:
+                    conditions.append((piece.strip(), current_logic))
+            for cond, cond_logic in conditions:
                 restored = cond
                 for idx, original in enumerate(protected):
                     restored = restored.replace(f"\x00BETWEEN{idx}\x00", original)
                 parsed = _parse_where_condition(restored)
                 if parsed:
-                    parsed.logic = logic
+                    parsed.logic = cond_logic
                     where.append(parsed)
 
     # GROUP BY.

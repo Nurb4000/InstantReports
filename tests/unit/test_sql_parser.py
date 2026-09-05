@@ -52,6 +52,18 @@ def test_where_with_and():
     assert cfg.where[1].logic == "AND"
 
 
+def test_where_preserves_per_operator_logic():
+    """Mixed AND/OR clauses must keep each condition's own operator.
+
+    Regression: the parser tagged every condition with the *last* logic
+    operator seen, so ``A AND B OR C`` round-tripped as ``A OR B OR C`` and
+    silently changed the query's semantics.
+    """
+    sql = "SELECT a FROM t WHERE a.x = 1 AND a.y = 2 OR a.z = 3"
+    cfg = parse_sql_to_config(sql)
+    assert [w.logic for w in cfg.where] == ["AND", "AND", "OR"]
+
+
 def test_where_is_null_and_in():
     sql = "SELECT a FROM t WHERE a.x IS NULL AND a.y IN (1, 2, 3)"
     cfg = parse_sql_to_config(sql)
