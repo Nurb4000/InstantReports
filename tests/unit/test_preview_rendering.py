@@ -55,7 +55,7 @@ async def _render(monkeypatch, definition, df):
 
 
 def _table_headers(html: str) -> list[str]:
-    ths = re.findall(r"<th[^>]*>(.*?)</th>", html, flags=re.S)
+    ths = re.findall(r"<th[^>]*>(.*?)</th>", html, flags=re.DOTALL)
     return [re.sub("<.*?>", "", t).strip() for t in ths]
 
 
