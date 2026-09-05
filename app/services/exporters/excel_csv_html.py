@@ -31,22 +31,34 @@ class ExcelExporter:
         for section in rendered_report.get("sections", []):
             if section.get("type") == "detail":
                 for element in section.get("elements", []):
-                    if element.get("type") == "table":
+                    if element.get("type") == "subreport":
+                        self._write_subreport(workbook, element)
+                    elif element.get("type") == "table":
                         self._write_table(workbook, element)
 
         workbook.close()
         buffer.seek(0)
         return buffer.read()
 
-    def _write_table(self, workbook: xlsxwriter.Workbook, element: dict[str, Any]) -> None:
-        """Write a table element to Excel."""
+    def _write_table(
+        self,
+        workbook: xlsxwriter.Workbook,
+        element: dict[str, Any],
+        sheet_name: str | None = None,
+    ) -> None:
+        """Write a table element to Excel.
+
+        ``sheet_name`` lets callers (e.g. subreport tables) supply a unique name
+        so nested tables do not collide on the default "Sheet1".
+        """
         data = element.get("data", [])
         columns = element.get("columns", [])
 
         if not data:
             return
 
-        worksheet = workbook.add_worksheet(element.get("name", "Sheet1")[:31])
+        worksheet_name = sheet_name or element.get("name") or "Sheet1"
+        worksheet = workbook.add_worksheet(worksheet_name[:31])
         format_cache: dict[tuple[str, Any], Any] = {}
 
         headers = [col.get("header", col.get("field", "")) for col in columns]
@@ -63,6 +75,25 @@ class ExcelExporter:
                 cell_format = formatting.get("cells", {}).get(field)
                 cell_cell_format = self._get_xlsx_format(workbook, format_cache, cell_format) if cell_format else None
                 worksheet.write(row_idx, col_idx, value, cell_cell_format or row_cell_format)
+
+    def _write_subreport(self, workbook: xlsxwriter.Workbook, element: dict[str, Any]) -> None:
+        """Write a subreport element to Excel.
+
+        Inline subreports recurse into their stored layout and write each nested
+        table (mirroring the PDF exporter). Non-inline render modes have no
+        embedded content, so we emit a single-cell placeholder rather than
+        dropping the subreport silently.
+        """
+        render_mode = element.get("render_mode") or "inline"
+        layout = element.get("layout") or {}
+        if render_mode != "inline":
+            worksheet_name = ((element.get("label") or "Subreport")[:27] + " Sub")[:31]
+            worksheet = workbook.add_worksheet(worksheet_name)
+            worksheet.write(0, 0, f"Sub-report ({render_mode}) - content not embedded in Excel export")
+            return
+        for index, sub_element in enumerate(layout.get("elements", [])):
+            if sub_element.get("type") == "table":
+                self._write_table(workbook, sub_element, sheet_name=f"Sub{index + 1}")
 
     @staticmethod
     def _get_xlsx_format(
@@ -99,22 +130,48 @@ class CSVExporter:
         for section in rendered_report.get("sections", []):
             if section.get("type") == "detail":
                 for element in section.get("elements", []):
-                    if element.get("type") == "table":
-                        data = element.get("data", [])
-                        if data:
-                            columns = element.get("columns") or []
-                            if columns:
-                                fields = [c.get("field", "") for c in columns]
-                                headers = [c.get("header") or c.get("field") or "" for c in columns]
-                                df = pd.DataFrame(data, columns=fields)
-                                df.columns = headers
-                            else:
-                                df = pd.DataFrame(data)
-                            csv_buffer = io.StringIO()
-                            df.to_csv(csv_buffer, index=False)
-                            buffers.append(csv_buffer.getvalue())
+                    if element.get("type") == "subreport":
+                        self._append_subreport_csv(element, buffers)
+                    elif element.get("type") == "table":
+                        buffer = self._table_to_csv_buffer(element)
+                        if buffer is not None:
+                            buffers.append(buffer)
 
         return "\n".join(buffers).encode("utf-8")
+
+    def _table_to_csv_buffer(self, element: dict[str, Any]) -> bytes | None:
+        """Serialize a single table element (top-level or nested) to CSV bytes."""
+        data = element.get("data", [])
+        if not data:
+            return None
+        columns = element.get("columns") or []
+        if columns:
+            fields = [c.get("field", "") for c in columns]
+            headers = [c.get("header") or c.get("field") or "" for c in columns]
+            df = pd.DataFrame(data, columns=fields)
+            df.columns = headers
+        else:
+            df = pd.DataFrame(data)
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        return csv_buffer.getvalue()
+
+    def _append_subreport_csv(self, element: dict[str, Any], buffers: list[bytes]) -> None:
+        """Append an inline subreport's nested tables to the CSV output.
+
+        Non-inline render modes have no embedded content; emit a single-row
+        placeholder so the subreport is not dropped silently.
+        """
+        render_mode = element.get("render_mode") or "inline"
+        layout = element.get("layout") or {}
+        if render_mode != "inline":
+            buffers.append(f"Sub-report ({render_mode}) - content not embedded in CSV export\n")
+            return
+        for sub_element in layout.get("elements", []):
+            if sub_element.get("type") == "table":
+                buffer = self._table_to_csv_buffer(sub_element)
+                if buffer is not None:
+                    buffers.append(buffer)
 
 
 class HTMLExporter:
@@ -165,34 +222,7 @@ class HTMLExporter:
             html_parts.append("<h2>{}</h2>".format(section.get("type", "").capitalize()))
 
             for element in section.get("elements", []):
-                if element.get("type") == "text":
-                    html_parts.append("<p>{}</p>".format(element.get("content", "")))
-                elif element.get("type") == "table":
-                    data = element.get("data", [])
-                    columns = element.get("columns", [])
-                    if data:
-                        html_parts.append("<table>")
-                        html_parts.append("<thead><tr>")
-                        for col in columns:
-                            header = col.get("header", col.get("field", ""))
-                            html_parts.append(f"<th>{header}</th>")
-                        html_parts.append("</tr></thead>")
-                        html_parts.append("<tbody>")
-                        for row in data:
-                            row_style = self._row_style(row)
-                            row_open = f'<tr style="{row_style}">' if row_style else "<tr>"
-                            html_parts.append(row_open)
-                            for col in columns:
-                                field = col.get("field", "")
-                                value = row.get(field, "")
-                                cell_style = self._cell_style(row, field)
-                                tag_open = f'<td style="{cell_style}">' if cell_style else "<td>"
-                                html_parts.append(f"{tag_open}{value}</td>")
-                            html_parts.append("</tr>")
-                        html_parts.append("</tbody>")
-                        html_parts.append("</table>")
-                elif element.get("type") == "chart":
-                    html_parts.append(self._render_chart_html(element))
+                html_parts.append(self._render_element_html(element))
 
             html_parts.append("</div>")
 
@@ -200,6 +230,70 @@ class HTMLExporter:
         html_parts.append("</html>")
 
         return "\n".join(html_parts)
+
+    def _render_element_html(self, element: dict[str, Any]) -> str:
+        """Render a single top-level or subreport layout element to HTML.
+
+        Extracted from ``export`` so subreport layouts can reuse the exact same
+        text/table/chart rendering instead of dropping subreports silently.
+        """
+        elem_type = element.get("type")
+        if elem_type == "subreport":
+            return self._render_subreport_html(element)
+        if elem_type == "text":
+            return "<p>{}</p>".format(element.get("content", ""))
+        if elem_type == "table":
+            return self._render_table_html(element)
+        if elem_type == "chart":
+            return self._render_chart_html(element)
+        # Unknown element types render as a muted note rather than vanishing.
+        return '<p class="text-muted">Unsupported element: {}'.format(elem_type or "?") + "</p>"
+
+    def _render_table_html(self, element: dict[str, Any]) -> str:
+        """Render a table element (top-level or nested in a subreport) to HTML."""
+        data = element.get("data", [])
+        columns = element.get("columns", [])
+        if not data:
+            return '<p class="text-muted">Empty table.</p>'
+        parts = ["<table>", "<thead><tr>"]
+        for col in columns:
+            header = col.get("header", col.get("field", ""))
+            parts.append(f"<th>{header}</th>")
+        parts.append("</tr></thead><tbody>")
+        for row in data:
+            row_style = self._row_style(row)
+            parts.append(f'<tr style="{row_style}">' if row_style else "<tr>")
+            for col in columns:
+                field = col.get("field", "")
+                value = row.get(field, "")
+                cell_style = self._cell_style(row, field)
+                tag_open = f'<td style="{cell_style}">' if cell_style else "<td>"
+                parts.append(f"{tag_open}{value}</td>")
+            parts.append("</tr>")
+        parts.append("</tbody></table>")
+        return "".join(parts)
+
+    def _render_subreport_html(self, element: dict[str, Any]) -> str:
+        """Render a subreport element.
+
+        Inline subreports recurse into their stored layout and render each child
+        element with the same logic as top-level elements. Other render modes
+        (drill_down/page/detached) have no embedded content, so we surface a
+        placeholder instead of dropping the subreport silently.
+        """
+        render_mode = element.get("render_mode") or "inline"
+        layout = element.get("layout") or {}
+        if render_mode != "inline":
+            return (
+                '<div class="subreport-placeholder" '
+                'style="border:1px dashed #ccc; padding:8px; margin:8px 0; '
+                f'color:#666;">Sub-report ({render_mode}) — content not embedded in HTML export'
+                + "</div>"
+            )
+        body = '<div class="subreport" style="margin:8px 0;">'
+        for sub_element in layout.get("elements", []):
+            body += self._render_element_html(sub_element)
+        return body + "</div>"
 
     def _render_chart_html(self, element: dict[str, Any]) -> str:
         """Render a chart element as an inline base64 PNG.

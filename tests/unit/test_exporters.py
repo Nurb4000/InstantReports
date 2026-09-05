@@ -1,10 +1,17 @@
 """Unit tests for report exporters."""
 from __future__ import annotations
 
+import io
+import zipfile
+
 import pandas as pd
 
 from app.services.engine.renderer import ReportRenderer
-from app.services.exporters.excel_csv_html import CSVExporter, HTMLExporter
+from app.services.exporters.excel_csv_html import (
+    CSVExporter,
+    ExcelExporter,
+    HTMLExporter,
+)
 
 
 class TestHTMLExporter:
@@ -200,3 +207,73 @@ class TestRenderExportIntegration:
         # The chart element carries the plotted DataFrame from the renderer.
         chart_element = rendered["sections"][0]["elements"][0]
         assert len(chart_element["data"]) == 3
+
+
+class TestSubreportExport:
+    """Subreports must not be silently dropped from HTML/CSV/XLSX exports.
+
+    PDF has always rendered inline subreports; these formats used to skip them
+    entirely, losing content with no indication. Non-inline (drill_down) modes
+    have no embedded content, so they surface a placeholder instead of vanishing.
+    """
+
+    def _rendered_with_subreport(self) -> dict:
+        return {
+            "name": "With Sub",
+            "metadata": {"page": {"size": "letter", "orientation": "portrait"}},
+            "sections": [
+                {
+                    "type": "detail",
+                    "elements": [
+                        {
+                            "type": "table",
+                            "columns": [{"field": "a", "header": "A"}],
+                            "data": [{"a": 1}],
+                        },
+                        {
+                            "type": "subreport",
+                            "render_mode": "inline",
+                            "label": "Detail Sub",
+                            "layout": {
+                                "elements": [
+                                    {
+                                        "type": "table",
+                                        "columns": [{"field": "b", "header": "B"}],
+                                        "data": [{"b": 2}, {"b": 3}],
+                                    },
+                                    {"type": "text", "content": "nested text"},
+                                ]
+                            },
+                        },
+                        {
+                            "type": "subreport",
+                            "render_mode": "drill_down",
+                            "label": "DD Sub",
+                        },
+                    ],
+                }
+            ],
+        }
+
+    def test_inline_subreport_tables_and_text_render_in_html(self):
+        html = HTMLExporter().export(self._rendered_with_subreport())
+        assert ">B<" in html  # nested subreport table header
+        assert "nested text" in html  # nested text element
+
+    def test_inline_subreport_tables_render_in_csv(self):
+        csv = CSVExporter().export(self._rendered_with_subreport()).decode("utf-8")
+        assert "B" in csv  # nested header
+        assert "drill" in csv.lower()  # drill_down placeholder present
+
+    def test_inline_subreport_tables_render_in_xlsx_without_name_collision(self):
+        xlsx = ExcelExporter().export(self._rendered_with_subreport())
+        # The main table, the inline subreport table, and the drill_down
+        # placeholder each get their own worksheet; no duplicate "Sheet1" crash.
+        with zipfile.ZipFile(io.BytesIO(xlsx)) as z:
+            sheets = [n for n in z.namelist() if "worksheets/sheet" in n]
+            assert len(sheets) == 3
+
+    def test_drill_down_subreport_placeholder_uses_ascii(self):
+        # Placeholder text must be ASCII-safe for xlsxwriter/CSV consumers.
+        csv = CSVExporter().export(self._rendered_with_subreport()).decode("utf-8")
+        assert "\u2014" not in csv
