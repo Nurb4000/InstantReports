@@ -1,5 +1,6 @@
 """Unit tests for report engine."""
 import pandas as pd
+import pytest
 
 from app.services.engine.calculated_fields import CalculatedFieldEvaluator
 from app.services.engine.conditional_formatting import ConditionalFormatter
@@ -499,6 +500,32 @@ class TestConditionalFormatterOperators:
         result = evaluator.evaluate("{{revenue}} - {{cost}}", df)
         
         assert list(result) == [50, 100]
+
+    def test_evaluate_supports_arithmetic_and_whitelisted_calls(self):
+        """Legitimate arithmetic and pure-function calls still evaluate."""
+        evaluator = CalculatedFieldEvaluator()
+        df = pd.DataFrame({"revenue": [100, 200], "cost": [50, 100]})
+        assert list(evaluator.evaluate("{{revenue}} * 2", df)) == [200, 400]
+        assert list(evaluator.evaluate("round({{revenue}} / {{cost}}, 2)", df)) == [2.0, 2.0]
+
+    @pytest.mark.parametrize(
+        "malicious",
+        [
+            "().__class__.__bases__[0].__subclasses__()",
+            "__import__('os').system('echo pwned')",
+            "open('/etc/passwd').read()",
+            "[x for x in range(3)]",
+            "getattr(df, 'columns')",
+        ],
+    )
+    def test_evaluate_blocks_code_injection(self, malicious):
+        """Calculated-field expressions are evaluated with a restricted AST;
+        attribute access, unlisted calls, and comprehensions must be rejected
+        (returning nulls) rather than reaching Python internals via eval()."""
+        evaluator = CalculatedFieldEvaluator()
+        df = pd.DataFrame({"revenue": [100, 200], "cost": [50, 100]})
+        result = evaluator.evaluate(malicious, df)
+        assert list(result) == [None, None]
 
 
 class TestElementRenderers:
