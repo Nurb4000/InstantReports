@@ -81,6 +81,72 @@ class TestDesignerRoutes:
             
             assert response.status_code in [200, 303]
 
+    @pytest.mark.asyncio
+    async def test_admin_sees_all_reports(self, auth_client, db_session):
+        """Admins must see every report in the system, not just ones they created."""
+        import uuid
+
+        from app.auth import hash_password
+        from app.models.report import Report
+        from app.models.user import AuthSource, User, UserRole
+
+        other = User(
+            id=uuid.uuid4(), email="other@example.com", name="Other",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db_session.add(other)
+        await db_session.commit()
+
+        foreign = Report(id=uuid.uuid4(), name="Foreign Created Report", created_by=other.id)
+        db_session.add(foreign)
+        await db_session.commit()
+
+        listing = await auth_client.get("/designer/reports")
+        assert listing.status_code == 200
+        assert "Foreign Created Report" in listing.text
+
+    @pytest.mark.asyncio
+    async def test_designer_sees_only_own_reports(self, client, db_session):
+        """Non-admins only see reports they created; others stay hidden."""
+        import uuid
+
+        from app.auth import hash_password
+        from app.models.report import Report
+        from app.models.user import AuthSource, User, UserRole
+
+        designer = User(
+            id=uuid.uuid4(), email="dev@example.com", name="Dev",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db_session.add(designer)
+        await db_session.commit()
+
+        colleague = User(
+            id=uuid.uuid4(), email="colleague@example.com", name="Colleague",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db_session.add(colleague)
+        await db_session.commit()
+
+        not_mine = Report(id=uuid.uuid4(), name="Not Mine Report", created_by=colleague.id)
+        db_session.add(not_mine)
+        await db_session.commit()
+
+        login = await client.post(
+            "/auth/login",
+            data={"email": "dev@example.com", "password": "pw"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 302
+        client.headers["Cookie"] = f"access_token={login.cookies.get('access_token')}"
+
+        listing = await client.get("/designer/reports")
+        assert listing.status_code == 200
+        assert "Not Mine Report" not in listing.text
+
 
 class TestVersionRoutes:
     """Test version history routes."""

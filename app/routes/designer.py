@@ -89,8 +89,10 @@ async def list_reports(
     
     query = select(Report).options(selectinload(Report.creator))
     
-    # Default to current user's reports if no filter specified
-    if not creator_filter and not search and not status_filter:
+    # Default scoping when no filter is applied. Admins see every report in the
+    # system for oversight; designers/developers only see reports they created,
+    # so lower-privilege users never leak other teams' reports into their view.
+    if not creator_filter and not search and not status_filter and get_role_value(current_user) != "admin":
         query = query.where(Report.created_by == current_user.id)
     
     # Apply status filter
