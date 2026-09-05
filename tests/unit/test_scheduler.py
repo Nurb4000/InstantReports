@@ -267,3 +267,48 @@ async def test_execute_report_attributes_output_to_schedule_owner(monkeypatch):
     )
 
     await engine.dispose()
+
+
+async def test_execute_report_sends_failure_notification_on_error(monkeypatch):
+    """    Regression: a scheduled run that raises must trigger a failure-notification
+    email. ``send_failure_notification`` existed in app.services.cleanup but was
+    never wired into the scheduler, so failures were logged and nobody told."""
+    from app.database import Base
+    from app.models.connection import Schedule
+    from app.services.scheduler.engine import ReportScheduler
+
+    engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    monkeypatch.setattr("app.database.async_session_factory", factory)
+
+    async def boom(schedule, db):
+        raise ValueError("export blew up")
+
+    notifications = []
+
+    async def fake_send_email(**kwargs):
+        notifications.append(kwargs)
+        return True
+
+    monkeypatch.setattr("app.runner.execute_report", boom)
+    monkeypatch.setattr("app.services.cleanup.send_email", fake_send_email)
+
+    async with factory() as db:
+        sched = Schedule(
+            id=uuid.uuid4(), report_id=uuid.uuid4(), owner_id=uuid.uuid4(),
+            created_by=uuid.uuid4(), name="failing", is_active=True,
+        )
+        db.add(sched)
+        await db.commit()
+        job_id = str(sched.id)
+
+    scheduler = ReportScheduler.__new__(ReportScheduler)
+    await scheduler._execute_report(job_id=job_id)
+
+    assert notifications, "no failure-notification email was sent on schedule error"
+    assert "failing" in notifications[0]["subject"]
+    assert "export blew up" in notifications[0]["body"]
+
+    await engine.dispose()

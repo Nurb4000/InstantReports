@@ -269,6 +269,15 @@ class PDFExporter:
             layout = element.get("layout", {})
             for sub_element in layout.get("elements", []):
                 self._render_element(story, sub_element, styles)
-
-        elif render_mode == "drill_down":
-            story.append(Paragraph("Drill-down report (click to expand)", styles["Normal"]))
+        else:
+            # Non-inline modes (drill_down / page / detached) have no embedded
+            # content. Emit an ASCII placeholder so the subreport is never silently
+            # dropped from the PDF — mirrors the HTML/CSV/Excel exporters. A hyphen
+            # (not em dash) keeps the text within Helvetica's character set.
+            story.append(
+                Paragraph(
+                    f"Sub-report ({render_mode}) - content not embedded in PDF export",
+                    styles["Normal"],
+                )
+            )
+            story.append(Spacer(1, 0.25 * inch))

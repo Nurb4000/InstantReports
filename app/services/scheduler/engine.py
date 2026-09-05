@@ -217,6 +217,22 @@ class ReportScheduler:
                     await _deliver_scheduled(output, schedule_id, db)
             except Exception as exc:
                 logger.error("Report execution failed for schedule %s: %s", schedule_id, exc)
+                # Wire up the failure-notification feature (backlog #9): email the
+                # configured SMTP address when a scheduled run raises. It was
+                # implemented in app.services.cleanup but never called, so scheduled
+                # failures were logged but nobody was notified. Imported lazily to
+                # keep this module's load path decoupled from the cleanup/delivery
+                # stack. A notification failure is logged, not raised, so it cannot
+                # mask the original execution error.
+                from app.services.cleanup import send_failure_notification
+
+                try:
+                    await send_failure_notification(schedule.name, str(exc))
+                except Exception as notify_exc:
+                    logger.error(
+                        "Failed to send failure notification for schedule %s: %s",
+                        schedule_id, notify_exc,
+                    )
 
 
 async def _deliver_scheduled(

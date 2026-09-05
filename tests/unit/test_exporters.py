@@ -12,6 +12,7 @@ from app.services.exporters.excel_csv_html import (
     ExcelExporter,
     HTMLExporter,
 )
+from app.services.exporters.pdf import PDFExporter
 
 
 class TestHTMLExporter:
@@ -277,3 +278,49 @@ class TestSubreportExport:
         # Placeholder text must be ASCII-safe for xlsxwriter/CSV consumers.
         csv = CSVExporter().export(self._rendered_with_subreport()).decode("utf-8")
         assert "\u2014" not in csv
+
+    @staticmethod
+    def _styles():
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        return getSampleStyleSheet()
+
+    def test_pdf_inline_subreport_embeds_nested_content(self):
+        story: list = []
+        PDFExporter()._render_subreport(
+            story,
+            {
+                "type": "subreport",
+                "render_mode": "inline",
+                "layout": {"elements": [{"type": "text", "content": "nested text"}]},
+            },
+            self._styles(),
+        )
+        assert any(getattr(el, "text", "") == "nested text" for el in story)
+
+    def test_pdf_non_inline_subreports_render_placeholder(self):
+        # Regression (round-4 scan): page/detached (and drill_down) subreports must
+        # surface a placeholder, not be silently dropped from the PDF. All non-inline
+        # modes are unified with the HTML/CSV/Excel exporters.
+        for mode in ("drill_down", "page", "detached"):
+            story: list = []
+            PDFExporter()._render_subreport(
+                story, {"type": "subreport", "render_mode": mode}, self._styles()
+            )
+            assert len(story) == 2
+            assert story[0].text == (
+                f"Sub-report ({mode}) - content not embedded in PDF export"
+            )
+
+    def test_pdf_export_with_page_mode_subreport_is_valid(self):
+        report = {
+            "name": "Page Sub",
+            "metadata": {"page": {"size": "letter", "orientation": "portrait"}},
+            "sections": [
+                {"type": "detail", "elements": [
+                    {"type": "subreport", "render_mode": "page", "label": "P"},
+                ]}
+            ],
+        }
+        pdf = PDFExporter().export(report)
+        assert pdf.startswith(b"%PDF")
