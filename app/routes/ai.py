@@ -11,9 +11,16 @@ from app.services.ai.client import (
     AILayoutAssistant,
     AIReportGenerator,
     AISQLGenerator,
+    classify_ai_error,
 )
 
 router = APIRouter()
+
+
+def _ai_error_to_http(exc: Exception, operation: str) -> HTTPException:
+    """Map an AI failure to a retry-friendly HTTP response."""
+    status, detail = classify_ai_error(exc, operation)
+    return HTTPException(status_code=status, detail=detail)
 
 
 async def get_ai_client():
@@ -50,7 +57,7 @@ async def generate_report(
         report_def = await generator.generate_report(prompt, schema)
         return {"status": "ok", "report_definition": report_def}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI generation failed: {e!s}")
+        raise _ai_error_to_http(e, "report generation")
 
 
 @router.post("/generate-sql")
@@ -76,7 +83,7 @@ async def generate_sql(
         sql = await generator.generate_sql(prompt, schema, connector_type)
         return {"status": "ok", "sql": sql}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"SQL generation failed: {e!s}")
+        raise _ai_error_to_http(e, "SQL generation")
 
 
 @router.post("/suggest-layout")
@@ -101,7 +108,7 @@ async def suggest_layout(
         layout = await assistant.suggest_layout(data_schema, report_type)
         return {"status": "ok", "layout_suggestion": layout}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Layout suggestion failed: {e!s}")
+        raise _ai_error_to_http(e, "layout suggestion")
 
 
 @router.post("/insights")
@@ -126,7 +133,7 @@ async def get_insights(
         insights = await insights_gen.generate_insights(data, context)
         return {"status": "ok", "insights": insights}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Insights generation failed: {e!s}")
+        raise _ai_error_to_http(e, "insights generation")
 
 
 @router.post("/chat")
@@ -157,4 +164,4 @@ async def ai_chat(
         response = await client.chat_completion(messages=messages, temperature=0.7)
         return {"status": "ok", "response": response}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat failed: {e!s}")
+        raise _ai_error_to_http(e, "chat")

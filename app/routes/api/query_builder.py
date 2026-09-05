@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models.connection import DataConnection, QueryTemplate
 from app.models.user import User
 from app.routes.auth import get_current_user_optional
-from app.services.ai.client import AIClient, AISQLGenerator
+from app.services.ai.client import AIClient, AISQLGenerator, classify_ai_error
 from app.services.query_builder.adapter import execute_query
 from app.services.query_builder.config import QueryConfig
 from app.services.query_builder.generator import validate_query
@@ -555,11 +555,14 @@ async def nl_to_query_endpoint(
         model=settings.AI_MODEL,
     )
     generator = AISQLGenerator(client)
-    sql = await generator.generate_sql(
-        prompt, schema.model_dump(mode="json"), connection.connector_type
-    )
-
-    query_config = parse_sql_to_config(sql)
+    try:
+        sql = await generator.generate_sql(
+            prompt, schema.model_dump(mode="json"), connection.connector_type
+        )
+        query_config = parse_sql_to_config(sql)
+    except Exception as exc:
+        status, detail = classify_ai_error(exc, "nl-to-query")
+        raise HTTPException(status_code=status, detail=detail)
     return {
         "sql": sql,
         "query_config": query_config.model_dump(mode="json"),

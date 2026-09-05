@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -8,6 +9,41 @@ from typing import Any
 import httpx
 
 logger = logging.getLogger(__name__)
+
+# HTTP statuses that indicate a transient upstream problem worth retrying: the
+# request may have been dropped (408) or the model service is overloaded/rate
+# limited (429) or errored internally (5xx). Client 4xx (auth, bad request) are
+# not retried — repeating them will only fail again.
+_TRANSIENT_STATUS = {408, 429, *[code for code in range(500, 600)]}
+
+
+class AILLMResponseError(ValueError):
+    """Raised when the model returns output that cannot be used (e.g. invalid
+    JSON for a structured request).
+
+    Deliberately distinct from transient transport errors so callers can tell
+    "the network hiccapped, retry now" apart from "the model produced unusable
+    output, notify the user and let them retry".
+    """
+
+
+def classify_ai_error(exc: Exception, operation: str = "request") -> tuple[int, str]:
+    """Map an AI failure to ``(http_status, detail)`` for route layers.
+
+    Kept in this (fastapi-free) module so every route maps AI errors the same
+    way without duplicating the logic or importing the client's internals:
+
+    - ``AILLMResponseError`` (model ran but returned unusable output) -> 502.
+    - Transient transport/HTTP errors (after retries exhausted) -> 503.
+    - Anything else -> 500.
+    """
+    if isinstance(exc, AILLMResponseError):
+        return 502, f"The AI {operation} did not return a usable response. Please try again."
+    if isinstance(
+        exc, (httpx.HTTPStatusError, httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)
+    ):
+        return 503, f"The AI service is temporarily unavailable while {operation}. Please try again later."
+    return 500, f"AI {operation} failed: {exc}"
 
 
 def _extract_json_response(text: str) -> Any:
@@ -64,14 +100,24 @@ class AIClient:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         response_format: dict | None = None,
+        retries: int = 2,
+        retry_backoff: float = 0.5,
+        timeout: float = 60.0,
     ) -> str:
         """Send a chat completion request to the AI backend.
+
+        Transient upstream failures (timeouts, connection resets, and 408/429/5xx)
+        are retried up to ``retries`` times with exponential backoff; non-transient
+        errors (e.g. 401/400) raise immediately.
 
         Args:
             messages: List of message dicts with 'role' and 'content'
             temperature: Sampling temperature (0.0-2.0)
             max_tokens: Maximum tokens in response
             response_format: Optional JSON schema for structured output
+            retries: Number of additional attempts on transient failures
+            retry_backoff: Base delay in seconds between retries (exponential)
+            timeout: Per-request timeout in seconds
 
         Returns:
             Response text from the AI
@@ -92,14 +138,32 @@ class AIClient:
         if self.api_key and self.api_key != "none":
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                )
-                response.raise_for_status()
+        attempt = 0
+        while True:
+            try:
+                async with httpx.AsyncClient(timeout=timeout) as http_client:
+                    response = await http_client.post(
+                        f"{self.base_url}/chat/completions",
+                        json=payload,
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code in _TRANSIENT_STATUS and attempt < retries:
+                    await _sleep_before_retry(attempt, retries, retry_backoff, e)
+                    attempt += 1
+                    continue
+                logger.error(f"AI API error: {e.response.status_code} - {e.response.text}")
+                raise
+            except httpx.HTTPError as e:
+                # ConnectError / NetworkError / TimeoutException / etc.
+                if attempt < retries:
+                    await _sleep_before_retry(attempt, retries, retry_backoff, e)
+                    attempt += 1
+                    continue
+                logger.error(f"AI transport error: {e}")
+                raise
+            else:
                 data = response.json()
                 message = data["choices"][0]["message"]
                 content = (message.get("content") or "").strip()
@@ -109,12 +173,25 @@ class AIClient:
                     # empty. Fall back so both instruct and reasoning endpoints work.
                     content = (message.get("reasoning_content") or "").strip()
                 return content
-        except httpx.HTTPStatusError as e:
-            logger.error(f"AI API error: {e.response.status_code} - {e.response.text}")
-            raise
-        except Exception as e:
-            logger.error(f"AI client error: {e}")
-            raise
+
+
+async def _sleep_before_retry(
+    attempt: int, retries: int, retry_backoff: float, exc: httpx.HTTPError
+) -> None:
+    """Log a transient failure and sleep before the next attempt.
+
+    Backoff is exponential (`retry_backoff * 2**attempt`) so retries don't
+    hammer an overloaded model server.
+    """
+    delay = retry_backoff * (2 ** attempt)
+    logger.warning(
+        "Transient AI error (%s); retry %d/%d in %.2fs",
+        type(exc).__name__,
+        attempt + 1,
+        retries,
+        delay,
+    )
+    await asyncio.sleep(delay)
 
 
 class AIReportGenerator:
@@ -168,7 +245,7 @@ Return ONLY valid JSON, no markdown formatting."""
             return _extract_json_response(response)
         except json.JSONDecodeError:
             logger.error(f"Failed to parse AI response as JSON: {response!r}")
-            raise ValueError("Invalid report definition generated by AI")
+            raise AILLMResponseError("Invalid report definition generated by AI")
 
 
 class AISQLGenerator:
@@ -272,7 +349,7 @@ Return a JSON object with:
             return _extract_json_response(response)
         except json.JSONDecodeError:
             logger.error(f"Failed to parse layout suggestion as JSON: {response!r}")
-            raise ValueError("Invalid layout suggestion from AI")
+            raise AILLMResponseError("Invalid layout suggestion from AI")
 
 
 class AIDataInsights:
