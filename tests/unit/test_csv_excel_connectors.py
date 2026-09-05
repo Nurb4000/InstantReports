@@ -69,3 +69,36 @@ async def test_excel_query_without_params_returns_full_sheet(monkeypatch):
     connector = ExcelConnector()
     df = await connector.execute_query({"file_path": "dummy.xlsx"}, "SELECT *")
     assert len(df) == 4
+
+
+async def test_csv_schema_uses_filename_as_table_name(csv_file):
+    # Regression: the field explorer must name the table after the file, not a
+    # generic "csv" — otherwise every CSV connection looks identical in the UI.
+    connector = CSVConnector()
+    schema = await connector.get_schema({"file_path": csv_file})
+
+    assert len(schema["tables"]) == 1
+    assert schema["tables"][0]["name"] == "sales"
+    assert [c["name"] for c in schema["tables"][0]["columns"]] == ["region", "revenue"]
+
+
+async def test_csv_schema_falls_back_for_empty_path():
+    connector = CSVConnector()
+    schema = await connector.get_schema({"file_path": ""})
+    assert schema == {"tables": []}
+
+
+def _write_xlsx(path: str) -> None:
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame({"a": [1, 2], "b": [3, 4]}).to_excel(writer, sheet_name="Sheet1", index=False)
+        pd.DataFrame({"c": [5]}).to_excel(writer, sheet_name="Data", index=False)
+
+
+async def test_excel_schema_reports_each_real_sheet(tmp_path):
+    path = str(tmp_path / "sheets.xlsx")
+    _write_xlsx(path)
+
+    schema = await ExcelConnector().get_schema({"file_path": path})
+    names = [t["name"] for t in schema["tables"]]
+
+    assert names == ["Sheet1", "Data"]

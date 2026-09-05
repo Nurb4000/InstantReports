@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 import pandas as pd
@@ -27,8 +28,9 @@ class CSVConnector(DataConnector):
             return False
 
     async def get_schema(self, config: dict[str, Any]) -> dict[str, Any]:
+        file_path = config.get("file_path", "")
         try:
-            df = await asyncio.to_thread(pd.read_csv, config.get("file_path", ""), nrows=0)
+            df = await asyncio.to_thread(pd.read_csv, file_path, nrows=0)
             columns = []
             for col in df.columns:
                 columns.append({
@@ -36,7 +38,10 @@ class CSVConnector(DataConnector):
                     "type": str(df[col].dtype),
                     "nullable": True,
                 })
-            return {"tables": [{"name": config.get("file_name", "csv"), "columns": columns}]}
+            # Name the table after the file (minus extension) so the field explorer
+            # shows e.g. "customers" rather than a generic "csv".
+            table_name = os.path.splitext(os.path.basename(file_path))[0] or "csv"
+            return {"tables": [{"name": table_name, "columns": columns}]}
         except Exception:
             return {"tables": []}
 
