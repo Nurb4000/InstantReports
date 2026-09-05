@@ -11,6 +11,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.report import Report, ReportOutput
 from app.models.user import User
+from app.routes.admin import get_role_value
 from app.routes.auth import get_current_user_optional
 from app.services.exporters import (
     get_file_extension,
@@ -39,22 +40,26 @@ async def portal_index(
 
     from app.models.connection import Schedule
     
-    # Get schedules owned by this user
-    owner_schedule_ids = (
-        select(Schedule.report_id)
-        .where(Schedule.owner_id == current_user.id)
-    ).scalar_subquery()
-    
-    query = (
-        select(ReportOutput)
-        .join(Report)
-        .where(
-            or_(
-                ReportOutput.generated_by == current_user.id,
-                Report.id.in_(owner_schedule_ids)
+    # Admins see every executed output; other roles only see outputs they
+    # generated or reports they own schedules for. This mirrors the report
+    # catalog fix in designer.py::list_reports so admins get full oversight.
+    if get_role_value(current_user) == "admin":
+        query = select(ReportOutput).join(Report)
+    else:
+        owner_schedule_ids = (
+            select(Schedule.report_id)
+            .where(Schedule.owner_id == current_user.id)
+        ).scalar_subquery()
+        query = (
+            select(ReportOutput)
+            .join(Report)
+            .where(
+                or_(
+                    ReportOutput.generated_by == current_user.id,
+                    Report.id.in_(owner_schedule_ids)
+                )
             )
         )
-    )
 
     if search:
         query = query.where(
