@@ -130,6 +130,11 @@ async def get_connection(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    # Full config (incl. credentials) is sensitive; every other endpoint that
+    # touches it is designer-gated, so keep this consistent rather than leaking
+    # connection secrets to any authenticated user.
+    _require_designer(current_user)
+
     result = await db.execute(select(DataConnection).where(DataConnection.id == connection_id))
     connection = result.scalar_one_or_none()
 
