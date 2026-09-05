@@ -30,6 +30,30 @@ router = APIRouter()
 diff_engine = ReportDiffEngine()
 
 
+def _role_value(user: User) -> str:
+    """Return the plain role string for a user (handles Enum or raw string)."""
+    return user.role.value if hasattr(user.role, "value") else user.role
+
+
+async def _require_report_access(
+    db: AsyncSession, report_id: uuid.UUID, current_user: User
+) -> Report:
+    """Load a report and ensure the user may access it.
+
+    Admins may touch any report; other roles are scoped to reports they created,
+    matching ``designer.list_reports`` so lower-privilege users never read or
+    mutate another team's version history/definitions. Raises 404 if the report
+    does not exist, 403 otherwise.
+    """
+    result = await db.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if _role_value(current_user) != "admin" and report.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this report")
+    return report
+
+
 @router.get("/{report_id}/versions")
 async def list_versions(
     report_id: uuid.UUID,
@@ -40,6 +64,7 @@ async def list_versions(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    await _require_report_access(db, report_id, current_user)
     versions = await get_versions(db, report_id, limit)
     return [
         {
@@ -63,6 +88,7 @@ async def get_version_detail(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    await _require_report_access(db, report_id, current_user)
     version = await get_version(db, report_id, version_number)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
@@ -94,12 +120,7 @@ async def create_version(
     form = await request.form()
     definition = json.loads(form.get("definition", "{}"))
 
-    report_result = await db.execute(
-        select(Report).where(Report.id == report_id)
-    )
-    report = report_result.scalar_one_or_none()
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
+    report = await _require_report_access(db, report_id, current_user)
 
     from app.services.versioning.store import get_latest_version
     latest_version = await get_latest_version(db, report_id)
@@ -140,6 +161,7 @@ async def restore_version_endpoint(
     if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    await _require_report_access(db, report_id, current_user)
     try:
         new_version = await restore_version(
             db=db,
@@ -167,6 +189,7 @@ async def tag_version(
     if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    await _require_report_access(db, report_id, current_user)
     try:
         tag = await add_tag(
             db=db,
@@ -193,6 +216,7 @@ async def untag_version(
     if not current_user or role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    await _require_report_access(db, report_id, current_user)
     success = await remove_tag(db, report_id, tag_name)
     if not success:
         raise HTTPException(status_code=404, detail="Tag not found")
@@ -210,6 +234,7 @@ async def list_comments(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    await _require_report_access(db, report_id, current_user)
     comments = await get_comments(db, report_id, version_number)
     return [
         {
@@ -233,6 +258,7 @@ async def add_comment_endpoint(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    await _require_report_access(db, report_id, current_user)
     comment = await add_comment(
         db=db,
         report_id=report_id,
@@ -270,6 +296,7 @@ async def diff_versions(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    await _require_report_access(db, report_id, current_user)
     from app.services.versioning.store import get_version as get_ver
     version1 = await get_ver(db, report_id, v1)
     version2 = await get_ver(db, report_id, v2)
