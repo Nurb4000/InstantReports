@@ -73,18 +73,18 @@ async def create_key(
     """Generate a new API key."""
     perm_list = [p.strip() for p in permissions.split(",")]
     
-    api_key = await generate_api_key(
+    api_key, raw_key = await generate_api_key(
         db=db,
         name=name,
         user_id=current_user.id,
         permissions=perm_list,
         expires_in_days=expires_in_days,
     )
-    
+
     return {
         "id": str(api_key.id),
         "name": api_key.name,
-        "key": api_key.key,  # Only returned once!
+        "key": raw_key,  # Only returned once — the DB stores a hash, not this.
         "permissions": api_key.permissions.split(","),
         "expires_at": api_key.expires_at.isoformat() if api_key.expires_at else None,
     }
