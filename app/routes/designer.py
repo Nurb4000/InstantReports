@@ -53,14 +53,19 @@ async def designer_index(
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    # Fetch reports for the index page
-    if _check_role(current_user, "admin", "designer"):
+    # Fetch reports for the index page. Mirrors list_reports scoping: admins see
+    # every report for oversight; other roles only see reports they created, so
+    # lower-privilege users never leak other teams' reports into their view.
+    if get_role_value(current_user) == "admin":
         result = await db.execute(
             select(Report).order_by(Report.updated_at.desc()).limit(50)
         )
     else:
         result = await db.execute(
-            select(Report).where(Report.is_active == True).order_by(Report.updated_at.desc()).limit(50)
+            select(Report)
+            .where(Report.created_by == current_user.id)
+            .order_by(Report.updated_at.desc())
+            .limit(50)
         )
     
     reports = result.scalars().all()

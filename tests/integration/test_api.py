@@ -147,6 +147,47 @@ class TestDesignerRoutes:
         assert listing.status_code == 200
         assert "Not Mine Report" not in listing.text
 
+    @pytest.mark.asyncio
+    async def test_designer_index_scopes_to_own_reports(self, client, db_session):
+        """The designer landing page must scope non-admins to their own reports,
+        matching list_reports. Without this a designer sees every report in the
+        system, leaking other teams' report names/IDs."""
+        import uuid
+
+        from app.auth import hash_password
+        from app.models.report import Report
+        from app.models.user import AuthSource, User, UserRole
+
+        dev = User(
+            id=uuid.uuid4(), email="dev2@example.com", name="Dev2",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        colleague = User(
+            id=uuid.uuid4(), email="colleague2@example.com", name="Colleague2",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        for u in (dev, colleague):
+            db_session.add(u)
+        await db_session.commit()
+
+        foreign = Report(id=uuid.uuid4(), name="Colleague Report", created_by=colleague.id)
+        db_session.add(foreign)
+        await db_session.commit()
+
+        login = await client.post(
+            "/auth/login",
+            data={"email": "dev2@example.com", "password": "pw"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 302
+        client.headers["Cookie"] = f"access_token={login.cookies.get('access_token')}"
+
+        index = await client.get("/designer/")
+        assert index.status_code == 200
+        assert "Colleague Report" not in index.text
+
 
 class TestVersionRoutes:
     """Test version history routes."""
