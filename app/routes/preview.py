@@ -82,7 +82,15 @@ async def preview_temp(
     """Generate a temporary preview from a definition (no save required)."""
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
+    # Arbitrary-query preview tool: restrict to admin/designer so low-privilege
+    # users cannot submit a definition whose element queries execute against an
+    # application data-source connection. Mirrors the role gate in preview_report.
+    from app.routes.admin import get_role_value
+
+    if get_role_value(current_user) not in ("admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     try:
         import json
         definition = json.loads(definition_json)
