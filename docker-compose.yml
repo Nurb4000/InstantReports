@@ -50,7 +50,7 @@ services:
     ports:
       - "5580:8080"
     volumes:
-      - ./testing/mokapi/config.json:/etc/mokapi/config.json
+      - ./test-assets/mokapi/config.json:/etc/mokapi/config.json
 
 volumes:
   pgdata:

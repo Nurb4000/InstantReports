@@ -138,8 +138,9 @@ InstantReports/
 ├── alembic/               # Database migrations
 ├── scripts/               # Utility scripts
 │   └── seed_admin.py      # Create initial admin user
-├── testing/               # Test configurations
-│   └── mokapi/            # LDAP + SMTP test server
+├── test-assets/           # Test server config + sample reports
+│   ├── mokapi/            # LDAP + SMTP test server
+│   └── sample_reports/    # Demo .ir.json report definitions
 └── docs/                  # Documentation
 ```
 
