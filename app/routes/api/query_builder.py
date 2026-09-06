@@ -53,6 +53,20 @@ async def require_auth(
     return current_user
 
 
+async def _require_template_access(db, template, current_user):
+    """Guard template read/delete with the app's ownership model.
+
+    Admins may access any template (oversight); other users only templates they
+    created — matching the report/version scoping so users cannot read or delete
+    other teams' saved query templates (their query_config holds raw SQL).
+    """
+    from app.routes.admin import get_role_value
+
+    if get_role_value(current_user) == "admin" or template.created_by == current_user.id:
+        return
+    raise HTTPException(status_code=403, detail="Not authorized to access this template")
+
+
 @router.get("/schema/{connection_id}")
 async def get_schema_endpoint(
     connection_id: str,
@@ -208,6 +222,8 @@ async def list_query_templates(
     db: AsyncSession = Depends(get_db),
 ):
     """List saved query templates, optionally filtered by connection."""
+    from app.routes.admin import get_role_value
+
     query = select(QueryTemplate)
 
     if connection_id:
@@ -215,6 +231,10 @@ async def list_query_templates(
             query = query.where(QueryTemplate.connection_id == uuid.UUID(connection_id))
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid connection_id")
+
+    # Non-admins only see their own templates; admins oversee all.
+    if get_role_value(current_user) != "admin":
+        query = query.where(QueryTemplate.created_by == current_user.id)
 
     query = query.order_by(QueryTemplate.updated_at.desc())
     result = await db.execute(query)
@@ -253,6 +273,7 @@ async def export_templates_endpoint(
         template = await db.get(QueryTemplate, tmpl_uuid)
         if not template:
             raise HTTPException(status_code=404, detail=f"template {part} not found")
+        await _require_template_access(db, template, current_user)
         templates.append(template)
 
     return export_templates(templates)
@@ -273,6 +294,8 @@ async def get_query_template(
     template = await db.get(QueryTemplate, tmpl_uuid)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+
+    await _require_template_access(db, template, current_user)
 
     return {
         "id": str(template.id),
@@ -300,6 +323,8 @@ async def delete_query_template(
     template = await db.get(QueryTemplate, tmpl_uuid)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+
+    await _require_template_access(db, template, current_user)
 
     await db.delete(template)
     await db.commit()
@@ -341,7 +366,7 @@ async def import_templates_endpoint(
             description=item["description"],
             query_config=item["query_config"],
             connection_id=bind_uuid,
-            created_by=None,
+            created_by=current_user.id,
         )
         db.add(template)
         created.append(template)
