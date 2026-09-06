@@ -23,6 +23,36 @@ from app.services.report.rendering import fetch_element_data, render_report_byte
 router = APIRouter()
 
 
+async def _owns_schedule_for_report(db, report_id, user_id):
+    from app.models.connection import Schedule
+
+    result = await db.execute(
+        select(Schedule.id).where(
+            Schedule.report_id == report_id,
+            Schedule.owner_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _can_access_report(db, report, current_user):
+    """Admins may access any report; other roles only reports whose schedules
+    they own — mirroring the dashboard scoping in ``portal_index``."""
+    if get_role_value(current_user) == "admin":
+        return True
+    return await _owns_schedule_for_report(db, report.id, current_user.id)
+
+
+async def _can_access_output(db, output, current_user):
+    """Admins and the user who generated an output may access it; other roles
+    may access outputs for reports whose schedules they own."""
+    if get_role_value(current_user) == "admin":
+        return True
+    if output.generated_by == current_user.id:
+        return True
+    return await _owns_schedule_for_report(db, output.report_id, current_user.id)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def portal_index(
     request: Request,
@@ -131,6 +161,9 @@ async def view_report_output(
     if not output:
         raise HTTPException(status_code=404, detail="Report output not found")
 
+    if not await _can_access_output(db, output, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to view this report output")
+
     return request.app.state.templates.TemplateResponse(
         "portal/view_report.html",
         {"request": request, "current_user": current_user, "output": output, "mode": settings.MODE},
@@ -154,6 +187,9 @@ async def download_report_output(
 
     if not output:
         raise HTTPException(status_code=404, detail="Report output not found")
+
+    if not await _can_access_output(db, output, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to download this report output")
 
     return Response(
         content=output.file_data,
@@ -184,6 +220,9 @@ async def export_report(
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    if not await _can_access_report(db, report, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to export this report")
 
     try:
         fmt = normalize_output_format(format)
@@ -223,6 +262,9 @@ async def get_report_parameters(
 
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    if not await _can_access_report(db, report, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to read this report's parameters")
 
     parameters = report.definition.get("parameters", [])
     return {"parameters": parameters}
