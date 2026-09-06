@@ -18,6 +18,22 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def escape_ldap_filter(value: str) -> str:
+    """Escape LDAP search-filter metacharacters per RFC 5012.
+
+    Login input (email/username) is embedded in an LDAP search filter; without
+    escaping, characters like ``*`` ``(`` ``)`` and ``\\`` let an attacker
+    restructure the filter (LDAP injection, CWE-546) to enumerate users or
+    manipulate results.
+    """
+    return (
+        value.replace("\\", "\\5C")
+        .replace("*", "\\2A")
+        .replace("(", "\\28")
+        .replace(")", "\\29")
+    )
+
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -69,7 +85,7 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
             auto_bind=True,
         )
 
-        search_filter = f"({settings.LDAP_USER_ATTR}={email})"
+        search_filter = f"({settings.LDAP_USER_ATTR}={escape_ldap_filter(email)})"
         conn.search(
             search_base=settings.LDAP_SEARCH_BASE,
             search_filter=search_filter,
