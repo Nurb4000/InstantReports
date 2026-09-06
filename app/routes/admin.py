@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -30,6 +31,32 @@ def get_auth_source_value(user):
     if hasattr(user.auth_source, 'value'):
         return user.auth_source.value
     return user.auth_source
+
+
+_SECRET_KEYS = frozenset({"password", "secret"})
+
+
+def redact_delivery_config(config: dict | None) -> dict | None:
+    """Return a copy of a delivery config with secret fields redacted.
+
+    Read endpoints (list/get schedule) must not echo plaintext SFTP/SMB
+    ``password`` or webhook ``secret`` back to callers; the create/update flows
+    still accept them for storage, but responses should never surface them.
+    """
+    if not config:
+        return config
+
+    def _walk(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {
+                key: ("***REDACTED***" if key in _SECRET_KEYS else _walk(val))
+                for key, val in value.items()
+            }
+        if isinstance(value, list):
+            return [_walk(item) for item in value]
+        return value
+
+    return _walk(config)
 
 
 @router.get("/users", response_class=HTMLResponse)
@@ -546,7 +573,7 @@ async def list_schedules(
             "timezone": s.timezone,
             "output_format": s.output_format or "pdf",
             "delivery_type": s.delivery_type or "email",
-            "delivery_config": s.delivery_config or {},
+            "delivery_config": redact_delivery_config(s.delivery_config),
             "recipient_emails": s.recipient_emails or "",
             "owner_id": str(s.owner_id) if s.owner_id else None,
             "owner_name": s.owner.name if s.owner else "Unknown",
@@ -581,7 +608,7 @@ async def get_schedule_api(
         "timezone": schedule.timezone,
         "output_format": schedule.output_format or "pdf",
         "delivery_type": schedule.delivery_type or "email",
-        "delivery_config": schedule.delivery_config or {},
+        "delivery_config": redact_delivery_config(schedule.delivery_config),
         "recipient_emails": schedule.recipient_emails or "",
         "owner_id": str(schedule.owner_id) if schedule.owner_id else None,
         "is_active": schedule.is_active,
