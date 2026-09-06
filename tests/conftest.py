@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from collections.abc import AsyncGenerator, Generator
 
@@ -11,6 +12,13 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
+
+# app.config instantiates Settings() at import time; the SECRET_KEY validator
+# rejects the development placeholder, so ensure a real key is set before any
+# app module is imported. Without this, JWT decode/validate would raise in tests.
+os.environ.setdefault(
+    "SECRET_KEY", "test-secret-key-do-not-use-in-production-0000000000"
+)
 
 from app.auth import hash_password
 from app.database import Base, get_db

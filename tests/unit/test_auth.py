@@ -59,6 +59,24 @@ class TestJWTTokens:
         assert payload is None
 
 
+class TestSecretKeyValidation:
+    """The JWT signing secret must never be the well-known development
+    placeholder — with it, anyone can forge an admin token (full auth bypass)."""
+
+    def test_placeholder_secret_key_is_rejected(self, monkeypatch):
+        from app.config import Settings
+
+        monkeypatch.setenv("SECRET_KEY", "change-me-in-production")
+        with pytest.raises(ValueError, match="SECRET_KEY"):
+            Settings()
+
+    def test_real_secret_key_is_accepted(self, monkeypatch):
+        from app.config import Settings
+
+        monkeypatch.setenv("SECRET_KEY", "a-strong-test-secret")
+        assert Settings().SECRET_KEY == "a-strong-test-secret"
+
+
 class TestUserModel:
     """Test User model."""
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,6 +22,20 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def _reject_placeholder_secret(cls, v: str) -> str:
+        # The JWT signing secret must never be the well-known development
+        # placeholder: with it, anyone can forge an admin token (full auth
+        # bypass). Fail loudly at startup instead of shipping with a weak key.
+        if v == "change-me-in-production":
+            raise ValueError(
+                "SECRET_KEY is still the development placeholder "
+                "'change-me-in-production'. Set a strong, private SECRET_KEY via "
+                "environment variable or .env before starting the app."
+            )
+        return v
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
     # LDAP
