@@ -85,6 +85,32 @@ class TestHTMLExporter:
         assert "#ffcccc" not in html
         assert "#00ff00" not in html
 
+    def test_table_cell_values_are_escaped(self):
+        # Data-derived cell values must be HTML-escaped so a report pulling
+        # untrusted rows can't inject markup into the exported .html (stored
+        # XSS). Without escaping, a <script> cell would reach the browser.
+        exporter = HTMLExporter()
+        rendered = {
+            "name": "Report",
+            "sections": [
+                {
+                    "type": "detail",
+                    "elements": [
+                        {
+                            "type": "table",
+                            "columns": [{"field": "note", "header": "Note"}],
+                            "data": [{"note": "<script>alert(1)</script>"}],
+                        }
+                    ],
+                }
+            ],
+        }
+
+        html = exporter.export(rendered)
+
+        assert "<script>alert(1)</script>" not in html
+        assert "&lt;script&gt;" in html
+
 
 class TestCSVExporter:
     """Test CSV export."""

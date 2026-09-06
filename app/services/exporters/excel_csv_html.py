@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import io
 from typing import TYPE_CHECKING, Any
 
@@ -258,7 +259,7 @@ class HTMLExporter:
         parts = ["<table>", "<thead><tr>"]
         for col in columns:
             header = col.get("header", col.get("field", ""))
-            parts.append(f"<th>{header}</th>")
+            parts.append(f"<th>{html.escape(str(header))}</th>")
         parts.append("</tr></thead><tbody>")
         for row in data:
             row_style = self._row_style(row)
@@ -268,7 +269,7 @@ class HTMLExporter:
                 value = row.get(field, "")
                 cell_style = self._cell_style(row, field)
                 tag_open = f'<td style="{cell_style}">' if cell_style else "<td>"
-                parts.append(f"{tag_open}{value}</td>")
+                parts.append(f"{tag_open}{html.escape(str(value), quote=True)}</td>")
             parts.append("</tr>")
         parts.append("</tbody></table>")
         return "".join(parts)
