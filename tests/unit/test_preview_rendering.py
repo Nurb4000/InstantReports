@@ -111,3 +111,26 @@ def test_preview_cell_values_still_map_by_field(monkeypatch):
     }
     html = asyncio_run(_render(monkeypatch, definition, df))
     assert "USA" in html and "100.0" in html
+
+
+def test_preview_escapes_untrusted_cell_values(monkeypatch):
+    # Data-derived cell values (and chart labels) must be HTML-escaped so a
+    # report pulling untrusted rows can't inject markup into the designer's
+    # preview (stored XSS). Without escaping, <script> would reach the browser.
+    df = pd.DataFrame({"country": ["<script>alert(1)</script>"], "revenue": [100.0]})
+    definition = {
+        "name": "XSS",
+        "layout": {"sections": [{"type": "detail", "elements": [
+            {
+                "type": "table",
+                "columns": [
+                    {"field": "country", "header": "Country"},
+                    {"field": "revenue", "header": "Revenue"},
+                ],
+                "properties": {"query": "SELECT ..."},
+            }
+        ]}]},
+    }
+    html = asyncio_run(_render(monkeypatch, definition, df))
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;" in html

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import logging
 import uuid
 
@@ -151,7 +152,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
             if elem_label and not hide_label:
                 label_html = f'''
                 <div class="element-label" style="font-weight: bold; margin-bottom: 5px; color: #333; font-size: 14px;">
-                    {elem_label}
+                    {html.escape(str(elem_label))}
                 </div>
                 '''
             
@@ -162,8 +163,8 @@ async def render_report_with_data(definition: dict, title: str, description: str
                 color = props.get("color", "#000000")
                 elements_html += f'''
                 {label_html}
-                <div class="report-element text-element" style="font-size: {font_size}px; font-weight: {'bold' if bold else 'normal'}; color: {color}; padding: 5px; border: 1px dashed #ccc; margin: 5px 0;">
-                    {content}
+                <div class="report-element text-element" style="font-size: {html.escape(str(font_size))}px; font-weight: {'bold' if bold else 'normal'}; color: {html.escape(str(color))}; padding: 5px; border: 1px dashed #ccc; margin: 5px 0;">
+                    {html.escape(str(content), quote=True)}
                 </div>
                 '''
             elif elem_type == "table":
@@ -217,12 +218,12 @@ async def render_report_with_data(definition: dict, title: str, description: str
 
                             # Build table HTML. Display configured headers; look up cell values
                             # and per-cell formatting by field so they stay aligned with export.
-                            th_cells = ''.join('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">' + str(header) + '</th>' for header in headers)
+                            th_cells = ''.join('<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">' + html.escape(str(header)) + '</th>' for header in headers)
                             td_rows = ''
                             for row in formatted_rows:
                                 fmt = row.get("formatting") or {}
                                 row_css = cf.get_css_styles(fmt) if cf else ''
-                                tr_style = f' style="{row_css}"' if row_css else ''
+                                tr_style = f' style="{html.escape(str(row_css))}"' if row_css else ''
                                 td_cells = ''
                                 for field, header in zip(fields, headers):
                                     cell_fmt = fmt.get("cells", {}).get(field)
@@ -230,8 +231,8 @@ async def render_report_with_data(definition: dict, title: str, description: str
                                     if cf is not None and cell_fmt:
                                         cell_css = cf.get_css_styles({"row": None, "cells": {field: cell_fmt}})
                                         if cell_css:
-                                            cell_style = f' style="{cell_css}"'
-                                    td_cells += '<td style="border: 1px solid #ddd; padding: 6px;"' + cell_style + str(row.get(field, '')) + '</td>'
+                                            cell_style = f' style="{html.escape(str(cell_css))}"'
+                                    td_cells += '<td style="border: 1px solid #ddd; padding: 6px;"' + cell_style + html.escape(str(row.get(field, '')), quote=True) + '</td>'
                                 td_rows += '<tr' + tr_style + '>' + td_cells + '</tr>\n'
                             
                             table_html = f'''
@@ -326,7 +327,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
                         <div style="display: flex; align-items: center; margin-bottom: 8px;">
                             <div style="width: 20px; height: 20px; background: {color}; border-radius: 3px; margin-right: 10px;"></div>
                             <div style="flex: 1;">
-                                <div style="font-size: 12px; font-weight: 500;">{label}</div>
+                                <div style="font-size: 12px; font-weight: 500;">{html.escape(str(label), quote=True)}</div>
                                 <div style="font-size: 11px; color: #666;">${value:,.2f} ({percentage:.1f}%)</div>
                             </div>
                         </div>
@@ -359,7 +360,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
                         bar_width = (value / max_value * 100) if max_value > 0 else 0
                         bars_html += f'''
                         <div style="display: flex; align-items: center; margin-bottom: 5px;">
-                            <div style="width: 100px; text-align: right; padding-right: 10px; font-size: 11px; color: #666;">{label}</div>
+                            <div style="width: 100px; text-align: right; padding-right: 10px; font-size: 11px; color: #666;">{html.escape(str(label), quote=True)}</div>
                             <div style="flex: 1; background: #e9ecef; height: 20px; border-radius: 3px;">
                                 <div style="width: {bar_width}%; height: 100%; background: #4CAF50; border-radius: 3px; min-width: 2px;"></div>
                             </div>
@@ -405,7 +406,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
                         bar_width = (value / max_value * 100) if max_value > 0 else 0
                         bars_html += f'''
                         <div style="display: flex; align-items: center; margin-bottom: 5px;">
-                            <div style="width: 100px; text-align: right; padding-right: 10px; font-size: 11px; color: #666;">{label}</div>
+                            <div style="width: 100px; text-align: right; padding-right: 10px; font-size: 11px; color: #666;">{html.escape(str(label), quote=True)}</div>
                             <div style="flex: 1; background: #e9ecef; height: 20px; border-radius: 3px;">
                                 <div style="width: {bar_width}%; height: 100%; background: #4CAF50; border-radius: 3px; min-width: 2px;"></div>
                             </div>
@@ -500,7 +501,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
         sections_html += section_html
     
     # Build HTML
-    html = '''<!DOCTYPE html>
+    page_html = '''<!DOCTYPE html>
 <html>
 <head>
     <title>Preview: REPORT_TITLE</title>
@@ -588,14 +589,14 @@ async def render_report_with_data(definition: dict, title: str, description: str
 </html>'''
     
     # Replace placeholders
-    html = html.replace("REPORT_TITLE", title)
+    page_html = page_html.replace("REPORT_TITLE", title)
     if description:
-        html = html.replace("REPORT_DESCRIPTION", f'<p class="report-description">{description}</p>')
+        page_html = page_html.replace("REPORT_DESCRIPTION", f'<p class="report-description">{description}</p>')
     else:
-        html = html.replace("REPORT_DESCRIPTION", "")
-    html = html.replace("SECTIONS_HTML", sections_html)
+        page_html = page_html.replace("REPORT_DESCRIPTION", "")
+    page_html = page_html.replace("SECTIONS_HTML", sections_html)
     
-    return html
+    return page_html
 
 
 @router.websocket("/ws/{report_id}")
