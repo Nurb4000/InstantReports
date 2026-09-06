@@ -2,12 +2,30 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# SQL identifiers emitted unquoted by the generator. Only alphanumerics and
+# underscores (optionally dotted for schema/table.column qualification) are
+# allowed; anything else — semicolons, quotes, comments, parentheses — is
+# rejected so a crafted QueryConfig cannot inject SQL into the generated query.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+
+
+def _validate_identifier(value: str) -> str:
+    # Empty strings are permitted for backwards compatibility with the SQL
+    # parser (which can yield empty aliases/columns); an empty identifier only
+    # produces invalid SQL that the database rejects, never injection. Anything
+    # non-empty must be a plain dotted identifier — semicolons, quotes, comments
+    # and parentheses are rejected so a crafted config cannot inject SQL.
+    if value == "" or _IDENTIFIER_RE.match(value):
+        return value
+    raise ValueError(f"Invalid SQL identifier: {value!r}")
 
 
 class JoinType(str, Enum):
@@ -47,6 +65,16 @@ class SelectColumn(BaseModel):
     column: str
     alias: str | None = None
     aggregation: Aggregation | None = None
+
+    @field_validator("table", "column")
+    @classmethod
+    def _check_ident(cls, v: str) -> str:
+        return _validate_identifier(v)
+
+    @field_validator("alias")
+    @classmethod
+    def _check_alias(cls, v: str | None) -> str | None:
+        return None if v is None else _validate_identifier(v)
 
     def expression(self) -> str:
         """Return the raw SQL expression for this column (no alias)."""
@@ -110,6 +138,14 @@ class JoinConfig(BaseModel):
     on_right_table: str
     on_right_column: str
 
+    @field_validator(
+        "table", "on_left_table", "on_left_column",
+        "on_right_table", "on_right_column",
+    )
+    @classmethod
+    def _check_ident(cls, v: str) -> str:
+        return _validate_identifier(v)
+
     def to_sql(self) -> str:
         """Generate SQL for this JOIN."""
         return (
@@ -126,6 +162,11 @@ class WhereFilter(BaseModel):
     operator: Operator
     value: Any
     logic: str = "AND"  # AND or OR
+
+    @field_validator("field")
+    @classmethod
+    def _check_ident(cls, v: str) -> str:
+        return _validate_identifier(v)
 
     def to_sql(self) -> str:
         """Generate SQL for this filter."""
@@ -170,6 +211,19 @@ class OrderByField(BaseModel):
     field: str
     direction: str = "ASC"  # ASC or DESC
 
+    @field_validator("field")
+    @classmethod
+    def _check_ident(cls, v: str) -> str:
+        return _validate_identifier(v)
+
+    @field_validator("direction")
+    @classmethod
+    def _check_direction(cls, v: str) -> str:
+        normalized = v.strip().upper()
+        if normalized not in ("ASC", "DESC"):
+            raise ValueError(f"Invalid ORDER BY direction: {v!r}")
+        return normalized
+
     def to_sql(self) -> str:
         """Generate SQL for this order by field."""
         return f"{self.field} {self.direction}"
@@ -185,6 +239,16 @@ class QueryConfig(BaseModel):
     where: list[WhereFilter] = Field(default_factory=list)
     group_by: list[str] = Field(default_factory=list)
     order_by: list[OrderByField] = Field(default_factory=list)
+
+    @field_validator("from_tables")
+    @classmethod
+    def _check_from_tables(cls, v: list[str]) -> list[str]:
+        return [_validate_identifier(item) for item in v]
+
+    @field_validator("group_by")
+    @classmethod
+    def _check_group_by(cls, v: list[str]) -> list[str]:
+        return [_validate_identifier(item) for item in v]
 
     def to_sql(self) -> str:
         """Generate complete SQL query from configuration."""
