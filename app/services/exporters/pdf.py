@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import logging
 from typing import Any
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, letter
@@ -22,7 +23,6 @@ from reportlab.platypus import (
 from app.services.engine.chart import ChartGenerator
 
 logger = logging.getLogger(__name__)
-
 
 
 class PDFExporter:
@@ -50,36 +50,36 @@ class PDFExporter:
             page_size = landscape(page_size)
 
         buffer = io.BytesIO()
-        
+
         # Create frames for header, body, and footer
         left_margin = 2 * cm
         right_margin = 2 * cm
         top_margin = 2 * cm
         bottom_margin = 2 * cm
-        
+
         body_height = page_size[1] - top_margin - bottom_margin - inch
-        
+
         left_frame = Frame(
             left_margin, bottom_margin,
             page_size[0] - left_margin - right_margin,
             body_height,
             id='normal'
         )
-        
+
         # Create document template
         doc = BaseDocTemplate(
             buffer,
             pagesize=page_size,
-            title=rendered_report.get("name", "Report"),
+            title=_xml_escape(str(rendered_report.get("name", "Report"))),
             author="InstantReports",
         )
-        
+
         # Define page templates with header/footer
         def header(canvas, doc):
             canvas.saveState()
             canvas.setFont('Helvetica', 8)
-            canvas.drawString(left_margin, page_size[1] - top_margin + 0.5 * cm, 
-                            rendered_report.get("name", ""))
+            canvas.drawString(left_margin, page_size[1] - top_margin + 0.5 * cm,
+                              _xml_escape(str(rendered_report.get("name", ""))))
             canvas.restoreState()
 
         def footer(canvas, doc):
@@ -97,13 +97,13 @@ class PDFExporter:
             onPage=footer,
         )
         doc.addPageTemplates([page_template])
-        
+
         styles = getSampleStyleSheet()
         story = []
 
         # Add title as first element
         title_style = styles['Title']
-        story.append(Paragraph(rendered_report.get("name", "Report"), title_style))
+        story.append(Paragraph(_xml_escape(str(rendered_report.get("name", "Report"))), title_style))
         story.append(Spacer(1, 0.5 * inch))
 
         for section in rendered_report.get("sections", []):
@@ -139,14 +139,14 @@ class PDFExporter:
         # Add label if present
         if element_label:
             label_style = styles.get("Normal", styles["Normal"])
-            story.append(Paragraph(element_label, label_style))
+            story.append(Paragraph(_xml_escape(str(element_label)), label_style))
             story.append(Spacer(1, 0.1 * inch))
 
         if element_type == "text":
             content = element.get("content", "")
             style_name = element.get("style", "Normal")
             style = styles.get(style_name, styles["Normal"])
-            story.append(Paragraph(content, style))
+            story.append(Paragraph(_xml_escape(str(content)), style))
             story.append(Spacer(1, 0.1 * inch))
 
         elif element_type == "table":
