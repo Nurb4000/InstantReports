@@ -736,7 +736,7 @@
         const messageEl = document.getElementById('editor-toast-message');
         if (!toast || !messageEl) return;
         toast.className = 'editor-toast ' + (type || 'info');
-        messageEl.innerHTML = message;
+        messageEl.textContent = message;
         toast.style.display = 'flex';
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(-8px)';
