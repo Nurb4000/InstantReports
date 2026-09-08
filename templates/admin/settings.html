@@ -151,19 +151,6 @@
     </div>
 </div>
 
-<!-- Testing Note -->
-<div class="card collapsible-section">
-    <div class="section-header" onclick="toggleSection(this)">
-        <h2>Testing with Mokapi</h2>
-        <span class="toggle-icon">▼</span>
-    </div>
-    <div class="section-content" style="display: none;">
-    <p>To use the built-in test server (Mokapi) for LDAP and SMTP testing, set <code>USE_MOKAPI=true</code> in your environment or docker-compose.yml.</p>
-    <p><strong>Note:</strong> Mokapi should not be used in production. It's designed for development and testing only.</p>
-    <code>USE_MOKAPI=true docker compose up</code>
-    </div>
-</div>
-
 <script>
 function toggleSection(header) {
     const content = header.nextElementSibling;

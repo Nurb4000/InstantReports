@@ -70,7 +70,7 @@ async def admin_users(
 
     return request.app.state.templates.TemplateResponse(
         "admin/users.html",
-        {"request": request, "current_user": current_user, "mode": settings.MODE},
+        {"request": request, "current_user": current_user},
     )
 
 
@@ -88,7 +88,6 @@ async def admin_schedules(
         {
             "request": request,
             "current_user": current_user,
-            "mode": settings.MODE,
             "current_user_id": str(current_user.id) if current_user else None,
         },
     )
@@ -106,7 +105,7 @@ async def admin_audit_log(
 
     return request.app.state.templates.TemplateResponse(
         "admin/audit.html",
-        {"request": request, "current_user": current_user, "mode": settings.MODE},
+        {"request": request, "current_user": current_user},
     )
 
 

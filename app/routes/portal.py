@@ -137,7 +137,6 @@ async def portal_index(
             "format_type": format_type,
             "date_from": date_from,
             "date_to": date_to,
-            "mode": settings.MODE,
         },
     )
 
@@ -166,7 +165,7 @@ async def view_report_output(
 
     return request.app.state.templates.TemplateResponse(
         "portal/view_report.html",
-        {"request": request, "current_user": current_user, "output": output, "mode": settings.MODE},
+        {"request": request, "current_user": current_user, "output": output},
     )
 
 

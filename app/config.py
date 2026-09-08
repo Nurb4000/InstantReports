@@ -16,24 +16,22 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    MODE: Literal["designer", "runner"] = "designer"
-    SEPARATE_MODE: bool = False  # If True, scheduler only runs in runner mode
     DEBUG: bool = False  # Enable debug mode (shows detailed errors)
     DATABASE_URL: str = "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
 
     @field_validator("SECRET_KEY")
     @classmethod
     def _reject_placeholder_secret(cls, v: str) -> str:
-        # The JWT signing secret must never be the well-known development
+        # The JWT signing secret must never be empty or the well-known development
         # placeholder: with it, anyone can forge an admin token (full auth
         # bypass). Fail loudly at startup instead of shipping with a weak key.
-        if v == "change-me-in-production":
+        if not v or v in ("change-me-in-production", "your-secret-key-here"):
             raise ValueError(
-                "SECRET_KEY is still the development placeholder "
-                "'change-me-in-production'. Set a strong, private SECRET_KEY via "
-                "environment variable or .env before starting the app."
+                "SECRET_KEY is not set or still a placeholder value. "
+                "Set a strong, private SECRET_KEY via environment variable or .env "
+                "before starting the app."
             )
         return v
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
@@ -72,9 +70,6 @@ class Settings(BaseSettings):
     # Runner mode: how often (seconds) the scheduler re-syncs schedules from the
     # DB so new/changed schedules take effect without a runner restart.
     SCHEDULE_SYNC_INTERVAL_SECONDS: int = 60
-    
-    # Use mokapi for testing (set to false in production)
-    USE_MOKAPI: bool = False
 
     # Static files
     STATIC_DIR: Path = BASE_DIR / "static"

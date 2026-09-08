@@ -4,10 +4,8 @@ services:
     ports:
       - "8080:8000"
     environment:
-      - MODE=${MODE:-designer}
-      - SEPARATE_MODE=${SEPARATE_MODE:-false}
       - DATABASE_URL=postgresql+asyncpg://ir:${DB_PASSWORD:-secret}@postgres:5432/instantreports
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - SECRET_KEY=${SECRET_KEY}
       - LDAP_URL=${LDAP_URL:-}
       - LDAP_BIND_DN=${LDAP_BIND_DN:-}
       - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
@@ -41,16 +39,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  # Mokapi is only started when using 'docker compose --profile test up'
-  mokapi:
-    image: mokapi/mokapi
-    profiles:
-      - test
-    ports:
-      - "5580:8080"
-    volumes:
-      - ./test-assets/mokapi/config.json:/etc/mokapi/config.json
 
 volumes:
   pgdata:

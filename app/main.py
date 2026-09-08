@@ -28,7 +28,7 @@ app = FastAPI(
     description="Report design, scheduling, and delivery platform",
     version="0.1.0",
     lifespan=lifespan,
-    debug=app_settings.MODE == "designer",  # Enable debug only in designer mode
+    debug=app_settings.DEBUG,
 )
 
 app.add_middleware(
@@ -49,7 +49,7 @@ app.add_middleware(
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     status_code = exc.status_code
-    if status_code >= 500 and (app_settings.MODE == "runner" or not app_settings.DEBUG):
+    if status_code >= 500 and not app_settings.DEBUG:
         detail = "An internal error occurred"
     else:
         detail = exc.detail
@@ -63,7 +63,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {exc}", exc_info=exc)
-    if app_settings.MODE == "runner" or not app_settings.DEBUG:
+    if not app_settings.DEBUG:
         detail = "An internal error occurred"
     else:
         detail = str(exc)
@@ -78,7 +78,6 @@ templates_dir = Path(app_settings.TEMPLATES_DIR)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 app.state.templates = Jinja2Templates(directory=str(templates_dir))
-app.state.templates.env.globals["mode"] = app_settings.MODE
 app.state.templates.env.globals["now"] = lambda: int(datetime.now(timezone.utc).timestamp())
 
 
@@ -87,52 +86,41 @@ async def index(request: Request):
     return request.app.state.templates.TemplateResponse("login.html", {"request": request})
 
 
-if app_settings.MODE == "designer":
-    from app.routes import (
-        admin,
-        ai,
-        api_keys,
-        auth,
-        datasources,
-        designer,
-        portal,
-        preview,
-        settings,
-        versions,
-    )
-    from app.routes.api import query_builder
+from app.routes import (
+    admin,
+    ai,
+    api_keys,
+    auth,
+    datasources,
+    designer,
+    portal,
+    preview,
+    settings,
+    versions,
+)
+from app.routes.api import query_builder
 
-    app.include_router(auth.router, prefix="/auth", tags=["auth"])
-    app.include_router(designer.router, prefix="/designer", tags=["designer"])
-    app.include_router(datasources.router, prefix="/datasources", tags=["datasources"])
-    app.include_router(preview.router, prefix="/preview", tags=["preview"])
-    app.include_router(ai.router, prefix="/ai", tags=["ai"])
-    app.include_router(admin.router, prefix="/admin", tags=["admin"])
-    app.include_router(versions.router, prefix="/designer/reports", tags=["versions"])
-    app.include_router(api_keys.router, tags=["api-keys"])
-    app.include_router(portal.router, prefix="/portal", tags=["portal"])
-    app.include_router(settings.router, prefix="/admin", tags=["settings"])
-    app.include_router(query_builder.router)
-
-elif app_settings.MODE == "runner":
-    from app.routes import admin, api_keys, auth, portal
-
-    app.include_router(auth.router, prefix="/auth", tags=["auth"])
-    app.include_router(portal.router, prefix="/portal", tags=["portal"])
-    app.include_router(admin.router, prefix="/admin", tags=["admin"])
-    app.include_router(api_keys.router, tags=["api-keys"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(designer.router, prefix="/designer", tags=["designer"])
+app.include_router(datasources.router, prefix="/datasources", tags=["datasources"])
+app.include_router(preview.router, prefix="/preview", tags=["preview"])
+app.include_router(ai.router, prefix="/ai", tags=["ai"])
+app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(versions.router, prefix="/designer/reports", tags=["versions"])
+app.include_router(api_keys.router, tags=["api-keys"])
+app.include_router(portal.router, prefix="/portal", tags=["portal"])
+app.include_router(settings.router, prefix="/admin", tags=["settings"])
+app.include_router(query_builder.router)
 
 
 @app.on_event("startup")
 async def startup_event():
-    # Start scheduler in runner mode OR if SEPARATE_MODE is disabled (dev mode)
-    if app_settings.MODE == "runner" or not app_settings.SEPARATE_MODE:
-        import asyncio
+    import asyncio
 
-        from app.runner import run_scheduler
-        asyncio.create_task(run_scheduler())
+    from app.runner import run_scheduler
+    asyncio.create_task(run_scheduler())
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "mode": app_settings.MODE}
+    return {"status": "ok"}

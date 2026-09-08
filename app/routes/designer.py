@@ -73,7 +73,7 @@ async def designer_index(
     templates = request.app.state.templates
     return templates.TemplateResponse(
         "designer/index.html",
-        {"request": request, "current_user": current_user, "reports": reports, "mode": app_settings.MODE},
+        {"request": request, "current_user": current_user, "reports": reports},
     )
 
 
@@ -146,7 +146,6 @@ async def list_reports(
             "current_user": current_user,
             "reports": reports,
             "users": users,
-            "mode": app_settings.MODE,
             "filters": {
                 "search": search,
                 "status": status_filter,
@@ -313,7 +312,6 @@ async def new_report_page(
             "request": request,
             "current_user": current_user,
             "report": None,
-            "mode": app_settings.MODE,
             "ai_enabled": app_settings.AI_ENABLED,
         },
     )
@@ -341,7 +339,6 @@ async def edit_report_page(
             "request": request,
             "current_user": current_user,
             "report": report,
-            "mode": app_settings.MODE,
             "ai_enabled": app_settings.AI_ENABLED,
         },
     )

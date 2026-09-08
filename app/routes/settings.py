@@ -25,7 +25,6 @@ async def admin_settings(
         {
             "request": request,
             "current_user": current_user,
-            "mode": settings.MODE,
             "smtp_host": settings.SMTP_HOST,
             "smtp_port": settings.SMTP_PORT,
             "smtp_user": settings.SMTP_USER,

@@ -30,12 +30,11 @@ A Python-based report design, scheduling, and delivery platform that replaces Cr
 git clone <repo-url> InstantReports
 cd InstantReports
 
-# Start all services (PostgreSQL, mokapi for testing, InstantReports)
+# Start all services (PostgreSQL, InstantReports)
 docker compose up --build
 
 # Access the application
 # Designer: http://localhost:8080
-# Mokapi UI: http://localhost:5580
 # PostgreSQL: localhost:5433 (internal: 5432)
 ```
 
@@ -56,10 +55,8 @@ python scripts/seed_admin.py
 
 | Variable | Default | Description |
 |---|---|---|
-| `MODE` | `designer` | Application mode: `designer` or `runner` |
-| `SEPARATE_MODE` | `false` | If `false`, scheduler runs in designer mode (dev). If `true`, scheduler only in runner mode (prod) |
 | `DATABASE_URL` | `postgresql+asyncpg://ir:secret@postgres:5432/instantreports` | PostgreSQL connection string |
-| `SECRET_KEY` | `change-me-in-production` | JWT secret key (change in production!) |
+| `SECRET_KEY` | (required) | JWT secret key — must be set to a strong value |
 | `LDAP_URL` | (empty) | LDAP server URL (e.g., `ldap://localhost:389`) |
 | `LDAP_BIND_DN` | (empty) | LDAP bind DN |
 | `LDAP_BIND_PASSWORD` | (empty) | LDAP bind password |
@@ -84,40 +81,20 @@ cp .env.example .env
 # Edit .env with your settings
 ```
 
-## Modes of Operation
-
-### Designer Mode (Default)
-
-The designer mode provides the web-based report designer UI, data source management, and admin features. In development mode (`SEPARATE_MODE=false`), it also runs the scheduler for testing.
-
-**Access:** `http://localhost:8000`
-
-### Runner Mode
-
-The runner mode is a headless scheduler that executes reports on schedule and delivers them. Use this for production deployments.
-
-```bash
-MODE=runner docker compose up --build
-```
-
-### Separate Mode (Production)
-
-For production, run designer and runner in separate containers:
-
-```bash
-# Designer container
-MODE=designer SEPARATE_MODE=true docker compose up designer
-
-# Runner container (separate process)
-MODE=runner SEPARATE_MODE=true docker compose up runner
-```
-
 ## Architecture
+
+The application runs as a single container with the scheduler embedded. The designer mode provides
+the web-based report designer UI, data source management, admin features, and scheduled report
+execution — all in one process.
+
+**Access:** `http://localhost:8080`
+
+## Project Structure
 
 ```
 InstantReports/
 ├── app/                    # Application code
-│   ├── main.py            # FastAPI app with mode-based routing
+│   ├── main.py            # FastAPI app with embedded scheduler
 │   ├── runner.py          # Scheduler entry point
 │   ├── config.py          # Pydantic settings
 │   ├── database.py        # SQLAlchemy async engine
@@ -138,8 +115,7 @@ InstantReports/
 ├── alembic/               # Database migrations
 ├── scripts/               # Utility scripts
 │   └── seed_admin.py      # Create initial admin user
-├── test-assets/           # Test server config + sample reports
-│   ├── mokapi/            # LDAP + SMTP test server
+├── test-assets/           # Sample reports
 │   └── sample_reports/    # Demo .ir.json report definitions
 └── docs/                  # Documentation
 ```
@@ -326,15 +302,15 @@ alembic upgrade head
 # Seed admin user
 python scripts/seed_admin.py
 
-# Start designer (with scheduler for dev)
-MODE=designer SEPARATE_MODE=false uvicorn app.main:app --reload
+# Start the application (scheduler runs embedded)
+uvicorn app.main:app --reload
 ```
 
 ### Running Tests
 
 ```bash
-# Start test services
-docker compose up -d postgres mokapi
+# Start test database
+docker compose up -d postgres
 
 # Run tests
 pytest
@@ -348,14 +324,6 @@ The admin user is created on first migration. If it doesn't exist:
 
 ```bash
 python scripts/seed_admin.py
-```
-
-### Scheduler not running in designer mode
-
-Set `SEPARATE_MODE=false` (default for development):
-
-```bash
-SEPARATE_MODE=false docker compose up --build
 ```
 
 ### AI features not working

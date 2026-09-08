@@ -71,7 +71,7 @@ async def login(
 
     access_token = create_access_token(data={"sub": user.email})
 
-    redirect_url = "/designer" if settings.MODE == "designer" else "/portal"
+    redirect_url = "/designer"
     response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
     response.set_cookie(
         key="access_token",
