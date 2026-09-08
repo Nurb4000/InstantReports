@@ -84,7 +84,7 @@ async def login(
     response.set_cookie(
         key="current_user_id",
         value=str(user.id),
-        httponly=False,
+        httponly=True,
         max_age=60 * 60 * 8,
         samesite="lax",
     )
