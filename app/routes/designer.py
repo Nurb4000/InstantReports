@@ -594,18 +594,43 @@ async def delete_report(
     return {"status": "ok"}
 
 
-def _build_report_export_data(report, current_user) -> dict:
+def _build_report_export_data(report, current_user, db=None) -> dict:
     """Build the export dict for a report definition.
 
     Pure function: no DB or HTTP state. Testable in isolation.
+    Includes connection templates so exports are self-contained.
     """
+    definition = report.definition or {}
+    
+    # Enrich data sources with connection templates
+    data_sources = definition.get("data_sources", [])
+    for ds in data_sources:
+        if "connection_id" in ds and db is not None:
+            from app.models.connection import DataConnection
+            from sqlalchemy import select
+            
+            result = db.execute(select(DataConnection).where(DataConnection.id == ds["connection_id"]))
+            conn = result.scalar_one_or_none()
+            
+            if conn:
+                # Create a template without sensitive info
+                ds["connection_template"] = {
+                    "name": conn.name,
+                    "connector_type": conn.connector_type,
+                    **{k: v for k, v in conn.config.items() if k not in ("password", "secret")},
+                }
+                # Remove the connection_id since we're embedding the template
+                del ds["connection_id"]
+    
+    definition["data_sources"] = data_sources
+    
     return {
         "instantreports_export": True,
         "version": "1.0",
         "report": {
             "name": report.name,
             "description": report.description or "",
-            "definition": report.definition or {},
+            "definition": definition,
         },
         "exported_by": str(current_user.id),
         "exported_at": report.updated_at.isoformat() if report.updated_at else None,
@@ -628,7 +653,7 @@ async def export_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    export_data = _build_report_export_data(report, current_user)
+    export_data = _build_report_export_data(report, current_user, db)
 
     import tempfile
     fd, path = tempfile.mkstemp(suffix=".ir.json")
