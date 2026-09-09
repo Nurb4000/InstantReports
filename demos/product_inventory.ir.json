@@ -27,7 +27,7 @@
                             {
                                 "type": "table",
                                 "properties": {
-                                    "query": "SELECT p.product_id, p.product_name, c.category_name, p.unit_price, p.units_in_stock, p.reorder_level FROM products p JOIN categories c ON p.category_id = c.category_id ORDER BY c.category_name, p.product_name",
+                                    "query": "SELECT p.product_id, p.product_name, c.category_name, p.price FROM products p JOIN categories c ON p.category_id = c.category_id ORDER BY c.category_name, p.product_name",
                                     "showHeader": true
                                 }
                             }
@@ -74,7 +74,7 @@
                 {"table": "products", "field": "unit_price", "type": "numeric"},
                 {"table": "products", "field": "units_in_stock", "type": "integer"}
             ],
-            "query": "SELECT p.product_name, c.category_name, p.unit_price, p.units_in_stock FROM products p JOIN categories c ON p.category_id = c.category_id"
+            "query": "SELECT p.product_name, c.category_name, p.price FROM products p JOIN categories c ON p.category_id = c.category_id"
         }
     },
     "exported_by": "admin",
