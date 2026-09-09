@@ -407,9 +407,39 @@ async def import_report(
     logger.info(f"Importing report with {len(data_sources)} data sources")
     for ds in data_sources:
         template = ds.get("connection_template")
-        if template and "connection_id" not in ds:
-            logger.info(f"Processing connection template for {ds.get('name', 'unknown')}")
-            # Create a default connection for this template
+        
+        # If no template but has connection_id, try to find or create connection
+        if not template and "connection_id" in ds:
+            from app.models.connection import DataConnection
+            import uuid as uuid_module
+            
+            # Check if the referenced connection exists
+            existing = await db.execute(
+                select(DataConnection).where(DataConnection.id == ds["connection_id"])
+            )
+            conn = existing.scalar_one_or_none()
+            
+            if not conn:
+                logger.info(f"Referenced connection {ds['connection_id']} not found, creating new")
+                # Create a default connection based on connector_type
+                conn = DataConnection(
+                    id=uuid_module.uuid4(),
+                    name=ds.get("name", "Imported Connection"),
+                    connector_type=ds.get("connector_type", "postgresql"),
+                    config={
+                        "host": "postgres",
+                        "port": 5432,
+                        "database": "northwind",
+                        "user": "northwind",
+                    },
+                    created_by=current_user.id,
+                )
+                db.add(conn)
+                await db.commit()
+                ds["connection_id"] = str(conn.id)
+                logger.info(f"Created new connection: {conn.id}")
+        # If has template, create or reuse connection
+        elif template:
             from app.models.connection import DataConnection
             import uuid as uuid_module
             
@@ -430,15 +460,12 @@ async def import_report(
                         "port": template.get("port", 5432),
                         "database": template.get("database", ""),
                         "user": template.get("user", ""),
-                        # Password not stored - user must configure it
                     },
                     created_by=current_user.id,
                 )
                 db.add(conn)
                 await db.commit()
                 logger.info(f"Created connection: {conn.id}")
-            else:
-                logger.info(f"Reusing existing connection: {conn.name}")
             
             # Update the data source with the connection ID
             ds["connection_id"] = str(conn.id)
@@ -543,7 +570,8 @@ async def toggle_report_status(
         raise HTTPException(status_code=404, detail="Report not found")
 
     # Only allow editing your own reports (unless admin)
-    if not current_user.role.value == "admin" and report.created_by != current_user.id:
+    user_role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+    if user_role != "admin" and report.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to modify this report")
 
     report.is_active = is_active
