@@ -112,6 +112,123 @@ async def preview_temp(
         raise HTTPException(status_code=400, detail=f"Invalid definition: {e!s}")
 
 
+def _build_section_html(section_type: str, section_name: str, elements_html: str, hide_name: bool) -> str:
+    """Build the HTML for a single report section (header + body)."""
+    header_html = ""
+    if not hide_name:
+        header_html = f'''            <div class="section-header" style="background: #f8f9fa; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">
+                {section_name}
+            </div>
+        '''
+    return f'''
+        <div class="report-section section-{section_type.lower()}" style="page-break-inside: avoid; margin-bottom: 20px; border: 1px solid #ddd; padding: 10px;">
+            {header_html}
+            <div class="section-body" style="padding: 10px;">
+                {elements_html if elements_html else '<div style="color: #999; font-style: italic;">No elements in this section</div>'}
+            </div>
+        </div>
+        '''
+
+
+def _build_page_html(title: str, description: str, sections_html: str) -> str:
+    """Assemble the final HTML page with header, sections, and footer."""
+    page_html = '''<!DOCTYPE html>
+<html>
+<head>
+    <title>Preview: REPORT_TITLE</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .report-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .report-header {
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .report-description {
+            color: #666;
+            margin-top: 5px;
+        }
+        .report-section {
+            background: white;
+        }
+        .section-header {
+            background: #e9ecef;
+        }
+        .section-detail .section-header {
+            background: #f8f9fa;
+        }
+        .section-summary .section-header {
+            background: #e2e3e5;
+        }
+        .section-footer .section-header {
+            background: #dee2e6;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        @media print {
+            body { background: white; }
+            .report-container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <div class="report-header">
+            <h1 class="report-title">REPORT_TITLE</h1>
+            REPORT_DESCRIPTION
+        </div>
+        
+        <div class="report-body">
+            SECTIONS_HTML
+        </div>
+        
+        <div class="report-footer" style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; color: #999; font-size: 12px;">
+            Preview Mode - Showing sample data
+        </div>
+    </div>
+</body>
+</html>'''
+    
+    page_html = page_html.replace("REPORT_TITLE", title)
+    if description:
+        page_html = page_html.replace("REPORT_DESCRIPTION", f'<p class="report-description">{html.escape(description)}</p>')
+    else:
+        page_html = page_html.replace("REPORT_DESCRIPTION", "")
+    page_html = page_html.replace("SECTIONS_HTML", sections_html)
+    
+    return page_html
+
+
 async def render_report_with_data(definition: dict, title: str, description: str = "", db=None) -> str:
     """Render a report definition to HTML with actual data from database."""
     
@@ -484,119 +601,10 @@ async def render_report_with_data(definition: dict, title: str, description: str
                 '''
         
         hide_name = section.get("hide_name", False)
-        header_html = ""
-        if not hide_name:
-            header_html = f'''            <div class="section-header" style="background: #f8f9fa; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">
-                {section_name}
-            </div>
-        '''
-        section_html = f'''
-        <div class="report-section section-{section_type.lower()}" style="page-break-inside: avoid; margin-bottom: 20px; border: 1px solid #ddd; padding: 10px;">
-            {header_html}
-            <div class="section-body" style="padding: 10px;">
-                {elements_html if elements_html else '<div style="color: #999; font-style: italic;">No elements in this section</div>'}
-            </div>
-        </div>
-        '''
+        section_html = _build_section_html(section_type, section_name, elements_html, hide_name)
         sections_html += section_html
     
-    # Build HTML
-    page_html = '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Preview: REPORT_TITLE</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .report-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .report-header {
-            border-bottom: 2px solid #333;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-        .report-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0;
-        }
-        .report-description {
-            color: #666;
-            margin-top: 5px;
-        }
-        .report-section {
-            background: white;
-        }
-        .section-header {
-            background: #e9ecef;
-        }
-        .section-detail .section-header {
-            background: #f8f9fa;
-        }
-        .section-summary .section-header {
-            background: #e2e3e5;
-        }
-        .section-footer .section-header {
-            background: #dee2e6;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background: #f8f9fa;
-            font-weight: bold;
-        }
-        tr:nth-child(even) {
-            background: #f9f9f9;
-        }
-        @media print {
-            body { background: white; }
-            .report-container { box-shadow: none; }
-        }
-    </style>
-</head>
-<body>
-    <div class="report-container">
-        <div class="report-header">
-            <h1 class="report-title">REPORT_TITLE</h1>
-            REPORT_DESCRIPTION
-        </div>
-        
-        <div class="report-body">
-            SECTIONS_HTML
-        </div>
-        
-        <div class="report-footer" style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; color: #999; font-size: 12px;">
-            Preview Mode - Showing sample data
-        </div>
-    </div>
-</body>
-</html>'''
-    
-    # Replace placeholders
-    page_html = page_html.replace("REPORT_TITLE", title)
-    if description:
-        page_html = page_html.replace("REPORT_DESCRIPTION", f'<p class="report-description">{description}</p>')
-    else:
-        page_html = page_html.replace("REPORT_DESCRIPTION", "")
-    page_html = page_html.replace("SECTIONS_HTML", sections_html)
-    
-    return page_html
+    return _build_page_html(title, description, sections_html)
 
 
 @router.websocket("/ws/{report_id}")
