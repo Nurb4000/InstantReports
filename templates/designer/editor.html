@@ -786,49 +786,49 @@
             // Make sections sortable via their drag handle (drag-reorder on canvas)
             initSectionSortable(canvas);
 
-            canvas.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                // Highlight the section being hovered over
+        canvas.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            // Highlight the section being hovered over
+            const section = e.target.closest('.section-preview');
+            if (section) {
+                document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
+                section.style.borderColor = '#3498db';
+            } else if (e.target.closest('.section-body')) {
                 const section = e.target.closest('.section-preview');
                 if (section) {
                     document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
                     section.style.borderColor = '#3498db';
-                } else if (e.target.closest('.section-body')) {
-                    const section = e.target.closest('.section-preview');
-                    if (section) {
-                        document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
-                        section.style.borderColor = '#3498db';
-                    }
                 }
-            });
+            }
+        });
 
-            canvas.addEventListener('dragleave', function(e) {
-                const rect = canvas.getBoundingClientRect();
-                if (e.clientX < rect.left || e.clientX >= rect.right || e.clientY < rect.top || e.clientY >= rect.bottom) {
-                    document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
-                }
-            });
-
-            canvas.addEventListener('drop', function(e) {
-                e.preventDefault();
-                // Reset all borders
+        canvas.addEventListener('dragleave', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX >= rect.right || e.clientY < rect.top || e.clientY >= rect.bottom) {
                 document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
-                
-                const elementType = e.dataTransfer.getData('text/plain');
-                
-                // Handle dropping elements from palette onto sections
-                if (elementType && ['text', 'image', 'table', 'chart', 'crosstab', 'subreport'].includes(elementType)) {
-                    // Find which section was dropped on
-                    const sectionPreview = e.target.closest('.section-preview');
-                    if (sectionPreview) {
-                        const sectionIndex = parseInt(sectionPreview.dataset.sectionIndex);
-                        addElementToCanvas(elementType, sectionIndex);
-                    } else {
-                        // Drop on canvas itself - add to last section or create new one
-                        addElementToCanvas(elementType);
-                    }
+            }
+        });
+
+        canvas.addEventListener('drop', function(e) {
+            e.preventDefault();
+            // Reset all borders
+            document.querySelectorAll('.section-preview').forEach(s => s.style.borderColor = '#dee2e6');
+            
+            const elementType = e.dataTransfer.getData('text/plain');
+            
+            // Handle dropping elements from palette onto sections
+            if (elementType && ['text', 'image', 'table', 'chart', 'crosstab', 'subreport'].includes(elementType)) {
+                // Find which section was dropped on
+                const sectionPreview = e.target.closest('.section-preview');
+                if (sectionPreview) {
+                    const sectionIndex = parseInt(sectionPreview.dataset.sectionIndex);
+                    addElementToCanvas(elementType, sectionIndex);
+                } else {
+                    // Drop on canvas itself - add to last section or create new one
+                    addElementToCanvas(elementType);
                 }
-            });
+            }
+        });
 
             {% if report %}
             loadVersions('{{ report.id }}');
@@ -2007,7 +2007,6 @@
             const detail = logError('Error saving connection', e);
             showEditorToast('Error saving connection: ' + detail, 'error', 0);
         }
-    }
     }
 
     function showNewConnectionForm() {
