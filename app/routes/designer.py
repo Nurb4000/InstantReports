@@ -529,6 +529,24 @@ async def delete_report(
     return {"status": "ok"}
 
 
+def _build_report_export_data(report, current_user) -> dict:
+    """Build the export dict for a report definition.
+
+    Pure function: no DB or HTTP state. Testable in isolation.
+    """
+    return {
+        "instantreports_export": True,
+        "version": "1.0",
+        "report": {
+            "name": report.name,
+            "description": report.description or "",
+            "definition": report.definition or {},
+        },
+        "exported_by": str(current_user.id),
+        "exported_at": report.updated_at.isoformat() if report.updated_at else None,
+    }
+
+
 @router.get("/reports/{report_id}/export")
 async def export_report(
     report_id: uuid.UUID,
@@ -545,17 +563,7 @@ async def export_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    export_data = {
-        "instantreports_export": True,
-        "version": "1.0",
-        "report": {
-            "name": report.name,
-            "description": report.description or "",
-            "definition": report.definition or {},
-        },
-        "exported_by": str(current_user.id),
-        "exported_at": report.updated_at.isoformat() if report.updated_at else None,
-    }
+    export_data = _build_report_export_data(report, current_user)
 
     import tempfile
     fd, path = tempfile.mkstemp(suffix=".ir.json")
