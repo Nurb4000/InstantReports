@@ -79,8 +79,8 @@ async def lifespan(app: FastAPI):
                     name="Northwind (local)",
                     connector_type="postgresql",
                     config={
-                        "host": "localhost",
-                        "port": 5434,
+                        "host": "postgres",
+                        "port": 5432,
                         "database": "northwind",
                         "user": "northwind",
                         "password": "northwind",

@@ -14,8 +14,8 @@
           "connector_type": "postgresql",
           "connection_template": {
             "name": "Northwind (local)",
-            "host": "localhost",
-            "port": 5433,
+            "host": "postgres",
+            "port": 5432,
             "database": "northwind",
             "user": "northwind"
           },
