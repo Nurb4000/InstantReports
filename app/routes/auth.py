@@ -49,23 +49,27 @@ async def get_current_user_optional(
         return None
 
 
-@router.post("/login")
+@router.post("/login", response_class=HTMLResponse)
 async def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
-) -> Any:
+):
     user = await authenticate_user(db, email, password)
 
     if not user:
         user = await authenticate_ldap_user(db, email, password)
 
     if not user:
-        raise HTTPException(
+        # Render login page with error message instead of JSON
+        return request.app.state.templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": "Incorrect email or password",
+            },
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token = create_access_token(data={"sub": user.email})
