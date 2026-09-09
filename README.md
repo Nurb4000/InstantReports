@@ -252,11 +252,7 @@ When importing a report:
 2. You must manually enter passwords/secrets when prompted
 3. If a connection with the same name already exists, it will be reused
 
-**Note:** Sample reports reference a northwind test database on port 5434. To run them:
-```bash
-docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
-```
-This starts a separate postgres instance with sample data. Update the connection details in your imported reports to match your environment.
+**Note:** Sample reports reference the northwind database which is now created automatically on the main postgres instance (port 5433). No additional setup required.
 
 ### Security Note
 
