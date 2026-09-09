@@ -48,8 +48,8 @@ class ReportDiffEngine:
             for _ in old_idx[len(new_idx):]:
                 changes["sections_removed"].append(section_type)
 
-        old_ds = {ds["id"]: ds for ds in old_def.get("data_sources", [])}
-        new_ds = {ds["id"]: ds for ds in new_def.get("data_sources", [])}
+        old_ds = {ds.get("id", id(ds)): ds for ds in old_def.get("data_sources", [])}
+        new_ds = {ds.get("id", id(ds)): ds for ds in new_def.get("data_sources", [])}
 
         for ds_id in set(old_ds.keys()) | set(new_ds.keys()):
             if ds_id not in old_ds and ds_id in new_ds:
