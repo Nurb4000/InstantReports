@@ -408,7 +408,14 @@ async def import_report(
     for ds in data_sources:
         template = ds.get("connection_template")
         
-        # If has connection_id, try to find existing connection first
+        # Determine connection name to look for
+        conn_name = None
+        if template and template.get("name"):
+            conn_name = template["name"]
+        elif ds.get("name"):
+            conn_name = ds["name"]
+        
+        # First, try to find by connection_id
         if "connection_id" in ds:
             from app.models.connection import DataConnection
             
@@ -418,51 +425,41 @@ async def import_report(
             conn = existing.scalar_one_or_none()
             
             if conn:
-                logger.info(f"Reusing existing connection: {conn.name}")
-                # Update the name if needed
-                if template and template.get("name"):
-                    conn.name = template["name"]
-                    await db.commit()
+                logger.info(f"Reusing connection by ID: {conn.name}")
+                ds["connection_id"] = str(conn.id)
                 continue
         
-        # If no template or connection not found, create new one
-        if not template:
-            template = {
-                "name": ds.get("name", "Imported Connection"),
-                "connector_type": ds.get("connector_type", "postgresql"),
-                "host": "postgres",
-                "port": 5432,
-                "database": "northwind",
-                "user": "northwind",
-            }
-        
-        # Check if connection with same name already exists
-        existing = await db.execute(
-            select(DataConnection).where(DataConnection.name == template.get("name"))
-        )
-        conn = existing.scalar_one_or_none()
-        
-        if not conn:
-            import uuid as uuid_module
-            logger.info(f"Creating new connection: {template.get('name')}")
-            conn = DataConnection(
-                id=uuid_module.uuid4(),
-                name=template.get("name", "Imported Connection"),
-                connector_type=template.get("connector_type", "postgresql"),
-                config={
-                    "host": template.get("host", "localhost"),
-                    "port": template.get("port", 5432),
-                    "database": template.get("database", ""),
-                    "user": template.get("user", ""),
-                },
-                created_by=current_user.id,
+        # Then, try to find by name
+        if conn_name:
+            existing = await db.execute(
+                select(DataConnection).where(DataConnection.name == conn_name)
             )
-            db.add(conn)
-            await db.commit()
-            logger.info(f"Created connection: {conn.id}")
+            conn = existing.scalar_one_or_none()
+            
+            if conn:
+                logger.info(f"Reusing connection by name: {conn.name}")
+                ds["connection_id"] = str(conn.id)
+                continue
         
-        # Update the data source with the connection ID
+        # Create new connection
+        import uuid as uuid_module
+        logger.info(f"Creating new connection: {conn_name or 'Imported Connection'}")
+        conn = DataConnection(
+            id=uuid_module.uuid4(),
+            name=conn_name or "Imported Connection",
+            connector_type=template.get("connector_type", ds.get("connector_type", "postgresql")) if template else ds.get("connector_type", "postgresql"),
+            config={
+                "host": template.get("host", "postgres") if template else "postgres",
+                "port": template.get("port", 5432) if template else 5432,
+                "database": template.get("database", "northwind") if template else "northwind",
+                "user": template.get("user", "northwind") if template else "northwind",
+            },
+            created_by=current_user.id,
+        )
+        db.add(conn)
+        await db.commit()
         ds["connection_id"] = str(conn.id)
+        logger.info(f"Created connection: {conn.id}")
 
     report = Report(
         name=name,
