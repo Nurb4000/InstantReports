@@ -539,6 +539,8 @@ async def list_schedules(
     result = await db.execute(query.limit(100))
     schedules = result.scalars().all()
 
+    from app.services.reports.preview_summary import generate_report_preview_summary
+
     return [
         {
             "id": str(s.id),
@@ -555,6 +557,7 @@ async def list_schedules(
             "owner_name": s.owner.name if s.owner else "Unknown",
             "is_active": s.is_active,
             "created_at": s.created_at.isoformat() if s.created_at else None,
+            "preview_summary": generate_report_preview_summary(s.report.definition if s.report else None),
         }
         for s in schedules
     ]
