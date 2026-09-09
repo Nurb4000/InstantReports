@@ -176,6 +176,22 @@ class PDFExporter:
         headers = [col.get("header", col.get("field", "")) for col in columns]
         table_data = [headers] + [[str(row.get(col.get("field", ""), "")) for col in columns] for row in data]
 
+        table_style = self._build_table_style(data, columns)
+
+        table = Table(table_data)
+        table.setStyle(table_style)
+
+        story.append(table)
+        story.append(Spacer(1, 0.25 * inch))
+
+    def _build_table_style(
+        self, data: list[dict[str, Any]], columns: list[dict[str, Any]]
+    ) -> TableStyle:
+        """Build a TableStyle with default styling and conditional formatting.
+
+        Pure helper: takes data and columns, returns a configured TableStyle.
+        Testable without a story list or reportlab canvas.
+        """
         table_style = TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
@@ -186,40 +202,50 @@ class PDFExporter:
             ("GRID", (0, 0), (-1, -1), 1, colors.black),
         ])
         self._apply_conditional_formatting(table_style, data, columns)
-
-        table = Table(table_data)
-        table.setStyle(table_style)
-
-        story.append(table)
-        story.append(Spacer(1, 0.25 * inch))
+        return table_style
 
     @staticmethod
-    def _apply_conditional_formatting(table_style: TableStyle, data: list[dict[str, Any]], columns: list[dict[str, Any]]) -> None:
-        """Append conditional-formatting directives to a table style."""
+    def _compute_conditional_formatting(
+        data: list[dict[str, Any]], columns: list[dict[str, Any]]
+    ) -> list[tuple]:
+        """Compute conditional-formatting directives for a table.
+
+        Pure helper: returns a list of (command, start, end, value) tuples that
+        can be applied to any TableStyle. Testable without reportlab imports.
+        """
+        directives: list[tuple] = []
+
         for row_idx, row in enumerate(data):
             formatting = row.get("formatting") or {}
             row_format = formatting.get("row") or {}
             base_row = row_idx + 1  # row 0 is the header
 
             if row_format:
-                if row_format.get("background"):
-                    table_style.add("BACKGROUND", (0, base_row), (-1, base_row), colors.HexColor(row_format["background"]))
-                if row_format.get("color"):
-                    table_style.add("TEXTCOLOR", (0, base_row), (-1, base_row), colors.HexColor(row_format["color"]))
+                if bg := row_format.get("background"):
+                    directives.append(("BACKGROUND", (0, base_row), (-1, base_row), colors.HexColor(bg)))
+                if color := row_format.get("color"):
+                    directives.append(("TEXTCOLOR", (0, base_row), (-1, base_row), colors.HexColor(color)))
                 if row_format.get("bold"):
-                    table_style.add("FONTNAME", (0, base_row), (-1, base_row), "Helvetica-Bold")
+                    directives.append(("FONTNAME", (0, base_row), (-1, base_row), "Helvetica-Bold"))
 
             for col_idx, col in enumerate(columns):
                 field = col.get("field")
                 cell_format = formatting.get("cells", {}).get(field)
                 if not cell_format:
                     continue
-                if cell_format.get("background"):
-                    table_style.add("BACKGROUND", (col_idx, base_row), (col_idx, base_row), colors.HexColor(cell_format["background"]))
-                if cell_format.get("color"):
-                    table_style.add("TEXTCOLOR", (col_idx, base_row), (col_idx, base_row), colors.HexColor(cell_format["color"]))
+                if bg := cell_format.get("background"):
+                    directives.append(("BACKGROUND", (col_idx, base_row), (col_idx, base_row), colors.HexColor(bg)))
+                if color := cell_format.get("color"):
+                    directives.append(("TEXTCOLOR", (col_idx, base_row), (col_idx, base_row), colors.HexColor(color)))
                 if cell_format.get("bold"):
-                    table_style.add("FONTNAME", (col_idx, base_row), (col_idx, base_row), "Helvetica-Bold")
+                    directives.append(("FONTNAME", (col_idx, base_row), (col_idx, base_row), "Helvetica-Bold"))
+
+        return directives
+
+    def _apply_conditional_formatting(self, table_style: TableStyle, data: list[dict[str, Any]], columns: list[dict[str, Any]]) -> None:
+        """Apply conditional-formatting directives to a table style."""
+        for directive in self._compute_conditional_formatting(data, columns):
+            table_style.add(*directive)
 
     @staticmethod
     def _scaled_chart_image(chart_bytes: bytes, max_width: float = 480.0) -> Image:
