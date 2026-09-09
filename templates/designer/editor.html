@@ -1937,6 +1937,14 @@
             document.getElementById('nc-name').value = conn.name;
             loadConnectionFields();
             
+            // Populate config fields (host, port, database, user, etc.)
+            if (conn.config) {
+                Object.keys(conn.config).forEach(key => {
+                    const el = document.getElementById(`nc-${key}`);
+                    if (el) el.value = conn.config[key];
+                });
+            }
+            
             // Store the ID for update
             window.editingConnectionId = connId;
             
