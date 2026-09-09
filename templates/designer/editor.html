@@ -1938,8 +1938,10 @@
             loadConnectionFields();
             
             // Populate config fields (host, port, database, user, etc.)
+            // Skip password fields for security - user must re-enter to change
             if (conn.config) {
                 Object.keys(conn.config).forEach(key => {
+                    if (key === 'password' || key === 'secret') return;
                     const el = document.getElementById(`nc-${key}`);
                     if (el) el.value = conn.config[key];
                 });
