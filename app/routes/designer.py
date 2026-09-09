@@ -403,6 +403,9 @@ async def import_report(
     definition = report_data.get("definition", {"layout": {"sections": []}, "data_sources": [], "parameters": []})
 
     # Auto-create or reuse connections from templates
+    from app.models.connection import DataConnection
+    import uuid as uuid_module
+    
     data_sources = definition.get("data_sources", [])
     logger.info(f"Importing report with {len(data_sources)} data sources")
     for ds in data_sources:
@@ -417,8 +420,6 @@ async def import_report(
         
         # First, try to find by connection_id
         if "connection_id" in ds:
-            from app.models.connection import DataConnection
-            
             existing = await db.execute(
                 select(DataConnection).where(DataConnection.id == ds["connection_id"])
             )
@@ -443,7 +444,6 @@ async def import_report(
         
         # If no template and no name match, look for any postgresql connection
         if not template:
-            from app.models.connection import DataConnection
             existing = await db.execute(
                 select(DataConnection).where(DataConnection.connector_type == "postgresql").limit(1)
             )
@@ -455,7 +455,6 @@ async def import_report(
                 continue
         
         # Create new connection
-        import uuid as uuid_module
         logger.info(f"Creating new connection: {conn_name or 'Imported Connection'}")
         conn = DataConnection(
             id=uuid_module.uuid4(),
