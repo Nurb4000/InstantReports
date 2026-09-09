@@ -153,26 +153,38 @@ function resetFilters() {
 }
 
 async function importReport(event) {
+    console.log('importReport called');
     const file = event.target.files[0];
-    if (!file) return;
+    if (!file) {
+        console.log('No file selected');
+        return;
+    }
+
+    console.log('File selected:', file.name);
 
     const formData = new FormData();
     formData.append('file', file);
 
     try {
+        console.log('Sending import request...');
         const response = await fetch('/designer/reports/import', {
             method: 'POST',
             body: formData,
         });
+        console.log('Response status:', response.status);
 
         if (response.ok || (response.status >= 300 && response.status < 400)) {
-            window.location.href = response.headers.get('location') || '/designer/reports';
+            const location = response.headers.get('location');
+            console.log('Redirecting to:', location || '/designer/reports');
+            window.location.href = location || '/designer/reports';
         } else {
             let detail = 'Unknown error';
             try { detail = (await response.json()).detail || detail; } catch { detail = 'Import failed'; }
+            console.log('Import failed:', detail);
             showToast('Import failed: ' + detail, 'error', 0);
         }
     } catch (err) {
+        console.error('Import error:', err);
         showToast('Import error: ' + (err.message || err), 'error', 0);
     }
 
