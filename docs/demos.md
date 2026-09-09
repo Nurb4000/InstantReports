@@ -270,6 +270,25 @@ curl -X POST http://localhost:8000/designer/reports/import \
 
 ---
 
+## Security Note: Credentials Not Exported
+
+**Important:** When exporting reports, connection credentials (passwords, API keys, secrets) are **NOT** included in the export file. Only connection metadata is exported:
+
+- ✅ Host, port, database name
+- ✅ Username (for display purposes)
+- ✅ Connector type
+- ❌ Passwords
+- ❌ API keys
+- ❌ Secrets
+
+When importing a report on another system, you will need to:
+1. Create the data connection with the correct credentials
+2. The imported report will reference the connection by name
+
+This is intentional for security — exported reports should never contain sensitive credentials.
+
+---
+
 ## Customization Guide
 
 ### Updating Database Connection

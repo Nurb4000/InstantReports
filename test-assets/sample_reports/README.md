@@ -104,6 +104,18 @@ Each sample report includes:
 
 ---
 
+## Security Note: Credentials Not Included
+
+These sample reports include connection templates (host, port, database, user) but **do not include passwords or secrets**. When you import these reports:
+
+1. The system will auto-create connections with the specified metadata
+2. You must manually enter passwords when prompted or via the connection editor
+3. Exported reports never contain credentials — only connection metadata
+
+This ensures reports can be shared safely without exposing sensitive connection information.
+
+---
+
 ## Report Definition Schema
 
 See the [InstantReports Documentation](../docs/) for the complete JSON schema reference.
