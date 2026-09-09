@@ -386,10 +386,12 @@ async def import_report(
     contents = await file.read()
     try:
         data = json.loads(contents)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in import: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON file")
 
     if not data.get("instantreports_export"):
+        logger.warning(f"Missing instantreports_export flag in import: {data.keys()}")
         raise HTTPException(status_code=400, detail="Not a valid InstantReports export file")
 
     report_data = data.get("report", {})
@@ -399,9 +401,11 @@ async def import_report(
 
     # Auto-create connections from templates if they don't exist
     data_sources = definition.get("data_sources", [])
+    logger.info(f"Importing report with {len(data_sources)} data sources")
     for ds in data_sources:
         template = ds.get("connection_template")
         if template and "connection_id" not in ds:
+            logger.info(f"Processing connection template for {ds.get('name', 'unknown')}")
             # Create a default connection for this template
             from app.models.connection import DataConnection
             import uuid as uuid_module
@@ -413,6 +417,7 @@ async def import_report(
             conn = existing.scalar_one_or_none()
             
             if not conn:
+                logger.info(f"Creating new connection: {template.get('name')}")
                 conn = DataConnection(
                     id=uuid_module.uuid4(),
                     name=template.get("name", "Imported Connection"),
@@ -428,6 +433,9 @@ async def import_report(
                 )
                 db.add(conn)
                 await db.commit()
+                logger.info(f"Created connection: {conn.id}")
+            else:
+                logger.info(f"Reusing existing connection: {conn.name}")
             
             # Update the data source with the connection ID
             ds["connection_id"] = str(conn.id)
