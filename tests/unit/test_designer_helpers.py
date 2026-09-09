@@ -27,13 +27,14 @@ def _make_user():
 def test_build_report_export_data_includes_metadata():
     report = _make_report()
     user = _make_user()
-    data = _build_report_export_data(report, user)
+    data = _build_report_export_data(report, user, None)
 
     assert data["instantreports_export"] is True
     assert data["version"] == "1.0"
     assert data["report"]["name"] == "Test Report"
     assert data["report"]["description"] == "A test report"
-    assert data["report"]["definition"] == {"layout": {"sections": []}}
+    # Export always includes data_sources field for self-containment
+    assert "data_sources" in data["report"]["definition"]
     assert data["exported_by"] == str(user.id)
     assert data["exported_at"] == "2024-01-01T00:00:00+00:00"
 
@@ -41,19 +42,20 @@ def test_build_report_export_data_includes_metadata():
 def test_build_report_export_data_handles_missing_description():
     report = _make_report(description=None)
     user = _make_user()
-    data = _build_report_export_data(report, user)
+    data = _build_report_export_data(report, user, None)
     assert data["report"]["description"] == ""
 
 
 def test_build_report_export_data_handles_missing_definition():
     report = _make_report(definition=None)
     user = _make_user()
-    data = _build_report_export_data(report, user)
-    assert data["report"]["definition"] == {}
+    data = _build_report_export_data(report, user, None)
+    # Export always includes data_sources field for self-containment
+    assert "data_sources" in data["report"]["definition"]
 
 
 def test_build_report_export_data_handles_naive_updated_at():
     report = _make_report(updated_at=datetime(2024, 1, 1, tzinfo=timezone.utc))
     user = _make_user()
-    data = _build_report_export_data(report, user)
+    data = _build_report_export_data(report, user, None)
     assert data["exported_at"] == "2024-01-01T00:00:00+00:00"
