@@ -22,15 +22,36 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-create tables on startup if they don't exist (dev convenience)
+    # Auto-create tables and seed admin user on startup (dev convenience)
     try:
         engine = create_async_engine(app_settings.DATABASE_URL)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         await engine.dispose()
         logger.info("Database tables ensured (created if missing)")
+
+        # Seed admin user if not exists
+        from app.auth import hash_password
+        from app.database import async_session_factory
+        from app.models.user import AuthSource, User, UserRole
+        from sqlalchemy import select
+
+        async with async_session_factory() as db:
+            result = await db.execute(select(User).where(User.email == "admin@example.com"))
+            if not result.scalar_one_or_none():
+                admin = User(
+                    email="admin@example.com",
+                    name="Admin",
+                    password_hash=hash_password("admin"),
+                    role=UserRole.ADMIN,
+                    auth_source=AuthSource.LOCAL,
+                    is_active=True,
+                )
+                db.add(admin)
+                await db.commit()
+                logger.info("Seeded admin user (admin@example.com / admin)")
     except Exception as e:
-        logger.warning(f"Could not auto-create tables: {e}")
+        logger.warning(f"Could not auto-seed database: {e}")
     yield
 
 
