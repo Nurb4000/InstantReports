@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.ext.asyncio import create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings as app_settings
@@ -20,6 +21,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Auto-create tables on startup if they don't exist (dev convenience)
+    try:
+        engine = create_async_engine(app_settings.DATABASE_URL)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+        logger.info("Database tables ensured (created if missing)")
+    except Exception as e:
+        logger.warning(f"Could not auto-create tables: {e}")
     yield
 
 
