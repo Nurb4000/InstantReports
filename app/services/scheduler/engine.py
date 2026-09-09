@@ -30,26 +30,6 @@ def is_past_one_shot(schedule) -> bool:
     return run_at is not None and run_at < datetime.now(timezone.utc)
 
 
-async def log_audit(db, action: str, report_id: uuid.UUID | None = None, schedule_id: uuid.UUID | None = None, details: dict | None = None, output_id: uuid.UUID | None = None):
-    """Log an audit event to the database."""
-    from app.database import get_db
-    from app.models.connection import AuditLog
-    
-    async for db_session in get_db():
-        audit_entry = AuditLog(
-            id=uuid.uuid4(),
-            report_id=report_id,
-            schedule_id=schedule_id,
-            action=action,
-            details=details or {},
-            output_id=output_id,
-            executed_at=datetime.now(timezone.utc),
-        )
-        db_session.add(audit_entry)
-        await db_session.commit()
-        break
-
-
 class ReportScheduler:
     """APScheduler-based scheduler for report execution."""
 

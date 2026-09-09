@@ -5,9 +5,15 @@ points at the shared northwind database, then exercise the scheduled-export
 data path (``_fetch_element_data`` -> ``ReportRenderer`` -> PDF exporter) to
 prove live data flows through end to end. They skip automatically when the
 remote database is unreachable so CI stays green without it.
+
+The connection details are read from environment variables (``NORTHWIND_HOST``,
+``NORTHWIND_PORT``, …) so the same tests can target either the remote anchor
+(``10.0.1.33``) or a local ``docker compose`` northwind service on
+``localhost:5434``.
 """
 from __future__ import annotations
 
+import os
 import uuid
 
 import pandas as pd
@@ -18,12 +24,13 @@ from app.runner import _fetch_element_data
 from app.services.engine.renderer import ReportRenderer
 from app.services.exporters.pdf import PDFExporter
 
+_NW = "northwind"
 NORTHWIND = {
-    "host": "10.0.1.33",
-    "port": 5432,
-    "database": "northwind",
-    "user": "northwind",
-    "password": "northwind",
+    "host": os.environ.get("NORTHWIND_HOST", "10.0.1.33"),
+    "port": int(os.environ.get("NORTHWIND_PORT", "5432")),
+    "database": os.environ.get("NORTHWIND_DATABASE", _NW),
+    "user": os.environ.get("NORTHWIND_USER", _NW),
+    "password": os.environ.get("NORTHWIND_PASSWORD", _NW),
     "schema": "public",
     "connector_type": "postgresql",
 }
@@ -53,7 +60,8 @@ def _northwind_reachable() -> bool:
 
 
 requires_northwind = pytest.mark.skipif(
-    not _northwind_reachable(), reason="northwind PostgreSQL (10.0.1.33) unreachable"
+    not _northwind_reachable(),
+    reason=f"northwind PostgreSQL ({NORTHWIND['host']}:{NORTHWIND['port']}) unreachable",
 )
 
 

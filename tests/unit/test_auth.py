@@ -1,9 +1,13 @@
 """Unit tests for authentication."""
 
+import sys
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
+    authenticate_ldap_user,
     create_access_token,
     decode_access_token,
     hash_password,
@@ -130,3 +134,35 @@ class TestUserModel:
         result = await db_session.execute(select(User))
         users = result.scalars().all()
         assert len(users) == 3
+
+
+class TestLdapAuthLogging:
+    """LDAP auth failures must be logged, not swallowed silently.
+
+    Regression: the bare `except Exception: return None` in
+    ``authenticate_ldap_user`` made an LDAP server timeout indistinguishable
+    from a wrong password — admins could not diagnose connectivity issues
+    from the login UI.
+    """
+
+    @pytest.mark.asyncio
+    async def test_ldap_exception_is_logged(self):
+        """An exception inside authenticate_ldap_user must call logger.error."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        mock_logger = MagicMock()
+
+        fake_ldap3 = MagicMock()
+        fake_ldap3.Server.side_effect = RuntimeError("DNS failed")
+
+        with (
+            patch("app.auth.logger", mock_logger),
+            patch("app.auth.settings", MagicMock(LDAP_URL="ldaps://broken:636", LDAP_SEARCH_BASE="dc=fake")),
+            patch.dict(sys.modules, {"ldap3": fake_ldap3}),
+        ):
+            result = await authenticate_ldap_user(mock_db, "user@example.com", "pass")
+
+        assert result is None
+        mock_logger.error.assert_called_once()
+        call_args = mock_logger.error.call_args
+        assert call_args[0][0] == "LDAP authentication failed for %s: %s"
+        assert call_args[0][1] == "user@example.com"

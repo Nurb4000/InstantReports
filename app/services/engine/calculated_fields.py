@@ -146,8 +146,9 @@ class CalculatedFieldEvaluator:
         for match in matches:
             col = match.strip()
             if col in df.columns:
-                # Replace with pandas column access
-                replacement = f"df['{col}']"
+                # Replace with pandas column access, escaping single quotes in column names
+                escaped_col = col.replace("'", r"\'")
+                replacement = f"df['{escaped_col}']"
                 processed = processed.replace(f"{{{{{match}}}}}", replacement)
             else:
                 # Keep as-is (might be a constant or function call)

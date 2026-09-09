@@ -9,7 +9,6 @@ from sqlalchemy import desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.database import get_db
 from app.models.connection import Schedule
 from app.models.user import User
@@ -18,19 +17,9 @@ from app.services.exporters import normalize_output_format
 
 router = APIRouter()
 
+from app.routes._auth_helpers import check_role, get_auth_source_value, get_role_value
 
-def get_role_value(user):
-    """Safely get role value from user (handles Enum or string)."""
-    if hasattr(user.role, 'value'):
-        return user.role.value
-    return user.role
-
-
-def get_auth_source_value(user):
-    """Safely get auth_source value from user (handles Enum or string)."""
-    if hasattr(user.auth_source, 'value'):
-        return user.auth_source.value
-    return user.auth_source
+__all__ = ["check_role", "get_auth_source_value", "get_role_value"]
 
 
 _SECRET_KEYS = frozenset({"password", "secret"})
@@ -64,8 +53,7 @@ async def admin_users(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
 ):
-    role = get_role_value(current_user) if hasattr(current_user.role, 'value') else current_user.role
-    if not current_user or role != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return request.app.state.templates.TemplateResponse(
@@ -79,8 +67,7 @@ async def admin_schedules(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
 ):
-    role = get_role_value(current_user) if hasattr(current_user.role, 'value') else current_user.role
-    if not current_user or role not in ("admin", "designer"):
+    if not current_user or get_role_value(current_user) not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return request.app.state.templates.TemplateResponse(
@@ -99,8 +86,7 @@ async def admin_audit_log(
     current_user: User | None = Depends(get_current_user_optional),
     limit: int = Query(50, ge=1, le=200),
 ):
-    role = get_role_value(current_user) if hasattr(current_user.role, 'value') else current_user.role
-    if not current_user or role != "admin":
+    if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
     return request.app.state.templates.TemplateResponse(

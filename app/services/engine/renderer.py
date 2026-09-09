@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import pandas as pd
 
 from app.services.engine.conditional_formatting import ConditionalFormatter
+
+logger = logging.getLogger(__name__)
 
 
 class ReportRenderer:
@@ -225,7 +228,8 @@ class ReportRenderer:
                 margins_name="Total",
             )
             data = pivot_df.reset_index().to_dict(orient="records")
-        except Exception:
+        except Exception as exc:
+            logger.error("Crosstab pivot failed for element %s: %s", element_label or "unknown", exc)
             data = []
 
         return {

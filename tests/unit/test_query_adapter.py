@@ -89,6 +89,30 @@ async def test_execute_sqlite_query_and_limit(seeded_db):
     assert len(limited) == 2
 
 
+async def test_execute_sqlite_duplicate_column_names(seeded_db):
+    """Duplicate column names in the result set must all survive materialization.
+
+    Regression: ``dict(zip(names, row))`` silently drops duplicate keys (last
+    value wins), so a query like ``SELECT id, id+1 AS id FROM products`` would
+    lose the second ``id`` column. The adapter now disambiguates as
+    ``id``, ``id_2``, ``id_3``, … so every selected column is reachable.
+    """
+    rows = await execute_query(
+        "sqlite",
+        {"database": seeded_db},
+        "SELECT id, id AS id, id+10 AS id FROM products ORDER BY id LIMIT 3",
+    )
+    assert len(rows) == 3
+    # First column keeps the original name; duplicates are suffixed.
+    assert "id" in rows[0]
+    assert "id_2" in rows[0]
+    assert "id_3" in rows[0]
+    # Values must come from the correct columns, not be collapsed.
+    assert rows[0]["id"] == 1
+    assert rows[0]["id_2"] == 1
+    assert rows[0]["id_3"] == 11
+
+
 async def test_execute_unsupported_connector_raises():
     with pytest.raises(ValueError):
         await execute_query("oracle", {}, "SELECT 1")

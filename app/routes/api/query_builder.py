@@ -60,7 +60,7 @@ async def _require_template_access(db, template, current_user):
     created — matching the report/version scoping so users cannot read or delete
     other teams' saved query templates (their query_config holds raw SQL).
     """
-    from app.routes.admin import get_role_value
+    from app.routes._auth_helpers import get_role_value
 
     if get_role_value(current_user) == "admin" or template.created_by == current_user.id:
         return
@@ -222,7 +222,7 @@ async def list_query_templates(
     db: AsyncSession = Depends(get_db),
 ):
     """List saved query templates, optionally filtered by connection."""
-    from app.routes.admin import get_role_value
+    from app.routes._auth_helpers import get_role_value
 
     query = select(QueryTemplate)
 

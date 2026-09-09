@@ -264,6 +264,28 @@ async def fetch_mysql_schema(config: dict[str, Any]) -> SchemaResponse:
 # --------------------------------------------------------------------------- #
 # Execution
 # --------------------------------------------------------------------------- #
+def _resolve_column_names(names: list[str]) -> list[str]:
+    """Disambiguate duplicate column names in a result set.
+
+    When a query selects the same column from multiple tables (e.g.
+    ``SELECT a.id, b.id``), the cursor description returns duplicate names and
+    ``dict(zip(names, row))`` silently drops all but the last value. This
+    function qualifies collisions as ``name_2``, ``name_3``, … so every column
+    survives in the output.
+    """
+    resolved: list[str] = []
+    counts: dict[str, int] = {}
+    for name in names:
+        if name not in counts:
+            counts[name] = 0
+        counts[name] += 1
+        if counts[name] == 1:
+            resolved.append(name)
+        else:
+            resolved.append(f"{name}_{counts[name]}")
+    return resolved
+
+
 async def execute_query(
     connector_type: str,
     config: dict[str, Any],
@@ -285,7 +307,11 @@ async def execute_query(
         )
         try:
             rows = await conn.fetch(sql)
-            return [dict(r) for r in rows]
+            if not rows:
+                return []
+            raw_names = list(rows[0].keys())
+            names = _resolve_column_names(raw_names)
+            return [dict(zip(names, tuple(r))) for r in rows]
         finally:
             await conn.close()
 
@@ -298,7 +324,8 @@ async def execute_query(
         conn = await aiosqlite.connect(path)
         try:
             cur = await conn.execute(sql)
-            names = [d[0] for d in cur.description] if cur.description else []
+            raw_names = [d[0] for d in cur.description] if cur.description else []
+            names = _resolve_column_names(raw_names)
             rows = await cur.fetchall()
             result = [dict(zip(names, r)) for r in rows]
             if limit is not None:
@@ -318,7 +345,8 @@ async def execute_query(
         )
         try:
             cur = await conn.execute(sql)
-            names = [d[0] for d in cur.description] if cur.description else []
+            raw_names = [d[0] for d in cur.description] if cur.description else []
+            names = _resolve_column_names(raw_names)
             rows = await cur.fetchall()
             result = [dict(zip(names, r)) for r in rows]
             if limit is not None:

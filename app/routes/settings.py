@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.config import settings
 from app.models.user import User
+from app.routes._auth_helpers import get_role_value
 from app.routes.auth import get_current_user_optional
 from app.services.delivery.email import send_email
 
@@ -123,10 +124,3 @@ async def test_email(
             raise HTTPException(status_code=500, detail="Failed to send test email")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Email test failed: {e!s}")
-
-
-def get_role_value(user):
-    """Safely get role value from user (handles Enum or string)."""
-    if hasattr(user.role, 'value'):
-        return user.role.value
-    return user.role

@@ -46,7 +46,7 @@ async def preview_report(
         raise HTTPException(status_code=404, detail="Report not found")
 
     # Check authorization
-    from app.routes.admin import get_role_value
+    from app.routes._auth_helpers import get_role_value
     role = get_role_value(current_user)
     if role not in ("admin", "designer") and report.created_by != current_user.id:
         # Non-designers can only preview their own reports
@@ -87,7 +87,7 @@ async def preview_temp(
     # Arbitrary-query preview tool: restrict to admin/designer so low-privilege
     # users cannot submit a definition whose element queries execute against an
     # application data-source connection. Mirrors the role gate in preview_report.
-    from app.routes.admin import get_role_value
+    from app.routes._auth_helpers import get_role_value
 
     if get_role_value(current_user) not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")

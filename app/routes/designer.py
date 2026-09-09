@@ -27,7 +27,7 @@ from app.database import get_db
 # Import app for static file serving
 from app.models.report import Report, ReportTemplate
 from app.models.user import User
-from app.routes.admin import get_role_value
+from app.routes._auth_helpers import check_role, get_role_value
 from app.routes.auth import get_current_user_optional
 from app.services.report.definition import normalize_report_definition
 
@@ -38,10 +38,7 @@ router = APIRouter()
 
 def _check_role(user, *allowed):
     """Check if user has one of the allowed roles."""
-    if not user:
-        return False
-    role = get_role_value(user)
-    return role in allowed
+    return check_role(user, *allowed)
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -261,39 +261,6 @@ class TestReportRenderer:
 class TestDataProcessor:
     """Test data processing."""
 
-    def test_filter_data_equals(self):
-        """Should filter data with equals operator."""
-        processor = DataProcessor()
-        df = pd.DataFrame({"name": ["Alice", "Bob", "Charlie"], "score": [90, 85, 95]})
-        
-        filters = [{"field": "name", "operator": "==", "value": "Bob"}]
-        result = processor.filter_data(df, filters)
-        
-        assert len(result) == 1
-        assert result.iloc[0]["name"] == "Bob"
-
-    def test_filter_data_greater_than(self):
-        """Should filter data with greater than operator."""
-        processor = DataProcessor()
-        df = pd.DataFrame({"name": ["Alice", "Bob"], "score": [90, 85]})
-        
-        filters = [{"field": "score", "operator": ">", "value": 87}]
-        result = processor.filter_data(df, filters)
-        
-        assert len(result) == 1
-        assert result.iloc[0]["name"] == "Alice"
-
-    def test_filter_data_contains(self):
-        """Should filter data with contains operator."""
-        processor = DataProcessor()
-        df = pd.DataFrame({"name": ["Alice Smith", "Bob Jones", "Charlie Brown"]})
-        
-        filters = [{"field": "name", "operator": "contains", "value": "Smith"}]
-        result = processor.filter_data(df, filters)
-        
-        assert len(result) == 1
-        assert result.iloc[0]["name"] == "Alice Smith"
-
     def test_process_adds_calculated_fields(self):
         """Should append calculated fields defined at the report level."""
         processor = DataProcessor()
@@ -526,6 +493,26 @@ class TestConditionalFormatterOperators:
         df = pd.DataFrame({"revenue": [100, 200], "cost": [50, 100]})
         result = evaluator.evaluate(malicious, df)
         assert list(result) == [None, None]
+
+    def test_process_expression_escapes_single_quotes_in_column_names(self):
+        """Column names containing single quotes must be escaped so the generated
+        df['col'] reference does not produce a syntax error in the AST evaluator.
+
+        Regression: _process_expression built `df['O'Brien']` verbatim, which the
+        AST parser rejected as a syntax error and the evaluator returned all-None.
+        """
+        processor = DataProcessor()
+        df = pd.DataFrame({"O'Brien": [10, 20], "cost": [1, 2]})
+
+        definition = {
+            "calculated_fields": [
+                {"name": "profit", "expression": "{{ O'Brien }} - {{ cost }}"},
+            ],
+        }
+
+        result = processor.process(df, definition)
+
+        assert list(result["profit"]) == [9, 18]
 
 
 class TestElementRenderers:

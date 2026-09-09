@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -10,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.user import AuthSource, User
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -138,7 +141,8 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
         await db.refresh(new_user)
         return new_user
 
-    except Exception:
+    except Exception as e:
+        logger.error("LDAP authentication failed for %s: %s", email, e)
         return None
 
 

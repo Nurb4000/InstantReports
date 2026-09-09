@@ -64,32 +64,3 @@ class DataProcessor:
             df = df.groupby(group_by, as_index=False).agg(aggregations)
 
         return df
-
-    def filter_data(
-        self, df: pd.DataFrame, filters: list[dict[str, Any]]
-    ) -> pd.DataFrame:
-        """Apply filters to a DataFrame."""
-        for f in filters:
-            field = f.get("field")
-            operator = f.get("operator", "==")
-            value = f.get("value")
-
-            if field not in df.columns:
-                continue
-
-            if operator == "==":
-                df = df[df[field] == value]
-            elif operator == "!=":
-                df = df[df[field] != value]
-            elif operator == ">":
-                df = df[df[field] > value]
-            elif operator == ">=":
-                df = df[df[field] >= value]
-            elif operator == "<":
-                df = df[df[field] < value]
-            elif operator == "<=":
-                df = df[df[field] <= value]
-            elif operator == "contains":
-                df = df[df[field].astype(str).str.contains(str(value), case=False, na=False)]
-
-        return df
