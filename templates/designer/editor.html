@@ -1026,6 +1026,7 @@
                         </div>
                         <p>${v.commit_message}</p>
                         <div class="btn-group btn-group-sm">
+                            <a href="${v.compare_url}" class="btn btn-outline-info">Compare</a>
                             <button class="btn btn-outline-primary" onclick="viewVersion('${reportId}', ${v.version_number})">View</button>
                             <button class="btn btn-outline-success" onclick="restoreVersion('${reportId}', ${v.version_number})">Restore</button>
                         </div>
