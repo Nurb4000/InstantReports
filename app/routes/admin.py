@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -12,40 +11,14 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.connection import Schedule
 from app.models.user import User
+from app.routes._auth_helpers import check_role, get_auth_source_value, get_role_value
 from app.routes.auth import get_current_user_optional
+from app.services.delivery.config import build_delivery_config, redact_delivery_config
 from app.services.exporters import normalize_output_format
 
 router = APIRouter()
 
-from app.routes._auth_helpers import check_role, get_auth_source_value, get_role_value
-
 __all__ = ["check_role", "get_auth_source_value", "get_role_value"]
-
-
-_SECRET_KEYS = frozenset({"password", "secret"})
-
-
-def redact_delivery_config(config: dict | None) -> dict | None:
-    """Return a copy of a delivery config with secret fields redacted.
-
-    Read endpoints (list/get schedule) must not echo plaintext SFTP/SMB
-    ``password`` or webhook ``secret`` back to callers; the create/update flows
-    still accept them for storage, but responses should never surface them.
-    """
-    if not config:
-        return config
-
-    def _walk(value: Any) -> Any:
-        if isinstance(value, dict):
-            return {
-                key: ("***REDACTED***" if key in _SECRET_KEYS else _walk(val))
-                for key, val in value.items()
-            }
-        if isinstance(value, list):
-            return [_walk(item) for item in value]
-        return value
-
-    return _walk(config)
 
 
 @router.get("/users", response_class=HTMLResponse)
@@ -165,40 +138,26 @@ async def create_schedule(
             ),
         )
 
-    # Parse recipient emails
-    emails = [e.strip() for e in recipient_emails.split(",") if e.strip()] if recipient_emails else []
-
     # Use owner_id if provided, otherwise default to the creating user (admin)
     schedule_owner_id = uuid.UUID(owner_id) if owner_id else current_user.id
 
     # Build delivery config based on type
-    delivery_config = {
-        "type": delivery_type,
-        "emails": emails if delivery_type == "email" else [],
-    }
-
-    # Add SFTP/SMB/Webhook specific config if provided
-    if delivery_type == "sftp":
-        delivery_config.update({
-            "host": sftp_host or "",
-            "port": int(sftp_port) if sftp_port else 22,
-            "username": sftp_username or "",
-            "password": sftp_password or "",
-            "remote_path": sftp_remote_path or "/",
-        })
-    elif delivery_type == "smb":
-        delivery_config.update({
-            "server": smb_server or "",
-            "share": smb_share or "",
-            "username": smb_username or "",
-            "password": smb_password or "",
-            "remote_path": smb_remote_path or "/",
-        })
-    elif delivery_type == "webhook":
-        delivery_config.update({
-            "url": webhook_url or "",
-            "secret": webhook_secret or "",
-        })
+    delivery_config = build_delivery_config(
+        delivery_type,
+        emails=recipient_emails or "",
+        sftp_host=sftp_host,
+        sftp_port=sftp_port,
+        sftp_username=sftp_username,
+        sftp_password=sftp_password,
+        sftp_remote_path=sftp_remote_path,
+        smb_server=smb_server,
+        smb_share=smb_share,
+        smb_username=smb_username,
+        smb_password=smb_password,
+        smb_remote_path=smb_remote_path,
+        webhook_url=webhook_url,
+        webhook_secret=webhook_secret,
+    )
 
     if not report_id:
         raise HTTPException(status_code=400, detail="report_id is required")
@@ -401,35 +360,25 @@ async def update_schedule(
         schedule.delivery_type = delivery_type
         
         # Build delivery config based on type
-        delivery_config = {"type": delivery_type}
-        
-        if delivery_type == "email":
-            emails = [e.strip() for e in (recipient_emails or "").split(",") if e.strip()] if recipient_emails else []
-            delivery_config["emails"] = emails
-            schedule.recipient_emails = recipient_emails
-        elif delivery_type == "sftp":
-            delivery_config.update({
-                "host": sftp_host,
-                "port": int(sftp_port) if sftp_port else 22,
-                "username": sftp_username,
-                "password": sftp_password,
-                "remote_path": sftp_remote_path or "/",
-            })
-        elif delivery_type == "smb":
-            delivery_config.update({
-                "server": smb_server,
-                "share": smb_share,
-                "username": smb_username,
-                "password": smb_password,
-                "remote_path": smb_remote_path or "/",
-            })
-        elif delivery_type == "webhook":
-            delivery_config.update({
-                "url": webhook_url,
-                "secret": webhook_secret,
-            })
-        
+        delivery_config = build_delivery_config(
+            delivery_type,
+            emails=recipient_emails or "",
+            sftp_host=sftp_host,
+            sftp_port=sftp_port,
+            sftp_username=sftp_username,
+            sftp_password=sftp_password,
+            sftp_remote_path=sftp_remote_path,
+            smb_server=smb_server,
+            smb_share=smb_share,
+            smb_username=smb_username,
+            smb_password=smb_password,
+            smb_remote_path=smb_remote_path,
+            webhook_url=webhook_url,
+            webhook_secret=webhook_secret,
+        )
         schedule.delivery_config = delivery_config
+        if delivery_type == "email":
+            schedule.recipient_emails = recipient_emails
     if parsed_owner_id:
         schedule.owner_id = parsed_owner_id
     if active_value is not None:
