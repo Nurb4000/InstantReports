@@ -3,6 +3,8 @@ from __future__ import annotations
 import html
 import logging
 import uuid
+from dataclasses import dataclass, field
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -27,6 +29,30 @@ router = APIRouter()
 
 TABLE_ROW_LIMIT = settings.PREVIEW_TABLE_ROW_LIMIT
 CHART_ROW_LIMIT = settings.PREVIEW_CHART_ROW_LIMIT
+
+
+@dataclass
+class _PreviewContext:
+    """Shared state for preview rendering: connector, db session, definition."""
+
+    connector: Any = None
+    connection_config: dict | None = None
+    db: AsyncSession | None = None
+    definition: dict = field(default_factory=dict)
+    log: logging.Logger = field(default_factory=lambda: logger)
+
+
+def _build_label_html(elem_label: str, hide_label: bool) -> str:
+    """Build the label div HTML for a report element.
+
+    Returns an empty string when the label is blank or hidden.
+    """
+    if not elem_label or hide_label:
+        return ""
+    return (
+        f'<div class="element-label" style="font-weight: bold; margin-bottom: 5px; '
+        f'color: #333; font-size: 14px;">{html.escape(str(elem_label))}</div>'
+    )
 
 
 @router.get("/preview/{report_id}")
@@ -268,14 +294,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
             elem_label = element.get("label", "")
             hide_label = element.get("hide_label", False)
             
-            # Build label HTML if custom label exists and not hidden
-            label_html = ""
-            if elem_label and not hide_label:
-                label_html = f'''
-                <div class="element-label" style="font-weight: bold; margin-bottom: 5px; color: #333; font-size: 14px;">
-                    {html.escape(str(elem_label))}
-                </div>
-                '''
+            label_html = _build_label_html(elem_label, hide_label)
             
             if elem_type == "text":
                 content = props.get("content", "")

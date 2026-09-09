@@ -1,7 +1,7 @@
 """Tests for preview HTML assembly helpers."""
 from __future__ import annotations
 
-from app.routes.preview import _build_page_html, _build_section_html
+from app.routes.preview import _build_label_html, _build_page_html, _build_section_html
 
 
 def test_build_section_html_includes_elements():
@@ -35,3 +35,24 @@ def test_build_page_html_handles_empty_description():
     html = _build_page_html("Title", "", "<sections/>")
     assert "REPORT_DESCRIPTION" not in html
     assert "<sections/>" in html
+
+
+def test_build_label_html_includes_escaped_label():
+    html = _build_label_html("My Label", False)
+    assert 'class="element-label"' in html
+    assert "My Label" in html
+
+
+def test_build_label_html_escapes_html():
+    html = _build_label_html("<script>alert(1)</script>", False)
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_build_label_html_returns_empty_when_hidden():
+    assert _build_label_html("Label", True) == ""
+
+
+def test_build_label_html_returns_empty_when_blank():
+    assert _build_label_html("", False) == ""
+    assert _build_label_html(None, False) == ""
