@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -138,6 +138,7 @@ class ReportScheduler:
             trigger=trigger,
             id=job_id,
             args=[job_id],  # APScheduler 3.x passes only these to the job fn
+            kwargs={"retry_count": 0, "max_retries": 1},
             replace_existing=True,
             misfire_grace_time=3600,
             coalesce=True,
@@ -165,6 +166,9 @@ class ReportScheduler:
         Runs inside APScheduler's event loop; opens its own DB session and
         delegates to ``runner.execute_report`` via a lazy import to avoid a
         circular dependency at module load time.
+
+        Implements automatic retry on transient failures (up to MAX_RETRIES).
+        After exhausting retries, sends a failure notification.
         """
         from app.runner import execute_report
 
@@ -183,6 +187,10 @@ class ReportScheduler:
         from app.database import async_session_factory
         from app.models.connection import Schedule
 
+        # Track retry count via job metadata (APSCHEDULER_JOB_ARGS/kwargs)
+        retry_count = kwargs.get("retry_count", 0)
+        max_retries = kwargs.get("max_retries", 1)
+
         async with async_session_factory() as db:
             result = await db.execute(
                 select(Schedule).where(Schedule.id == schedule_id)
@@ -196,23 +204,38 @@ class ReportScheduler:
                 if output is not None:
                     await _deliver_scheduled(output, schedule_id, db)
             except Exception as exc:
-                logger.error("Report execution failed for schedule %s: %s", schedule_id, exc)
-                # Wire up the failure-notification feature (backlog #9): email the
-                # configured SMTP address when a scheduled run raises. It was
-                # implemented in app.services.cleanup but never called, so scheduled
-                # failures were logged but nobody was notified. Imported lazily to
-                # keep this module's load path decoupled from the cleanup/delivery
-                # stack. A notification failure is logged, not raised, so it cannot
-                # mask the original execution error.
-                from app.services.cleanup import send_failure_notification
-
-                try:
-                    await send_failure_notification(schedule.name, str(exc))
-                except Exception as notify_exc:
-                    logger.error(
-                        "Failed to send failure notification for schedule %s: %s",
-                        schedule_id, notify_exc,
+                retry_count += 1
+                if retry_count < max_retries:
+                    # Re-schedule with incremented retry count
+                    logger.warning(
+                        "Report execution failed for schedule %s (attempt %d/%d): %s. Retrying...",
+                        schedule_id, retry_count, max_retries, exc,
                     )
+                    self.scheduler.reschedule_job(
+                        job_id=str(schedule_id),
+                        trigger="date",
+                        run_date=datetime.now(timezone.utc) + timedelta(seconds=30),
+                        args=args,
+                        kwargs={**kwargs, "retry_count": retry_count, "max_retries": max_retries},
+                    )
+                else:
+                    logger.error("Report execution failed for schedule %s after %d retries: %s", schedule_id, max_retries, exc)
+                    # Wire up the failure-notification feature (backlog #9): email the
+                    # configured SMTP address when a scheduled run raises. It was
+                    # implemented in app.services.cleanup but never called, so scheduled
+                    # failures were logged but nobody was notified. Imported lazily to
+                    # keep this module's load path decoupled from the cleanup/delivery
+                    # stack. A notification failure is logged, not raised, so it cannot
+                    # mask the original execution error.
+                    from app.services.cleanup import send_failure_notification
+
+                    try:
+                        await send_failure_notification(schedule.name, str(exc))
+                    except Exception as notify_exc:
+                        logger.error(
+                            "Failed to send failure notification for schedule %s: %s",
+                            schedule_id, notify_exc,
+                        )
 
 
 async def _deliver_scheduled(
