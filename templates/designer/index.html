@@ -214,7 +214,6 @@ async function toggleReportStatus(reportId, isActive) {
         showToast('Error: ' + (err.message || err), 'error', 0);
     }
 }
-}
 
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
