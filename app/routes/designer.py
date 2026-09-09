@@ -30,6 +30,7 @@ from app.models.user import User
 from app.routes._auth_helpers import check_role, get_role_value
 from app.routes.auth import get_current_user_optional
 from app.services.report.definition import normalize_report_definition
+from app.services.versioning import save_version
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,37 @@ router = APIRouter()
 def _check_role(user, *allowed):
     """Check if user has one of the allowed roles."""
     return check_role(user, *allowed)
+
+
+def _parse_definition_field(definition: str | None, default: dict) -> dict:
+    """Parse the definition form field, returning a dict.
+
+    Handles JSON strings from the designer editor and falls back to the
+    default empty definition on parse failure.
+    """
+    if not definition:
+        return default
+    try:
+        parsed = json.loads(definition) if isinstance(definition, str) else definition
+        return parsed or default
+    except json.JSONDecodeError:
+        logger.warning("Invalid definition JSON")
+        return default
+
+
+def _build_commit_message(user, custom_message: str | None, action: str) -> str:
+    """Build a version commit message from user + optional custom message.
+
+    Args:
+        user: The current user (may be None).
+        custom_message: Optional custom commit message from the form.
+        action: Past-tense action verb (e.g. "Created", "Updated").
+    """
+    if custom_message and custom_message.strip():
+        name = user.name if user else "Unknown"
+        return f"{name} ({custom_message.strip()})"
+    name = user.name if user else "system"
+    return f"{action} by {name}"
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -423,19 +455,11 @@ async def create_report(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    import json
-
     if not current_user or not _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    report_def = {"layout": {"sections": []}, "data_sources": [], "parameters": []}
-    if definition:
-        try:
-            parsed = json.loads(definition) if isinstance(definition, str) else definition
-            if parsed:
-                report_def = parsed
-        except json.JSONDecodeError:
-            logger.warning("Invalid definition JSON for new report")
+    default_def = {"layout": {"sections": []}, "data_sources": [], "parameters": []}
+    report_def = _parse_definition_field(definition, default_def)
 
     report = Report(
         name=name or "Untitled Report",
@@ -447,14 +471,7 @@ async def create_report(
     await db.commit()
     await db.refresh(report)
 
-    from app.services.versioning import save_version
-
-    # Use custom commit message if provided, otherwise use default
-    if commit_message and commit_message.strip():
-        commit_msg = f"{current_user.name} ({commit_message.strip()})" if current_user else commit_message.strip()
-    else:
-        commit_msg = f"Created by {current_user.name}" if current_user else "Created via designer"
-    
+    commit_msg = _build_commit_message(current_user, commit_message, "Created")
     await save_version(db, report.id, report.definition, commit_msg, current_user.id)
 
     return RedirectResponse(url=f"/designer/reports/{report.id}", status_code=status.HTTP_303_SEE_OTHER)
@@ -471,8 +488,6 @@ async def update_report(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    import json
-
     if not current_user or not _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -487,21 +502,10 @@ async def update_report(
     if description is not None:
         report.description = description
     if definition:
-        try:
-            parsed_definition = json.loads(definition) if isinstance(definition, str) else definition
-            if parsed_definition:
-                report.definition = parsed_definition
-        except json.JSONDecodeError:
-            logger.warning(f"Invalid definition JSON for report {report_id}")
+        parsed_definition = _parse_definition_field(definition, report.definition)
+        report.definition = parsed_definition
 
-    from app.services.versioning import save_version
-
-    # Use custom commit message if provided, otherwise use default
-    if commit_message and commit_message.strip():
-        commit_msg = f"{current_user.name} ({commit_message.strip()})" if current_user else commit_message.strip()
-    else:
-        commit_msg = f"Updated by {current_user.name}" if current_user else "Updated via designer"
-    
+    commit_msg = _build_commit_message(current_user, commit_message, "Updated")
     await save_version(db, report.id, report.definition, commit_msg, current_user.id)
 
     await db.commit()
