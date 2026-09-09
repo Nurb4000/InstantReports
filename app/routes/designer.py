@@ -402,73 +402,67 @@ async def import_report(
     description = report_data.get("description", "")
     definition = report_data.get("definition", {"layout": {"sections": []}, "data_sources": [], "parameters": []})
 
-    # Auto-create connections from templates if they don't exist
+    # Auto-create or reuse connections from templates
     data_sources = definition.get("data_sources", [])
     logger.info(f"Importing report with {len(data_sources)} data sources")
     for ds in data_sources:
         template = ds.get("connection_template")
         
-        # If no template but has connection_id, try to find or create connection
-        if not template and "connection_id" in ds:
+        # If has connection_id, try to find existing connection first
+        if "connection_id" in ds:
             from app.models.connection import DataConnection
-            import uuid as uuid_module
             
-            # Check if the referenced connection exists
             existing = await db.execute(
                 select(DataConnection).where(DataConnection.id == ds["connection_id"])
             )
             conn = existing.scalar_one_or_none()
             
-            if not conn:
-                logger.info(f"Referenced connection {ds['connection_id']} not found, creating new")
-                # Create a default connection based on connector_type
-                conn = DataConnection(
-                    id=uuid_module.uuid4(),
-                    name=ds.get("name", "Imported Connection"),
-                    connector_type=ds.get("connector_type", "postgresql"),
-                    config={
-                        "host": "postgres",
-                        "port": 5432,
-                        "database": "northwind",
-                        "user": "northwind",
-                    },
-                    created_by=current_user.id,
-                )
-                db.add(conn)
-                await db.commit()
-                ds["connection_id"] = str(conn.id)
-                logger.info(f"Created new connection: {conn.id}")
-        # If has template, create or reuse connection
-        elif template:
-            from app.models.connection import DataConnection
+            if conn:
+                logger.info(f"Reusing existing connection: {conn.name}")
+                # Update the name if needed
+                if template and template.get("name"):
+                    conn.name = template["name"]
+                    await db.commit()
+                continue
+        
+        # If no template or connection not found, create new one
+        if not template:
+            template = {
+                "name": ds.get("name", "Imported Connection"),
+                "connector_type": ds.get("connector_type", "postgresql"),
+                "host": "postgres",
+                "port": 5432,
+                "database": "northwind",
+                "user": "northwind",
+            }
+        
+        # Check if connection with same name already exists
+        existing = await db.execute(
+            select(DataConnection).where(DataConnection.name == template.get("name"))
+        )
+        conn = existing.scalar_one_or_none()
+        
+        if not conn:
             import uuid as uuid_module
-            
-            # Check if connection with same name already exists
-            existing = await db.execute(
-                select(DataConnection).where(DataConnection.name == template.get("name", "Imported Connection"))
+            logger.info(f"Creating new connection: {template.get('name')}")
+            conn = DataConnection(
+                id=uuid_module.uuid4(),
+                name=template.get("name", "Imported Connection"),
+                connector_type=template.get("connector_type", "postgresql"),
+                config={
+                    "host": template.get("host", "localhost"),
+                    "port": template.get("port", 5432),
+                    "database": template.get("database", ""),
+                    "user": template.get("user", ""),
+                },
+                created_by=current_user.id,
             )
-            conn = existing.scalar_one_or_none()
-            
-            if not conn:
-                logger.info(f"Creating new connection: {template.get('name')}")
-                conn = DataConnection(
-                    id=uuid_module.uuid4(),
-                    name=template.get("name", "Imported Connection"),
-                    connector_type=template.get("connector_type", ds.get("connector_type", "postgresql")),
-                    config={
-                        "host": template.get("host", "localhost"),
-                        "port": template.get("port", 5432),
-                        "database": template.get("database", ""),
-                        "user": template.get("user", ""),
-                    },
-                    created_by=current_user.id,
-                )
-                db.add(conn)
-                await db.commit()
-                logger.info(f"Created connection: {conn.id}")
-            
-            # Update the data source with the connection ID
-            ds["connection_id"] = str(conn.id)
+            db.add(conn)
+            await db.commit()
+            logger.info(f"Created connection: {conn.id}")
+        
+        # Update the data source with the connection ID
+        ds["connection_id"] = str(conn.id)
 
     report = Report(
         name=name,
