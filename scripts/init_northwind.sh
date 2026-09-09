@@ -4,8 +4,9 @@ set -e
 # This script runs after postgres initialization to seed the northwind database
 echo "Seeding northwind database..."
 
-# Create northwind database if it doesn't exist (must be done outside transaction)
-createdb -U "$POSTGRES_USER" -h localhost northwind 2>/dev/null || true
+# Create northwind database if it doesn't exist
+# Use psql with -c flag (not inside DO block) and ignore error if already exists
+psql -v ON_ERROR_STOP=0 --username "$POSTGRES_USER" --dbname "postgres" -c "CREATE DATABASE northwind;" 2>/dev/null || echo "Database may already exist"
 
 # Wait for northwind database to be available
 echo "Waiting for northwind database to be ready..."
