@@ -1938,12 +1938,18 @@
             loadConnectionFields();
             
             // Populate config fields (host, port, database, user, etc.)
-            // Skip password fields for security - user must re-enter to change
             if (conn.config) {
                 Object.keys(conn.config).forEach(key => {
-                    if (key === 'password' || key === 'secret') return;
                     const el = document.getElementById(`nc-${key}`);
-                    if (el) el.value = conn.config[key];
+                    if (el) {
+                        if (key === 'password' || key === 'secret') {
+                            // Show masked password if one exists
+                            el.value = conn.config[key] ? '****' : '';
+                            el.dataset.hasPassword = !!conn.config[key];
+                        } else {
+                            el.value = conn.config[key];
+                        }
+                    }
                 });
             }
             
@@ -1973,12 +1979,20 @@
         currentConnectorFields.forEach(f => {
             const el = document.getElementById(`nc-${f.name}`);
             if (el) {
-                // For password/secret fields, only include if user entered a new value
-                // Empty means "keep existing password" (for security)
-                if ((f.name === 'password' || f.name === 'secret') && !el.value) {
-                    return; // Skip empty passwords/secrets
+                if (f.name === 'password' || f.name === 'secret') {
+                    // If field shows **** and hasPassword is true, keep existing password
+                    if (el.value === '****' && el.dataset.hasPassword === 'true') {
+                        return; // Don't send anything - keep existing password
+                    }
+                    // If field is empty and no password was set, skip
+                    if (!el.value) {
+                        return;
+                    }
+                    // Otherwise, user entered a new password (or cleared it)
+                    config[f.name] = el.value === '****' ? '' : el.value;
+                } else {
+                    config[f.name] = el.value;
                 }
-                config[f.name] = el.value;
             }
         });
 
