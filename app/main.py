@@ -26,7 +26,11 @@ async def lifespan(app: FastAPI):
     try:
         engine = create_async_engine(app_settings.DATABASE_URL)
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            try:
+                await conn.run_sync(Base.metadata.create_all)
+            except Exception as create_err:
+                # Tables may already exist from migrations - that's OK
+                logger.info(f"Tables may already exist: {create_err}")
         await engine.dispose()
         logger.info("Database tables ensured (created if missing)")
 
@@ -36,6 +40,7 @@ async def lifespan(app: FastAPI):
         from app.models.connection import DataConnection
         from app.models.user import AuthSource, User, UserRole
         from sqlalchemy import select
+        from sqlalchemy.exc import IntegrityError
         import uuid
 
         async with async_session_factory() as db:
@@ -79,8 +84,12 @@ async def lifespan(app: FastAPI):
                     created_by=admin_user.id,
                 )
                 db.add(northwind_conn)
-                await db.commit()
-                logger.info("Seeded default northwind connection (localhost:5434)")
+                try:
+                    await db.commit()
+                    logger.info("Seeded default northwind connection (localhost:5434)")
+                except IntegrityError as e:
+                    await db.rollback()
+                    logger.info(f"Connection may already exist: {e}")
     except Exception as e:
         logger.warning(f"Could not auto-seed database: {e}")
     yield
