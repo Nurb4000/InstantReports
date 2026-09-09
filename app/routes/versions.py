@@ -4,7 +4,8 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,6 +74,7 @@ async def list_versions(
             "commit_message": v.commit_message,
             "created_by": str(v.created_by),
             "created_at": v.created_at.isoformat(),
+            "compare_url": f"/designer/reports/{report_id}/versions/{v.version_number}/compare",
         }
         for v in versions
     ]
@@ -306,3 +308,87 @@ async def diff_versions(
 
     diff = diff_engine.diff(version1.definition, version2.definition)
     return diff
+
+
+@router.get("/{report_id}/versions/{version_number}/compare")
+async def compare_version_with_current(
+    report_id: uuid.UUID,
+    version_number: int,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Compare a specific version with the current report definition.
+
+    Returns a structured comparison suitable for side-by-side UI rendering,
+    including summary stats and detailed section/data_source/parameter changes.
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    await _require_report_access(db, report_id, current_user)
+
+    from app.services.versioning.compare import compare_versions
+    from app.services.versioning.store import get_version as get_ver
+
+    version = await get_ver(db, report_id, version_number)
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Get current definition (from the report itself, not the latest version)
+    result = await db.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    comparison = compare_versions(version.definition, report.definition or {})
+    comparison["version_number"] = version_number
+    comparison["version_created_at"] = version.created_at.isoformat() if version.created_at else None
+    comparison["version_commit_message"] = version.commit_message
+
+    return comparison
+
+
+@router.get("/{report_id}/versions/{version_number}/compare", response_class=HTMLResponse)
+async def compare_version_page(
+    request: Request,
+    report_id: uuid.UUID,
+    version_number: int,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render the side-by-side version comparison page."""
+    if not current_user:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    await _require_report_access(db, report_id, current_user)
+
+    from app.services.versioning.compare import compare_versions
+    from app.services.versioning.store import get_version as get_ver
+
+    version = await get_ver(db, report_id, version_number)
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Get current definition (from the report itself, not the latest version)
+    result = await db.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    comparison = compare_versions(version.definition, report.definition or {})
+    comparison["version_number"] = version_number
+    comparison["version_created_at"] = version.created_at.isoformat() if version.created_at else None
+    comparison["version_commit_message"] = version.commit_message
+    comparison["report"] = {
+        "id": str(report.id),
+        "name": report.name,
+    }
+
+    return request.app.state.templates.TemplateResponse(
+        "designer/version_compare.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "comparison": comparison,
+        },
+    )

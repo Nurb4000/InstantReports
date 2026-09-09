@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Versions - {{ report.name }} - InstantReports{% endblock %}
+
+{% block extra_head %}
+<style>
+    .compare-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .compare-panel {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        background: white;
+    }
+    .compare-panel h3 {
+        margin-top: 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .compare-summary {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    .compare-summary .stat {
+        display: inline-block;
+        margin-right: 2rem;
+        padding: 0.5rem 1rem;
+        background: white;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+    .compare-summary .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        display: block;
+    }
+    .compare-summary .stat-value {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+    .change-added {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+    }
+    .change-removed {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+    .change-modified {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    .change-unchanged {
+        background: #f8f9fa;
+        border-left: 4px solid #6c757d;
+    }
+    .section-comparison {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .section-type-badge {
+        background: #007bff;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+    }
+    .change-indicator {
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    .change-indicator.added { color: #28a745; }
+    .change-indicator.removed { color: #dc3545; }
+    .change-indicator.modified { color: #ffc107; }
+    .property-change {
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+        background: white;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+    .property-name {
+        font-weight: bold;
+        color: #495057;
+    }
+    .property-old, .property-new {
+        font-family: monospace;
+        font-size: 0.9rem;
+        padding: 0.25rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+    .property-old { color: #dc3545; }
+    .property-new { color: #28a745; }
+    .no-changes {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+        font-style: italic;
+    }
+    .back-link {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="back-link">
+        <a href="/designer/reports/{{ report.id }}/versions" class="btn btn-outline-secondary">
+            ← Back to Versions
+        </a>
+    </div>
+
+    <h1>Compare Versions</h1>
+    <p class="text-muted">
+        Comparing version {{ comparison.version_number }} ({{ comparison.version_created_at }}) with current definition
+        {% if comparison.version_commit_message %}
+            <br><small>Commit: {{ comparison.version_commit_message }}</small>
+        {% endif %}
+    </p>
+
+    {% if comparison.summary.has_changes %}
+    <!-- Summary -->
+    <div class="compare-summary">
+        <h3>Summary</h3>
+        <div class="stat">
+            <span class="stat-label">Sections Added</span>
+            <span class="stat-value text-success">{{ comparison.summary.sections_added }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Sections Removed</span>
+            <span class="stat-value text-danger">{{ comparison.summary.sections_removed }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Sections Modified</span>
+            <span class="stat-value text-warning">{{ comparison.summary.sections_modified }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Data Sources Added</span>
+            <span class="stat-value text-success">{{ comparison.summary.data_sources_added }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Data Sources Removed</span>
+            <span class="stat-value text-danger">{{ comparison.summary.data_sources_removed }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Data Sources Modified</span>
+            <span class="stat-value text-warning">{{ comparison.summary.data_sources_modified }}</span>
+        </div>
+    </div>
+
+    <!-- Sections Comparison -->
+    <h2>Sections</h2>
+    {% for section in comparison.sections %}
+    <div class="section-comparison {% if section.status == 'added' %}change-added{% elif section.status == 'removed' %}change-removed{% elif section.changes %}change-modified{% else %}change-unchanged{% endif %}">
+        <div class="section-header">
+            <div>
+                <span class="section-type-badge">{{ section.type }}</span>
+                <span class="text-muted ms-2">Index: {{ section.index }}</span>
+            </div>
+            {% if section.status == 'added' %}
+                <span class="change-indicator added">✓ ADDED</span>
+            {% elif section.status == 'removed' %}
+                <span class="change-indicator removed">✗ REMOVED</span>
+            {% elif section.changes %}
+                <span class="change-indicator modified">~ MODIFIED ({{ section.changes|length }} changes)</span>
+            {% else %}
+                <span class="change-indicator unchanged">— UNCHANGED</span>
+            {% endif %}
+        </div>
+
+        {% if section.status == 'added' or section.status == 'removed' %}
+            <pre class="property-old">{{ section.old|default(section.new) | tojson(indent=2) }}</pre>
+        {% elif section.changes %}
+            {% for change in section.changes %}
+            <div class="property-change">
+                {% if change.type == 'property_changed' %}
+                    <div class="property-name">{{ change.property }}:</div>
+                    <div class="property-old">Old: {{ change.old }}</div>
+                    <div class="property-new">New: {{ change.new }}</div>
+                {% elif change.type == 'element_count_changed' %}
+                    <div class="property-name">Element Count:</div>
+                    <div class="property-old">Old: {{ change.old_count }}</div>
+                    <div class="property-new">New: {{ change.new_count }}</div>
+                {% elif change.type == 'element_modified' %}
+                    <div class="property-name">Element {{ change.index }}:</div>
+                    {% for elem_change in change.changes %}
+                        {% if elem_change.type == 'property_changed' %}
+                            <div class="property-old">Old {{ elem_change.property }}: {{ elem_change.old }}</div>
+                            <div class="property-new">New {{ elem_change.property }}: {{ elem_change.new }}</div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-changes">No changes</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Data Sources Comparison -->
+    {% if comparison.data_sources %}
+    <h2>Data Sources</h2>
+    {% for ds in comparison.data_sources %}
+    <div class="section-comparison {% if ds.status == 'added' %}change-added{% elif ds.status == 'removed' %}change-removed{% elif ds.status == 'modified' %}change-modified{% else %}change-unchanged{% endif %}">
+        <div class="section-header">
+            <div>
+                <span class="section-type-badge">Data Source</span>
+                <span class="text-muted ms-2">{{ ds.id }}</span>
+            </div>
+            {% if ds.status == 'added' %}
+                <span class="change-indicator added">✓ ADDED</span>
+            {% elif ds.status == 'removed' %}
+                <span class="change-indicator removed">✗ REMOVED</span>
+            {% elif ds.status == 'modified' %}
+                <span class="change-indicator modified">~ MODIFIED</span>
+            {% else %}
+                <span class="change-indicator unchanged">— UNCHANGED</span>
+            {% endif %}
+        </div>
+
+        {% if ds.status == 'added' or ds.status == 'removed' %}
+            <pre class="property-old">{{ ds.old|default(ds.new) | tojson(indent=2) }}</pre>
+        {% elif ds.changes %}
+            {% for change in ds.changes %}
+            <div class="property-change">
+                <div class="property-name">{{ change.path }}:</div>
+                {% if change.type == 'added' %}
+                    <div class="property-new">+ Added: {{ change.value }}</div>
+                {% elif change.type == 'removed' %}
+                    <div class="property-old">- Removed: {{ change.value }}</div>
+                {% elif change.type == 'modified' %}
+                    <div class="property-old">Old: {{ change.old }}</div>
+                    <div class="property-new">New: {{ change.new }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-changes">No changes</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Parameters Comparison -->
+    {% if comparison.parameters %}
+    <h2>Parameters</h2>
+    {% for param in comparison.parameters %}
+    <div class="section-comparison {% if param.status == 'added' %}change-added{% elif param.status == 'removed' %}change-removed{% elif param.status == 'modified' %}change-modified{% else %}change-unchanged{% endif %}">
+        <div class="section-header">
+            <div>
+                <span class="section-type-badge">Parameter</span>
+                <span class="text-muted ms-2">{{ param.name }}</span>
+            </div>
+            {% if param.status == 'added' %}
+                <span class="change-indicator added">✓ ADDED</span>
+            {% elif param.status == 'removed' %}
+                <span class="change-indicator removed">✗ REMOVED</span>
+            {% elif param.status == 'modified' %}
+                <span class="change-indicator modified">~ MODIFIED</span>
+            {% else %}
+                <span class="change-indicator unchanged">— UNCHANGED</span>
+            {% endif %}
+        </div>
+
+        {% if param.status == 'added' or param.status == 'removed' %}
+            <pre class="property-old">{{ param.old|default(param.new) | tojson(indent=2) }}</pre>
+        {% elif param.changes %}
+            {% for change in param.changes %}
+            <div class="property-change">
+                <div class="property-name">{{ change.path }}:</div>
+                {% if change.type == 'added' %}
+                    <div class="property-new">+ Added: {{ change.value }}</div>
+                {% elif change.type == 'removed' %}
+                    <div class="property-old">- Removed: {{ change.value }}</div>
+                {% elif change.type == 'modified' %}
+                    <div class="property-old">Old: {{ change.old }}</div>
+                    <div class="property-new">New: {{ change.new }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-changes">No changes</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% else %}
+    <!-- No changes -->
+    <div class="compare-summary text-center">
+        <h3>No Differences Found</h3>
+        <p class="text-muted">The selected version is identical to the current definition.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
