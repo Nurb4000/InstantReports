@@ -2063,46 +2063,6 @@
         }).join('');
     }
 
-    async function saveNewConnection() {
-        const type = document.getElementById('nc-type').value;
-        const name = document.getElementById('nc-name').value.trim();
-        if (!type || !name) {
-            showEditorToast('Please select a type and enter a name.', 'warn', 4000);
-            return;
-        }
-
-        const config = {};
-        currentConnectorFields.forEach(f => {
-            const el = document.getElementById(`nc-${f.name}`);
-            if (el) config[f.name] = el.value;
-        });
-
-        try {
-            const res = await fetch('/datasources/', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name, connector_type: type, config}),
-            });
-            if (!res.ok) throw new Error('Failed to create connection');
-            const data = await res.json();
-
-            allConnections.unshift({
-                id: data.id,
-                name: name,
-                connector_type: type,
-                created_at: new Date().toISOString(),
-            });
-
-            linkedConnectionIds.push(data.id);
-            hideNewConnectionForm();
-            renderConnectionsList();
-            showEditorToast('Connection created.', 'success', 4000);
-        } catch (e) {
-            const detail = logError('Error creating connection', e);
-            showEditorToast('Error creating connection: ' + detail, 'error', 0);
-        }
-    }
-
     async function testNewConnection() {
         const type = document.getElementById('nc-type').value;
         const name = document.getElementById('nc-name').value.trim();
