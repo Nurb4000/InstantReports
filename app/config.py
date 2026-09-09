@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     # DB so new/changed schedules take effect without a runner restart.
     SCHEDULE_SYNC_INTERVAL_SECONDS: int = 60
 
+    # Preview row limits: cap rows returned in preview/export to avoid memory
+    # issues with large datasets. Tables show up to this many rows; charts limit
+    # bars/slices to this count.
+    PREVIEW_TABLE_ROW_LIMIT: int = 50
+    PREVIEW_CHART_ROW_LIMIT: int = 10
+
     # Static files
     STATIC_DIR: Path = BASE_DIR / "static"
     TEMPLATES_DIR: Path = BASE_DIR / "templates"

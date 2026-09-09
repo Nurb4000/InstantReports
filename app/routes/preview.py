@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.report import Report
 from app.models.user import User
@@ -23,6 +24,9 @@ from app.routes.auth import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+TABLE_ROW_LIMIT = settings.PREVIEW_TABLE_ROW_LIMIT
+CHART_ROW_LIMIT = settings.PREVIEW_CHART_ROW_LIMIT
 
 
 @router.get("/preview/{report_id}")
@@ -316,7 +320,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
                             else:
                                 fields = [str(c) for c in df.columns]
                                 headers = list(fields)
-                            rows = df.head(50).to_dict('records')  # Limit to 50 rows
+                            rows = df.head(TABLE_ROW_LIMIT).to_dict('records')
 
                             # Apply conditional formatting rules if defined
                             formatting_rules = props.get("formatting_rules") or []
@@ -471,7 +475,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
                     # Bar chart (existing logic)
                     max_value = max([d.get(y_field, 0) for d in chart_data]) if y_field else 100
                     bars_html = ""
-                    for item in chart_data[:10]:
+                    for item in chart_data[:CHART_ROW_LIMIT]:
                         label = item.get(x_field, "N/A") if x_field else "N/A"
                         value = item.get(y_field, 0) if y_field else 0
                         bar_width = (value / max_value * 100) if max_value > 0 else 0
@@ -517,7 +521,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
                 if chart_data and len(chart_data) > 0:
                     max_value = max([d.get(y_field, 0) for d in chart_data]) if y_field else 100
                     bars_html = ""
-                    for item in chart_data[:10]:  # Limit to 10 bars
+                    for item in chart_data[:CHART_ROW_LIMIT]:
                         label = item.get(x_field, "N/A") if x_field else "N/A"
                         value = item.get(y_field, 0) if y_field else 0
                         bar_width = (value / max_value * 100) if max_value > 0 else 0
