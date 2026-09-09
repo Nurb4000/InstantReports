@@ -21,6 +21,51 @@ router = APIRouter()
 __all__ = ["check_role", "get_auth_source_value", "get_role_value"]
 
 
+def _parse_json_body(body: dict | None, form_fields: dict) -> dict:
+    """Merge JSON body fields into form fields, preferring JSON values.
+
+    When the request content-type is application/json, the body contains the
+    canonical values; form fields are the defaults from FastAPI's Form() params.
+    """
+    if not body:
+        return form_fields
+    merged = dict(form_fields)
+    for key in form_fields:
+        if key in body and body[key] is not None:
+            merged[key] = body[key]
+    return merged
+
+
+def _validate_output_format(output_format: str | None) -> str:
+    """Validate and normalize an output format string.
+
+    Raises HTTPException(400) on invalid values so schedules can't store
+    unsupported formats that would silently break at run time.
+    """
+    if not output_format:
+        return "pdf"
+    try:
+        return normalize_output_format(output_format)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid output_format: {output_format!r}. "
+                "Use one of: pdf, xlsx, csv, html."
+            ),
+        ) from e
+
+
+def _parse_optional_uuid(value: str | None) -> uuid.UUID | None:
+    """Safely parse a UUID string, returning None on failure."""
+    if not value:
+        return None
+    try:
+        return uuid.UUID(value)
+    except (ValueError, AttributeError):
+        return None
+
+
 @router.get("/users", response_class=HTMLResponse)
 async def admin_users(
     request: Request,
@@ -101,45 +146,46 @@ async def create_schedule(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Parse JSON body if content-type is application/json
+    form_fields = {
+        "report_id": report_id,
+        "name": name,
+        "cron_expression": cron_expression,
+        "timezone": timezone,
+        "output_format": output_format,
+        "delivery_type": delivery_type,
+        "recipient_emails": recipient_emails,
+        "owner_id": owner_id,
+        "sftp_host": sftp_host,
+        "sftp_port": sftp_port,
+        "sftp_username": sftp_username,
+        "sftp_password": sftp_password,
+        "sftp_remote_path": sftp_remote_path,
+        "smb_server": smb_server,
+        "smb_share": smb_share,
+        "smb_username": smb_username,
+        "smb_password": smb_password,
+        "smb_remote_path": smb_remote_path,
+        "webhook_url": webhook_url,
+        "webhook_secret": webhook_secret,
+    }
     if request.headers.get('content-type') == 'application/json':
         body = await request.json()
-        report_id = body.get('report_id', report_id)
-        name = body.get('name', name)
-        cron_expression = body.get('cron_expression', cron_expression)
-        timezone = body.get('timezone', timezone)
-        output_format = body.get('output_format', output_format)
-        delivery_type = body.get('delivery_type', delivery_type)
-        recipient_emails = body.get('recipient_emails', recipient_emails)
-        owner_id = body.get('owner_id', owner_id)
-        sftp_host = body.get('sftp_host', sftp_host)
-        sftp_port = body.get('sftp_port', sftp_port)
-        sftp_username = body.get('sftp_username', sftp_username)
-        sftp_password = body.get('sftp_password', sftp_password)
-        sftp_remote_path = body.get('sftp_remote_path', sftp_remote_path)
-        smb_server = body.get('smb_server', smb_server)
-        smb_share = body.get('smb_share', smb_share)
-        smb_username = body.get('smb_username', smb_username)
-        smb_password = body.get('smb_password', smb_password)
-        smb_remote_path = body.get('smb_remote_path', smb_remote_path)
-        webhook_url = body.get('webhook_url', webhook_url)
-        webhook_secret = body.get('webhook_secret', webhook_secret)
+        form_fields = _parse_json_body(body, form_fields)
+
+    # Unpack merged fields
+    (report_id, name, cron_expression, timezone, output_format, delivery_type,
+     recipient_emails, owner_id, sftp_host, sftp_port, sftp_username, sftp_password,
+     sftp_remote_path, smb_server, smb_share, smb_username, smb_password,
+     smb_remote_path, webhook_url, webhook_secret) = (
+        form_fields[k] for k in form_fields
+    )
 
     # Validate output_format up front so a bad value fails with a clear 400
-    # instead of silently breaking the schedule at run time (the runner catches
-    # normalize_output_format's ValueError and returns None).
-    try:
-        output_format = normalize_output_format(output_format)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Invalid output_format: {output_format!r}. "
-                "Use one of: pdf, xlsx, csv, html."
-            ),
-        )
+    output_format = _validate_output_format(output_format)
 
     # Use owner_id if provided, otherwise default to the creating user (admin)
-    schedule_owner_id = uuid.UUID(owner_id) if owner_id else current_user.id
+    parsed_owner = _parse_optional_uuid(owner_id)
+    schedule_owner_id = parsed_owner or current_user.id
 
     # Build delivery config based on type
     delivery_config = build_delivery_config(
@@ -162,9 +208,8 @@ async def create_schedule(
     if not report_id:
         raise HTTPException(status_code=400, detail="report_id is required")
     
-    try:
-        report_uuid = uuid.UUID(report_id)
-    except ValueError:
+    report_uuid = _parse_optional_uuid(report_id)
+    if report_uuid is None:
         raise HTTPException(status_code=400, detail="Invalid report_id format")
 
     schedule = Schedule(
@@ -294,28 +339,39 @@ async def update_schedule(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Parse JSON body if content-type is application/json
+    form_fields = {
+        "name": name,
+        "cron_expression": cron_expression,
+        "timezone": timezone,
+        "output_format": output_format,
+        "delivery_type": delivery_type,
+        "recipient_emails": recipient_emails,
+        "owner_id": owner_id,
+        "is_active": is_active,
+        "sftp_host": sftp_host,
+        "sftp_port": sftp_port,
+        "sftp_username": sftp_username,
+        "sftp_password": sftp_password,
+        "sftp_remote_path": sftp_remote_path,
+        "smb_server": smb_server,
+        "smb_share": smb_share,
+        "smb_username": smb_username,
+        "smb_password": smb_password,
+        "smb_remote_path": smb_remote_path,
+        "webhook_url": webhook_url,
+        "webhook_secret": webhook_secret,
+    }
     if request.headers.get('content-type') == 'application/json':
         body = await request.json()
-        name = body.get('name', name)
-        cron_expression = body.get('cron_expression', cron_expression)
-        timezone = body.get('timezone', timezone)
-        output_format = body.get('output_format', output_format)
-        delivery_type = body.get('delivery_type', delivery_type)
-        recipient_emails = body.get('recipient_emails', recipient_emails)
-        owner_id = body.get('owner_id', owner_id)
-        is_active = body.get('is_active', is_active)
-        sftp_host = body.get('sftp_host', sftp_host)
-        sftp_port = body.get('sftp_port', sftp_port)
-        sftp_username = body.get('sftp_username', sftp_username)
-        sftp_password = body.get('sftp_password', sftp_password)
-        sftp_remote_path = body.get('sftp_remote_path', sftp_remote_path)
-        smb_server = body.get('smb_server', smb_server)
-        smb_share = body.get('smb_share', smb_share)
-        smb_username = body.get('smb_username', smb_username)
-        smb_password = body.get('smb_password', smb_password)
-        smb_remote_path = body.get('smb_remote_path', smb_remote_path)
-        webhook_url = body.get('webhook_url', webhook_url)
-        webhook_secret = body.get('webhook_secret', webhook_secret)
+        form_fields = _parse_json_body(body, form_fields)
+
+    # Unpack merged fields
+    (name, cron_expression, timezone, output_format, delivery_type,
+     recipient_emails, owner_id, is_active, sftp_host, sftp_port, sftp_username,
+     sftp_password, sftp_remote_path, smb_server, smb_share, smb_username,
+     smb_password, smb_remote_path, webhook_url, webhook_secret) = (
+        form_fields[k] for k in form_fields
+    )
 
     result = await db.execute(select(Schedule).where(Schedule.id == schedule_id))
     schedule = result.scalar_one_or_none()
@@ -332,12 +388,7 @@ async def update_schedule(
             active_value = is_active.lower() in ('true', '1', 'on')
 
     # Parse owner_id from string to UUID
-    parsed_owner_id = None
-    if owner_id:
-        try:
-            parsed_owner_id = uuid.UUID(owner_id)
-        except ValueError:
-            pass
+    parsed_owner_id = _parse_optional_uuid(owner_id)
 
     if name:
         schedule.name = name
@@ -346,16 +397,7 @@ async def update_schedule(
     if timezone:
         schedule.timezone = timezone
     if output_format:
-        try:
-            schedule.output_format = normalize_output_format(output_format)
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Invalid output_format: {output_format!r}. "
-                    "Use one of: pdf, xlsx, csv, html."
-                ),
-            )
+        schedule.output_format = _validate_output_format(output_format)
     if delivery_type:
         schedule.delivery_type = delivery_type
         
