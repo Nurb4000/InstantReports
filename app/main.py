@@ -56,8 +56,12 @@ async def lifespan(app: FastAPI):
                     is_active=True,
                 )
                 db.add(admin)
-                await db.commit()
-                logger.info("Seeded admin user (admin@example.com / admin)")
+                try:
+                    await db.commit()
+                    logger.info("Seeded admin user (admin@example.com / admin)")
+                except IntegrityError as e:
+                    await db.rollback()
+                    logger.info(f"Admin user may already exist: {e}")
 
             # Seed default northwind connection with fixed UUID for sample reports
             nw_result = await db.execute(
