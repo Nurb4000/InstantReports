@@ -4,6 +4,16 @@ set -e
 # This script runs after postgres initialization to seed the northwind database
 echo "Seeding northwind database..."
 
+# Create northwind database if it doesn't exist (connect to default 'postgres' db first)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -c "
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'northwind') THEN
+        CREATE DATABASE northwind;
+    END IF;
+END \$\$;
+"
+
 # Wait for northwind database to be available
 echo "Waiting for northwind database to be ready..."
 for i in $(seq 1 30); do
