@@ -111,6 +111,46 @@ main {
     background: #7f8c8d;
 }
 
+.btn-outline-primary {
+    background: transparent;
+    border: 1px solid #3498db;
+    color: #3498db;
+}
+.btn-outline-primary:hover {
+    background: #3498db;
+    color: white;
+}
+
+.btn-outline-success {
+    background: transparent;
+    border: 1px solid #27ae60;
+    color: #27ae60;
+}
+.btn-outline-success:hover {
+    background: #27ae60;
+    color: white;
+}
+
+.btn-outline-warning {
+    background: transparent;
+    border: 1px solid #f39c12;
+    color: #f39c12;
+}
+.btn-outline-warning:hover {
+    background: #f39c12;
+    color: white;
+}
+
+.btn-outline-danger {
+    background: transparent;
+    border: 1px solid #e74c3c;
+    color: #e74c3c;
+}
+.btn-outline-danger:hover {
+    background: #e74c3c;
+    color: white;
+}
+
 .alert {
     padding: 0.75rem 1rem;
     border-radius: 4px;
