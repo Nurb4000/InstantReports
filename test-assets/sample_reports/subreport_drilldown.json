@@ -1,150 +1,192 @@
 {
-  "name": "Sales with Drill-Down Subreports",
-  "description": "Main sales report with drill-down subreports for order details",
-  "data_sources": [
-    {
-      "id": "sales_summary",
-      "name": "Northwind Sales Summary",
-      "connector_type": "postgresql",
-      "connection_id": "00000000-0000-0000-0000-000000000001",
-      "query": "SELECT c.country AS region, p.product_name AS product, SUM(od.quantity) as total_qty, SUM(od.quantity * od.unit_price) as total_revenue FROM order_details od JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN products p ON od.product_id = p.product_id GROUP BY c.country, p.product_name ORDER BY total_revenue DESC"
-    },
-    {
-      "id": "order_details",
-      "name": "Northwind Order Details",
-      "connector_type": "postgresql",
-      "connection_id": "00000000-0000-0000-0000-000000000001",
-      "query": "SELECT o.order_id, c.company_name AS customer_name, o.order_date, od.quantity, od.unit_price FROM orders o JOIN customers c ON o.customer_id = c.customer_id JOIN order_details od ON o.order_id = od.order_id WHERE o.customer_id = $customer_id"
-    }
-  ],
-  "parameters": [],
-  "layout": {
-    "page": {
-      "size": "A4",
-      "orientation": "portrait"
-    },
-    "sections": [
-      {
-        "type": "header",
-        "elements": [
+  "instantreports_export": true,
+  "version": "1.0",
+  "report": {
+    "name": "Sales with Drill-Down Subreports",
+    "description": "Main sales report with drill-down subreports for order details",
+    "definition": {
+      "name": "Sales with Drill-Down Subreports",
+      "description": "Main sales report with drill-down subreports for order details",
+      "data_sources": [
+        {
+          "id": "sales_summary",
+          "name": "Northwind Sales Summary",
+          "connector_type": "postgresql",
+          "connection_id": "00000000-0000-0000-0000-000000000001",
+          "query": "SELECT c.country AS region, p.product_name AS product, SUM(od.quantity) as total_qty, SUM(od.quantity * od.unit_price) as total_revenue FROM order_details od JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN products p ON od.product_id = p.product_id GROUP BY c.country, p.product_name ORDER BY total_revenue DESC"
+        },
+        {
+          "id": "order_details",
+          "name": "Northwind Order Details",
+          "connector_type": "postgresql",
+          "connection_id": "00000000-0000-0000-0000-000000000001",
+          "query": "SELECT o.order_id, c.company_name AS customer_name, o.order_date, od.quantity, od.unit_price FROM orders o JOIN customers c ON o.customer_id = c.customer_id JOIN order_details od ON o.order_id = od.order_id WHERE o.customer_id = $customer_id"
+        }
+      ],
+      "parameters": [],
+      "layout": {
+        "page": {
+          "size": "A4",
+          "orientation": "portrait"
+        },
+        "sections": [
           {
-            "type": "text",
-            "content": "Sales Report with Order Details",
-            "style": "title"
+            "type": "header",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Sales Report with Order Details",
+                "style": "title"
+              },
+              {
+                "type": "text",
+                "content": "Click on any row to view order details",
+                "style": "subtitle"
+              }
+            ]
           },
           {
-            "type": "text",
-            "content": "Click on any row to view order details",
-            "style": "subtitle"
-          }
-        ]
-      },
-      {
-        "type": "detail",
-        "data_source": "sales_summary",
-        "group_by": "region",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Region: {{group.region}}",
-            "style": "group_header"
-          },
-          {
-            "type": "table",
-            "columns": [
-              {"field": "product", "header": "Product"},
-              {"field": "total_qty", "header": "Qty Sold", "format": "#,##0"},
-              {"field": "total_revenue", "header": "Revenue", "format": "$#,##0.00"}
+            "type": "detail",
+            "data_source": "sales_summary",
+            "group_by": "region",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Region: {{group.region}}",
+                "style": "group_header"
+              },
+              {
+                "type": "table",
+                "columns": [
+                  {
+                    "field": "product",
+                    "header": "Product"
+                  },
+                  {
+                    "field": "total_qty",
+                    "header": "Qty Sold",
+                    "format": "#,##0"
+                  },
+                  {
+                    "field": "total_revenue",
+                    "header": "Revenue",
+                    "format": "$#,##0.00"
+                  }
+                ],
+                "sort": "total_revenue DESC"
+              },
+              {
+                "type": "subreport",
+                "data_source": "order_details",
+                "render_mode": "drill_down",
+                "pass_parameters": {
+                  "region": "{{group.region}}",
+                  "product": "{{row.product}}"
+                },
+                "trigger": {
+                  "label": "View Orders",
+                  "on_click": "row"
+                },
+                "layout": {
+                  "elements": [
+                    {
+                      "type": "text",
+                      "content": "Orders for {{row.product}} in {{group.region}}",
+                      "style": "subtitle"
+                    },
+                    {
+                      "type": "table",
+                      "columns": [
+                        {
+                          "field": "order_id",
+                          "header": "Order ID"
+                        },
+                        {
+                          "field": "customer_name",
+                          "header": "Customer"
+                        },
+                        {
+                          "field": "order_date",
+                          "header": "Date",
+                          "format": "YYYY-MM-DD"
+                        },
+                        {
+                          "field": "quantity",
+                          "header": "Qty",
+                          "format": "#,##0"
+                        },
+                        {
+                          "field": "unit_price",
+                          "header": "Price",
+                          "format": "$#,##0.00"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "content": "Region Subtotal: Revenue ${{group.total_revenue | sum | currency}}",
+                "style": "bold"
+              }
             ],
-            "sort": "total_revenue DESC"
-          },
-          {
-            "type": "subreport",
-            "data_source": "order_details",
-            "render_mode": "drill_down",
-            "pass_parameters": {
-              "region": "{{group.region}}",
-              "product": "{{row.product}}"
-            },
-            "trigger": {
-              "label": "View Orders",
-              "on_click": "row"
-            },
-            "layout": {
+            "group_footer": {
+              "show": true,
               "elements": [
                 {
                   "type": "text",
-                  "content": "Orders for {{row.product}} in {{group.region}}",
-                  "style": "subtitle"
-                },
-                {
-                  "type": "table",
-                  "columns": [
-                    {"field": "order_id", "header": "Order ID"},
-                    {"field": "customer_name", "header": "Customer"},
-                    {"field": "order_date", "header": "Date", "format": "YYYY-MM-DD"},
-                    {"field": "quantity", "header": "Qty", "format": "#,##0"},
-                    {"field": "unit_price", "header": "Price", "format": "$#,##0.00"}
-                  ]
+                  "content": "--- End of {{group.region}} ---",
+                  "style": "separator"
                 }
               ]
             }
           },
           {
-            "type": "text",
-            "content": "Region Subtotal: Revenue ${{group.total_revenue | sum | currency}}",
-            "style": "bold"
+            "type": "summary",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Summary Statistics",
+                "style": "heading"
+              },
+              {
+                "type": "chart",
+                "chart_type": "pie",
+                "x_field": "region",
+                "y_field": "total_revenue",
+                "title": "Revenue by Region"
+              },
+              {
+                "type": "chart",
+                "chart_type": "bar",
+                "x_field": "product",
+                "y_field": "total_revenue",
+                "title": "Top Products by Revenue"
+              }
+            ]
+          },
+          {
+            "type": "footer",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Page {{page.number}} | Report ID: {{report.name}}",
+                "style": "footer"
+              }
+            ]
           }
-        ],
-        "group_footer": {
-          "show": true,
-          "elements": [
-            {
-              "type": "text",
-              "content": "--- End of {{group.region}} ---",
-              "style": "separator"
-            }
-          ]
+        ]
+      },
+      "export_settings": {
+        "pdf": {
+          "enabled": true
+        },
+        "xlsx": {
+          "enabled": true,
+          "subreports_as_sheets": true
         }
-      },
-      {
-        "type": "summary",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Summary Statistics",
-            "style": "heading"
-          },
-          {
-            "type": "chart",
-            "chart_type": "pie",
-            "x_field": "region",
-            "y_field": "total_revenue",
-            "title": "Revenue by Region"
-          },
-          {
-            "type": "chart",
-            "chart_type": "bar",
-            "x_field": "product",
-            "y_field": "total_revenue",
-            "title": "Top Products by Revenue"
-          }
-        ]
-      },
-      {
-        "type": "footer",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Page {{page.number}} | Report ID: {{report.name}}",
-            "style": "footer"
-          }
-        ]
       }
-    ]
-  },
-  "export_settings": {
-    "pdf": {"enabled": true},
-    "xlsx": {"enabled": true, "subreports_as_sheets": true}
+    }
   }
 }

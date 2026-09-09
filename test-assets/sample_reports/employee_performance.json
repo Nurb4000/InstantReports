@@ -1,131 +1,190 @@
 {
-  "name": "Employee Performance Report",
-  "description": "Demonstrates calculated fields and conditional formatting",
-  "data_sources": [
-    {
-      "id": "employee_data",
-      "name": "Northwind Employee Sales",
-      "connector_type": "postgresql",
-      "connection_id": "00000000-0000-0000-0000-000000000001",
-      "query": "SELECT e.first_name || ' ' || e.last_name AS employee_name, COUNT(DISTINCT o.order_id) AS orders_processed, SUM(od.quantity * od.unit_price) AS total_sales FROM employees e LEFT JOIN orders o ON e.employee_id = o.employee_id LEFT JOIN order_details od ON o.order_id = od.order_id GROUP BY e.employee_id, e.first_name, e.last_name ORDER BY total_sales DESC"
-    }
-  ],
-  "calculated_fields": [
-    {
-      "name": "sales_achievement_pct",
-      "expression": "{{actual_sales}} / {{sales_target}} * 100",
-      "description": "Percentage of sales target achieved"
-    },
-    {
-      "name": "revenue_per_call",
-      "expression": "{{actual_sales}} / {{calls_made}}",
-      "description": "Revenue generated per sales call"
-    },
-    {
-      "name": "status",
-      "expression": "IF({{sales_achievement_pct}} >= 100, 'Exceeded', IF({{sales_achievement_pct}} >= 80, 'On Track', 'Needs Improvement'))",
-      "description": "Performance status based on achievement"
-    }
-  ],
-  "parameters": [],
-  "layout": {
-    "page": {
-      "size": "A4",
-      "orientation": "portrait"
-    },
-    "sections": [
-      {
-        "type": "header",
-        "elements": [
+  "instantreports_export": true,
+  "version": "1.0",
+  "report": {
+    "name": "Employee Performance Report",
+    "description": "Demonstrates calculated fields and conditional formatting",
+    "definition": {
+      "name": "Employee Performance Report",
+      "description": "Demonstrates calculated fields and conditional formatting",
+      "data_sources": [
+        {
+          "id": "employee_data",
+          "name": "Northwind Employee Sales",
+          "connector_type": "postgresql",
+          "connection_id": "00000000-0000-0000-0000-000000000001",
+          "query": "SELECT e.first_name || ' ' || e.last_name AS employee_name, COUNT(DISTINCT o.order_id) AS orders_processed, SUM(od.quantity * od.unit_price) AS total_sales FROM employees e LEFT JOIN orders o ON e.employee_id = o.employee_id LEFT JOIN order_details od ON o.order_id = od.order_id GROUP BY e.employee_id, e.first_name, e.last_name ORDER BY total_sales DESC"
+        }
+      ],
+      "calculated_fields": [
+        {
+          "name": "sales_achievement_pct",
+          "expression": "{{actual_sales}} / {{sales_target}} * 100",
+          "description": "Percentage of sales target achieved"
+        },
+        {
+          "name": "revenue_per_call",
+          "expression": "{{actual_sales}} / {{calls_made}}",
+          "description": "Revenue generated per sales call"
+        },
+        {
+          "name": "status",
+          "expression": "IF({{sales_achievement_pct}} >= 100, 'Exceeded', IF({{sales_achievement_pct}} >= 80, 'On Track', 'Needs Improvement'))",
+          "description": "Performance status based on achievement"
+        }
+      ],
+      "parameters": [],
+      "layout": {
+        "page": {
+          "size": "A4",
+          "orientation": "portrait"
+        },
+        "sections": [
           {
-            "type": "text",
-            "content": "Employee Performance Report",
-            "style": "title"
+            "type": "header",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Employee Performance Report",
+                "style": "title"
+              },
+              {
+                "type": "text",
+                "content": "Period: Q{{date.now | format_date('%q')}} {{date.now | format_date('%Y')}}",
+                "style": "subtitle"
+              }
+            ]
           },
           {
-            "type": "text",
-            "content": "Period: Q{{date.now | format_date('%q')}} {{date.now | format_date('%Y')}}",
-            "style": "subtitle"
-          }
-        ]
-      },
-      {
-        "type": "detail",
-        "data_source": "employee_data",
-        "elements": [
+            "type": "detail",
+            "data_source": "employee_data",
+            "elements": [
+              {
+                "type": "table",
+                "columns": [
+                  {
+                    "field": "employee_name",
+                    "header": "Employee"
+                  },
+                  {
+                    "field": "department",
+                    "header": "Department"
+                  },
+                  {
+                    "field": "sales_target",
+                    "header": "Target",
+                    "format": "$#,##0"
+                  },
+                  {
+                    "field": "actual_sales",
+                    "header": "Actual",
+                    "format": "$#,##0"
+                  },
+                  {
+                    "field": "sales_achievement_pct",
+                    "header": "Achievement %",
+                    "format": "#0.00\"%\""
+                  },
+                  {
+                    "field": "revenue_per_call",
+                    "header": "Rev/Call",
+                    "format": "$#,##0.00"
+                  },
+                  {
+                    "field": "status",
+                    "header": "Status"
+                  }
+                ],
+                "conditional_formatting": [
+                  {
+                    "target": "cell",
+                    "field": "sales_achievement_pct",
+                    "condition": {
+                      "operator": ">=",
+                      "value": 100
+                    },
+                    "format": {
+                      "background": "#ccffcc",
+                      "bold": true
+                    }
+                  },
+                  {
+                    "target": "cell",
+                    "field": "sales_achievement_pct",
+                    "condition": {
+                      "operator": "<",
+                      "value": 80
+                    },
+                    "format": {
+                      "background": "#ffcccc",
+                      "color": "#cc0000"
+                    }
+                  },
+                  {
+                    "target": "row",
+                    "condition": {
+                      "field": "status",
+                      "operator": "==",
+                      "value": "Needs Improvement"
+                    },
+                    "format": {
+                      "border": "2px solid red"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
           {
-            "type": "table",
-            "columns": [
-              {"field": "employee_name", "header": "Employee"},
-              {"field": "department", "header": "Department"},
-              {"field": "sales_target", "header": "Target", "format": "$#,##0"},
-              {"field": "actual_sales", "header": "Actual", "format": "$#,##0"},
-              {"field": "sales_achievement_pct", "header": "Achievement %", "format": "#0.00\"%\""},
-              {"field": "revenue_per_call", "header": "Rev/Call", "format": "$#,##0.00"},
-              {"field": "status", "header": "Status"}
-            ],
-            "conditional_formatting": [
+            "type": "summary",
+            "elements": [
               {
-                "target": "cell",
-                "field": "sales_achievement_pct",
-                "condition": {"operator": ">=", "value": 100},
-                "format": {"background": "#ccffcc", "bold": true}
+                "type": "text",
+                "content": "Department Summary",
+                "style": "heading"
               },
               {
-                "target": "cell",
-                "field": "sales_achievement_pct",
-                "condition": {"operator": "<", "value": 80},
-                "format": {"background": "#ffcccc", "color": "#cc0000"}
+                "type": "crosstab",
+                "data_source": "employee_data",
+                "rows": [
+                  "department"
+                ],
+                "columns": [
+                  "status"
+                ],
+                "value": "employee_name",
+                "aggregate": "count",
+                "format": "# employees"
               },
               {
-                "target": "row",
-                "condition": {"field": "status", "operator": "==", "value": "Needs Improvement"},
-                "format": {"border": "2px solid red"}
+                "type": "chart",
+                "chart_type": "bar",
+                "x_field": "department",
+                "y_field": "actual_sales",
+                "title": "Average Sales by Department"
+              }
+            ]
+          },
+          {
+            "type": "footer",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Confidential - Internal Use Only | Page {{page.number}} of {{page.total}}",
+                "style": "footer"
               }
             ]
           }
         ]
       },
-      {
-        "type": "summary",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Department Summary",
-            "style": "heading"
-          },
-          {
-            "type": "crosstab",
-            "data_source": "employee_data",
-            "rows": ["department"],
-            "columns": ["status"],
-            "value": "employee_name",
-            "aggregate": "count",
-            "format": "# employees"
-          },
-          {
-            "type": "chart",
-            "chart_type": "bar",
-            "x_field": "department",
-            "y_field": "actual_sales",
-            "title": "Average Sales by Department"
-          }
-        ]
-      },
-      {
-        "type": "footer",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Confidential - Internal Use Only | Page {{page.number}} of {{page.total}}",
-            "style": "footer"
-          }
-        ]
+      "export_settings": {
+        "pdf": {
+          "enabled": true
+        },
+        "xlsx": {
+          "enabled": true
+        }
       }
-    ]
-  },
-  "export_settings": {
-    "pdf": {"enabled": true},
-    "xlsx": {"enabled": true}
+    }
   }
 }

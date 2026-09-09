@@ -1,100 +1,138 @@
 {
-  "name": "Sales Cross-Tab Analysis",
-  "description": "Cross-tabulation of sales by region and quarter with conditional formatting",
-  "data_sources": [
-    {
-      "id": "quarterly_sales",
-      "name": "Northwind Quarterly Sales",
-      "connector_type": "postgresql",
-      "connection_id": "00000000-0000-0000-0000-000000000001",
-      "query": "SELECT c.country AS region, EXTRACT(QUARTER FROM o.order_date) AS quarter, cat.category_name AS product_line, SUM(od.quantity * od.unit_price) as total FROM order_details od JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN products p ON od.product_id = p.product_id JOIN categories cat ON p.category_id = cat.category_id GROUP BY c.country, EXTRACT(QUARTER FROM o.order_date), cat.category_name ORDER BY region, quarter"
-    }
-  ],
-  "parameters": [],
-  "layout": {
-    "page": {
-      "size": "A4",
-      "orientation": "landscape"
-    },
-    "sections": [
-      {
-        "type": "header",
-        "elements": [
+  "instantreports_export": true,
+  "version": "1.0",
+  "report": {
+    "name": "Sales Cross-Tab Analysis",
+    "description": "Cross-tabulation of sales by region and quarter with conditional formatting",
+    "definition": {
+      "name": "Sales Cross-Tab Analysis",
+      "description": "Cross-tabulation of sales by region and quarter with conditional formatting",
+      "data_sources": [
+        {
+          "id": "quarterly_sales",
+          "name": "Northwind Quarterly Sales",
+          "connector_type": "postgresql",
+          "connection_id": "00000000-0000-0000-0000-000000000001",
+          "query": "SELECT c.country AS region, EXTRACT(QUARTER FROM o.order_date) AS quarter, cat.category_name AS product_line, SUM(od.quantity * od.unit_price) as total FROM order_details od JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN products p ON od.product_id = p.product_id JOIN categories cat ON p.category_id = cat.category_id GROUP BY c.country, EXTRACT(QUARTER FROM o.order_date), cat.category_name ORDER BY region, quarter"
+        }
+      ],
+      "parameters": [],
+      "layout": {
+        "page": {
+          "size": "A4",
+          "orientation": "landscape"
+        },
+        "sections": [
           {
-            "type": "text",
-            "content": "Sales Cross-Tab Analysis",
-            "style": "title"
-          },
-          {
-            "type": "text",
-            "content": "Fiscal Year {{date.now | format_date('%Y')}}",
-            "style": "subtitle"
-          }
-        ]
-      },
-      {
-        "type": "detail",
-        "data_source": "quarterly_sales",
-        "elements": [
-          {
-            "type": "crosstab",
-            "rows": ["region"],
-            "columns": ["quarter"],
-            "value": "total",
-            "aggregate": "sum",
-            "format": "$#,##0.00",
-            "conditional_formatting": [
+            "type": "header",
+            "elements": [
               {
-                "target": "cell",
-                "field": "total",
-                "condition": {"operator": "<", "value": 10000},
-                "format": {"background": "#ffcccc", "color": "#990000"}
+                "type": "text",
+                "content": "Sales Cross-Tab Analysis",
+                "style": "title"
               },
               {
-                "target": "cell",
-                "field": "total",
-                "condition": {"operator": ">=", "value": 50000},
-                "format": {"background": "#ccffcc", "color": "#006600"}
+                "type": "text",
+                "content": "Fiscal Year {{date.now | format_date('%Y')}}",
+                "style": "subtitle"
+              }
+            ]
+          },
+          {
+            "type": "detail",
+            "data_source": "quarterly_sales",
+            "elements": [
+              {
+                "type": "crosstab",
+                "rows": [
+                  "region"
+                ],
+                "columns": [
+                  "quarter"
+                ],
+                "value": "total",
+                "aggregate": "sum",
+                "format": "$#,##0.00",
+                "conditional_formatting": [
+                  {
+                    "target": "cell",
+                    "field": "total",
+                    "condition": {
+                      "operator": "<",
+                      "value": 10000
+                    },
+                    "format": {
+                      "background": "#ffcccc",
+                      "color": "#990000"
+                    }
+                  },
+                  {
+                    "target": "cell",
+                    "field": "total",
+                    "condition": {
+                      "operator": ">=",
+                      "value": 50000
+                    },
+                    "format": {
+                      "background": "#ccffcc",
+                      "color": "#006600"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "summary",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Key Findings",
+                "style": "heading"
+              },
+              {
+                "type": "table",
+                "data_source": "quarterly_sales",
+                "columns": [
+                  {
+                    "field": "region",
+                    "header": "Region"
+                  },
+                  {
+                    "field": "quarter",
+                    "header": "Quarter"
+                  },
+                  {
+                    "field": "total",
+                    "header": "Total Revenue",
+                    "format": "$#,##0.00"
+                  }
+                ],
+                "sort": "total DESC",
+                "limit": 10
+              }
+            ]
+          },
+          {
+            "type": "footer",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Generated: {{date.now}} | Page {{page.number}} of {{page.total}}",
+                "style": "footer"
               }
             ]
           }
         ]
       },
-      {
-        "type": "summary",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Key Findings",
-            "style": "heading"
-          },
-          {
-            "type": "table",
-            "data_source": "quarterly_sales",
-            "columns": [
-              {"field": "region", "header": "Region"},
-              {"field": "quarter", "header": "Quarter"},
-              {"field": "total", "header": "Total Revenue", "format": "$#,##0.00"}
-            ],
-            "sort": "total DESC",
-            "limit": 10
-          }
-        ]
-      },
-      {
-        "type": "footer",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Generated: {{date.now}} | Page {{page.number}} of {{page.total}}",
-            "style": "footer"
-          }
-        ]
+      "export_settings": {
+        "pdf": {
+          "enabled": true
+        },
+        "xlsx": {
+          "enabled": true
+        }
       }
-    ]
-  },
-  "export_settings": {
-    "pdf": {"enabled": true},
-    "xlsx": {"enabled": true}
+    }
   }
 }

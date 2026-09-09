@@ -1,89 +1,126 @@
 {
-  "name": "Simple Sales Table",
-  "description": "Basic sales data table with formatting",
-  "data_sources": [
-    {
-      "id": "sales_data",
-      "name": "Northwind Sales",
-      "connector_type": "postgresql",
-"connection_template": {
-                "name": "Northwind (local)",
-                "host": "localhost",
-                "port": 5433,
-                "database": "northwind",
-                "user": "northwind"
-            },
-      "query": "SELECT p.product_name, c.country AS region, SUM(od.quantity) AS quantity, SUM(od.quantity * od.unit_price) AS revenue FROM order_details od JOIN products p ON od.product_id = p.product_id JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id GROUP BY p.product_name, c.country ORDER BY revenue DESC"
-    }
-  ],
-  "parameters": [
-    {
-      "name": "year",
-      "type": "integer",
-      "required": true,
-      "default": 2024,
-      "label": "Report Year"
-    }
-  ],
-  "layout": {
-    "page": {
-      "size": "A4",
-      "orientation": "portrait",
-      "margins": {
-        "top": 20,
-        "bottom": 20,
-        "left": 15,
-        "right": 15
-      }
-    },
-    "sections": [
-      {
-        "type": "header",
-        "elements": [
+  "instantreports_export": true,
+  "version": "1.0",
+  "report": {
+    "name": "Simple Sales Table",
+    "description": "Basic sales data table with formatting",
+    "definition": {
+      "name": "Simple Sales Table",
+      "description": "Basic sales data table with formatting",
+      "data_sources": [
+        {
+          "id": "sales_data",
+          "name": "Northwind Sales",
+          "connector_type": "postgresql",
+          "connection_template": {
+            "name": "Northwind (local)",
+            "host": "localhost",
+            "port": 5433,
+            "database": "northwind",
+            "user": "northwind"
+          },
+          "query": "SELECT p.product_name, c.country AS region, SUM(od.quantity) AS quantity, SUM(od.quantity * od.unit_price) AS revenue FROM order_details od JOIN products p ON od.product_id = p.product_id JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id GROUP BY p.product_name, c.country ORDER BY revenue DESC"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "year",
+          "type": "integer",
+          "required": true,
+          "default": 2024,
+          "label": "Report Year"
+        }
+      ],
+      "layout": {
+        "page": {
+          "size": "A4",
+          "orientation": "portrait",
+          "margins": {
+            "top": 20,
+            "bottom": 20,
+            "left": 15,
+            "right": 15
+          }
+        },
+        "sections": [
           {
-            "type": "text",
-            "content": "Sales Report - {{year}}",
-            "style": "title"
+            "type": "header",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Sales Report - {{year}}",
+                "style": "title"
+              },
+              {
+                "type": "text",
+                "content": "Generated: {{date.now}}",
+                "style": "subtitle"
+              }
+            ]
           },
           {
-            "type": "text",
-            "content": "Generated: {{date.now}}",
-            "style": "subtitle"
+            "type": "detail",
+            "data_source": "sales_data",
+            "elements": [
+              {
+                "type": "table",
+                "columns": [
+                  {
+                    "field": "product_name",
+                    "header": "Product",
+                    "width": "30%"
+                  },
+                  {
+                    "field": "region",
+                    "header": "Region",
+                    "width": "20%"
+                  },
+                  {
+                    "field": "quantity",
+                    "header": "Quantity Sold",
+                    "width": "20%",
+                    "format": "#,##0"
+                  },
+                  {
+                    "field": "revenue",
+                    "header": "Revenue",
+                    "width": "15%",
+                    "format": "$#,##0.00"
+                  },
+                  {
+                    "field": "profit",
+                    "header": "Profit",
+                    "width": "15%",
+                    "format": "$#,##0.00"
+                  }
+                ],
+                "sort": "revenue DESC"
+              }
+            ]
+          },
+          {
+            "type": "footer",
+            "elements": [
+              {
+                "type": "text",
+                "content": "Page {{page.number}} of {{page.total}}",
+                "style": "footer"
+              }
+            ]
           }
         ]
       },
-      {
-        "type": "detail",
-        "data_source": "sales_data",
-        "elements": [
-          {
-            "type": "table",
-            "columns": [
-              {"field": "product_name", "header": "Product", "width": "30%"},
-              {"field": "region", "header": "Region", "width": "20%"},
-              {"field": "quantity", "header": "Quantity Sold", "width": "20%", "format": "#,##0"},
-              {"field": "revenue", "header": "Revenue", "width": "15%", "format": "$#,##0.00"},
-              {"field": "profit", "header": "Profit", "width": "15%", "format": "$#,##0.00"}
-            ],
-            "sort": "revenue DESC"
-          }
-        ]
-      },
-      {
-        "type": "footer",
-        "elements": [
-          {
-            "type": "text",
-            "content": "Page {{page.number}} of {{page.total}}",
-            "style": "footer"
-          }
-        ]
+      "export_settings": {
+        "pdf": {
+          "enabled": true
+        },
+        "xlsx": {
+          "enabled": true
+        },
+        "csv": {
+          "enabled": true
+        }
       }
-    ]
-  },
-  "export_settings": {
-    "pdf": {"enabled": true},
-    "xlsx": {"enabled": true},
-    "csv": {"enabled": true}
+    }
   }
 }
