@@ -140,6 +140,50 @@ async def portal_index(
     )
 
 
+@router.get("/reports/{report_id}/history", response_class=HTMLResponse)
+async def report_history(
+    request: Request,
+    report_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Show execution history for a specific report.
+
+    Lists all ReportOutput rows for the given report_id, scoped to what the
+    current user is allowed to see (admin sees all; others only their own
+    outputs or reports they own schedules for).
+    """
+    if not current_user:
+        return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    result = await db.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    if not await _can_access_report(db, report, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to view this report")
+
+    history_query = (
+        select(ReportOutput)
+        .where(ReportOutput.report_id == report_id)
+        .order_by(ReportOutput.generated_at.desc())
+        .limit(100)
+    )
+    history_result = await db.execute(history_query)
+    outputs = history_result.scalars().all()
+
+    return request.app.state.templates.TemplateResponse(
+        "portal/report_history.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "report": report,
+            "outputs": outputs,
+        },
+    )
+
+
 @router.get("/reports/{report_id}/output/{output_id}", response_class=HTMLResponse)
 async def view_report_output(
     request: Request,

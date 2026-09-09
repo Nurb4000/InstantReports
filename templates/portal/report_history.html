@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ report.name }} - Execution History - InstantReports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1>{{ report.name }}</h1>
+        <p class="text-muted">Execution history for this report</p>
+    </div>
+    <a href="/portal/" class="btn btn-secondary">Back to Dashboard</a>
+</div>
+
+{% if outputs %}
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Format</th>
+                    <th>Generated</th>
+                    <th>File Size</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for output in outputs %}
+                <tr>
+                    <td><span class="badge bg-info">{{ output.format|upper }}</span></td>
+                    <td>{{ output.generated_at.strftime('%Y-%m-%d %H:%M') if output.generated_at else '-' }}</td>
+                    <td>{{ (output.file_size / 1024)|round(1) }} KB</td>
+                    <td>
+                        {% if output.format == 'html' %}
+                        <a href="/portal/reports/{{ output.report_id }}/output/{{ output.id }}" class="btn btn-primary btn-sm">View</a>
+                        {% endif %}
+                        <a href="/portal/reports/{{ output.report_id }}/download/{{ output.id }}" class="btn btn-secondary btn-sm">Download</a>
+                        <a href="/portal/reports/{{ output.report_id }}/export?format={{ output.format }}" class="btn btn-outline-primary btn-sm">Re-export</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    No executions found for this report.
+</div>
+{% endif %}
+{% endblock %}
