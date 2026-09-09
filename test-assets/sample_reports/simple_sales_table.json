@@ -4,9 +4,9 @@
   "data_sources": [
     {
       "id": "sales_data",
-      "name": "Sales Database",
+      "name": "Northwind Sales",
       "connector_type": "postgresql",
-      "query": "SELECT product_name, region, quantity, revenue, profit FROM sales WHERE year = $year ORDER BY revenue DESC"
+      "query": "SELECT p.product_name, c.country AS region, SUM(od.quantity) AS quantity, SUM(od.quantity * od.unit_price) AS revenue FROM order_details od JOIN products p ON od.product_id = p.product_id JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id GROUP BY p.product_name, c.country ORDER BY revenue DESC"
     }
   ],
   "parameters": [
