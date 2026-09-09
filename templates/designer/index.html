@@ -78,14 +78,25 @@
         </thead>
         <tbody>
             {% for report in reports %}
-            <tr>
-                <td><a href="/designer/reports/{{ report.id }}">{{ report.name }}</a></td>
+            <tr class="{% if not report.is_active %}table-warning{% endif %}">
+                <td>
+                    <a href="/designer/reports/{{ report.id }}">{{ report.name }}</a>
+                    {% if not report.is_active %}
+                    <span class="badge bg-secondary ms-1">Inactive</span>
+                    {% else %}
+                    <span class="badge bg-success ms-1">Active</span>
+                    {% endif %}
+                </td>
                 <td>{{ report.description or '-' }}</td>
                 <td>{{ report.creator.name if report.creator else 'Unknown' }}</td>
                 <td>{{ report.updated_at.strftime('%Y-%m-%d %H:%M') if report.updated_at else '-' }}</td>
                 <td>
                     <a href="/designer/reports/{{ report.id }}" class="btn btn-secondary btn-sm">Edit</a>
                     <a href="/designer/reports/{{ report.id }}/export" class="btn btn-outline-success btn-sm">Export</a>
+                    <button class="btn btn-sm {% if report.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" 
+                            onclick="toggleReportStatus('{{ report.id }}', {{ not report.is_active }})">
+                        {% if report.is_active %}Disable{% else %}Enable{% endif %}
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -166,6 +177,31 @@ async function importReport(event) {
     }
 
     event.target.value = '';
+}
+
+async function toggleReportStatus(reportId, isActive) {
+    try {
+        const formData = new FormData();
+        formData.append('is_active', isActive ? 'true' : 'false');
+
+        const response = await fetch(`/designer/reports/${reportId}/toggle-status`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (response.ok) {
+            showToast(`Report ${isActive ? 'enabled' : 'disabled'}.`, 'success', 3000);
+            // Reload the page to reflect the change
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            let detail = 'Unknown error';
+            try { detail = (await response.json()).detail || detail; } catch { detail = 'Failed to toggle status'; }
+            showToast('Error: ' + detail, 'error', 0);
+        }
+    } catch (err) {
+        showToast('Error: ' + (err.message || err), 'error', 0);
+    }
+}
 }
 
 function escapeHtml(value) {

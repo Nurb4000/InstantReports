@@ -397,6 +397,41 @@ async def import_report(
     description = report_data.get("description", "")
     definition = report_data.get("definition", {"layout": {"sections": []}, "data_sources": [], "parameters": []})
 
+    # Auto-create connections from templates if they don't exist
+    data_sources = definition.get("data_sources", [])
+    for ds in data_sources:
+        template = ds.get("connection_template")
+        if template and "connection_id" not in ds:
+            # Create a default connection for this template
+            from app.models.connection import DataConnection
+            import uuid as uuid_module
+            
+            # Check if connection with same name already exists
+            existing = await db.execute(
+                select(DataConnection).where(DataConnection.name == template.get("name", "Imported Connection"))
+            )
+            conn = existing.scalar_one_or_none()
+            
+            if not conn:
+                conn = DataConnection(
+                    id=uuid_module.uuid4(),
+                    name=template.get("name", "Imported Connection"),
+                    connector_type=template.get("connector_type", ds.get("connector_type", "postgresql")),
+                    config={
+                        "host": template.get("host", "localhost"),
+                        "port": template.get("port", 5432),
+                        "database": template.get("database", ""),
+                        "user": template.get("user", ""),
+                        # Password not stored - user must configure it
+                    },
+                    created_by=current_user.id,
+                )
+                db.add(conn)
+                await db.commit()
+            
+            # Update the data source with the connection ID
+            ds["connection_id"] = str(conn.id)
+
     report = Report(
         name=name,
         description=description or "",
@@ -475,6 +510,32 @@ async def create_report(
     await save_version(db, report.id, report.definition, commit_msg, current_user.id)
 
     return RedirectResponse(url=f"/designer/reports/{report.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/reports/{report_id}/toggle-status")
+async def toggle_report_status(
+    report_id: uuid.UUID,
+    is_active: bool = Form(...),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle a report's active/inactive status."""
+    if not current_user or not _check_role(current_user, "admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Only allow editing your own reports (unless admin)
+    if not current_user.role.value == "admin" and report.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this report")
+
+    report.is_active = is_active
+    await db.commit()
+    return {"status": "ok", "is_active": is_active}
 
 
 @router.post("/reports/{report_id}")
