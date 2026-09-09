@@ -27,7 +27,7 @@ A Python-based report design, scheduling, and delivery platform that replaces Cr
 
 ```bash
 # Clone the repository
-git clone <repo-url> InstantReports
+git clone https://github.com/Nurb4000/InstantReports.git InstantReports
 cd InstantReports
 
 # Start all services (PostgreSQL, InstantReports)
