@@ -28,7 +28,9 @@ def _hash(key: str) -> str:
 
 
 def upgrade() -> None:
-    conn = op.get_conn()
+    from alembic import context
+
+    conn = context.get_context().connection
     for row in conn.execute(sa.text("SELECT id, key FROM api_keys")).all():
         if row.key:
             conn.execute(
