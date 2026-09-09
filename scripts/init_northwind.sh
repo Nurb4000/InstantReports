@@ -4,6 +4,17 @@ set -e
 # This script runs after postgres initialization to seed the northwind database
 echo "Seeding northwind database..."
 
+# Wait for northwind database to be available
+echo "Waiting for northwind database to be ready..."
+for i in $(seq 1 30); do
+    if psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "northwind" -c "SELECT 1;" > /dev/null 2>&1; then
+        echo "Database is ready!"
+        break
+    fi
+    echo "Attempt $i/30: Database not ready, waiting..."
+    sleep 1
+done
+
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "northwind" <<-EOSQL
     -- Create tables
     CREATE TABLE IF NOT EXISTS customers (
