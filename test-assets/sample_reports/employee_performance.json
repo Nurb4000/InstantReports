@@ -6,6 +6,7 @@
       "id": "employee_data",
       "name": "Northwind Employee Sales",
       "connector_type": "postgresql",
+      "connection_id": "00000000-0000-0000-0000-000000000001",
       "query": "SELECT e.first_name || ' ' || e.last_name AS employee_name, COUNT(DISTINCT o.order_id) AS orders_processed, SUM(od.quantity * od.unit_price) AS total_sales FROM employees e LEFT JOIN orders o ON e.employee_id = o.employee_id LEFT JOIN order_details od ON o.order_id = od.order_id GROUP BY e.employee_id, e.first_name, e.last_name ORDER BY total_sales DESC"
     }
   ],

@@ -30,13 +30,16 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
         logger.info("Database tables ensured (created if missing)")
 
-        # Seed admin user if not exists
+        # Seed admin user and default northwind connection if not exists
         from app.auth import hash_password
         from app.database import async_session_factory
+        from app.models.connection import DataConnection
         from app.models.user import AuthSource, User, UserRole
         from sqlalchemy import select
+        import uuid
 
         async with async_session_factory() as db:
+            # Seed admin user
             result = await db.execute(select(User).where(User.email == "admin@example.com"))
             if not result.scalar_one_or_none():
                 admin = User(
@@ -50,6 +53,34 @@ async def lifespan(app: FastAPI):
                 db.add(admin)
                 await db.commit()
                 logger.info("Seeded admin user (admin@example.com / admin)")
+
+            # Seed default northwind connection with fixed UUID for sample reports
+            nw_result = await db.execute(
+                select(DataConnection).where(DataConnection.name == "Northwind (local)")
+            )
+            if not nw_result.scalar_one_or_none():
+                # Get the admin user ID for created_by
+                admin_result = await db.execute(select(User).where(User.email == "admin@example.com"))
+                admin_user = admin_result.scalar_one()
+                
+                # Use a fixed UUID so sample reports can reference it
+                northwind_conn_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+                northwind_conn = DataConnection(
+                    id=northwind_conn_id,
+                    name="Northwind (local)",
+                    connector_type="postgresql",
+                    config={
+                        "host": "localhost",
+                        "port": 5434,
+                        "database": "northwind",
+                        "user": "northwind",
+                        "password": "northwind",
+                    },
+                    created_by=admin_user.id,
+                )
+                db.add(northwind_conn)
+                await db.commit()
+                logger.info("Seeded default northwind connection (localhost:5434)")
     except Exception as e:
         logger.warning(f"Could not auto-seed database: {e}")
     yield

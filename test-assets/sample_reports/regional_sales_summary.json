@@ -6,6 +6,7 @@
       "id": "sales_by_region",
       "name": "Northwind Regional Sales",
       "connector_type": "postgresql",
+      "connection_id": "00000000-0000-0000-0000-000000000001",
       "query": "SELECT c.country AS region, cat.category_name AS product_category, SUM(od.quantity) as total_qty, SUM(od.quantity * od.unit_price) as total_revenue, COUNT(DISTINCT o.order_id) as order_count FROM order_details od JOIN orders o ON od.order_id = o.order_id JOIN customers c ON o.customer_id = c.customer_id JOIN products p ON od.product_id = p.product_id JOIN categories cat ON p.category_id = cat.category_id GROUP BY c.country, cat.category_name ORDER BY total_revenue DESC"
     }
   ],
