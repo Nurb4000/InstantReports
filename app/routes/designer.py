@@ -380,10 +380,13 @@ async def import_report(
     db: AsyncSession = Depends(get_db),
 ):
     """Import a report definition from a JSON file."""
+    logger.info(f"Import request received: {file.filename}")
+    
     if not current_user or not _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     contents = await file.read()
+    logger.info(f"Read {len(contents)} bytes from {file.filename}")
     try:
         data = json.loads(contents)
     except json.JSONDecodeError as e:
@@ -449,6 +452,8 @@ async def import_report(
     db.add(report)
     await db.commit()
     await db.refresh(report)
+    
+    logger.info(f"Imported report: {report.id} - {name}")
 
     return RedirectResponse(url=f"/designer/reports/{report.id}", status_code=status.HTTP_303_SEE_OTHER)
 
