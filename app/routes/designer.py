@@ -441,6 +441,19 @@ async def import_report(
                 ds["connection_id"] = str(conn.id)
                 continue
         
+        # If no template and no name match, look for any postgresql connection
+        if not template:
+            from app.models.connection import DataConnection
+            existing = await db.execute(
+                select(DataConnection).where(DataConnection.connector_type == "postgresql").limit(1)
+            )
+            conn = existing.scalar_one_or_none()
+            
+            if conn:
+                logger.info(f"Reusing existing postgresql connection: {conn.name}")
+                ds["connection_id"] = str(conn.id)
+                continue
+        
         # Create new connection
         import uuid as uuid_module
         logger.info(f"Creating new connection: {conn_name or 'Imported Connection'}")
