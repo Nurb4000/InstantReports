@@ -1972,7 +1972,14 @@
         const config = {};
         currentConnectorFields.forEach(f => {
             const el = document.getElementById(`nc-${f.name}`);
-            if (el) config[f.name] = el.value;
+            if (el) {
+                // For password/secret fields, only include if user entered a new value
+                // Empty means "keep existing password" (for security)
+                if ((f.name === 'password' || f.name === 'secret') && !el.value) {
+                    return; // Skip empty passwords/secrets
+                }
+                config[f.name] = el.value;
+            }
         });
 
         try {
