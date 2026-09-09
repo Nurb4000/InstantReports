@@ -230,6 +230,35 @@ Reports include a custom version control system (no external dependencies):
 - **Restore** — Revert to any previous version
 - **History** — Full audit trail of all changes
 
+## Exporting and Importing Reports
+
+Reports can be exported as JSON files and imported into other InstantReports instances. This is useful for:
+- Sharing report templates between team members
+- Backing up report definitions
+- Migrating reports between environments (dev → staging → prod)
+
+### What Gets Exported
+
+When you export a report, the following is included:
+- ✅ Report definition (layout, sections, elements, queries)
+- ✅ Connection metadata (host, port, database, username, connector type)
+- ✅ Parameters and calculated fields
+- ❌ **Credentials** (passwords, API keys, secrets) — for security
+
+### Importing Reports
+
+When importing a report:
+1. The system auto-creates data connections from the exported templates
+2. You must manually enter passwords/secrets when prompted
+3. If a connection with the same name already exists, it will be reused
+
+### Security Note
+
+**Credentials are never exported.** This is intentional:
+- Exported files can be safely shared via email, git, etc.
+- Importing on another system requires re-entering sensitive credentials
+- Connection templates include enough metadata to auto-create connections, but not enough to access them
+
 ## API Authentication
 
 ### Session-Based Auth
