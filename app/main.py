@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings as app_settings
-from app.models import *
+from app.models import Base, *
 
 logger = logging.getLogger(__name__)
 
