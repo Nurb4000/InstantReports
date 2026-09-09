@@ -64,7 +64,7 @@ def analyze_query(
         })
 
     # 3. GROUP BY without any aggregation.
-    if config.group_by and not any(c.aggregation for c in config.select):
+    if config.group_by and config.select and not any(c.aggregation for c in config.select):
         suggestions.append({
             "severity": "low",
             "code": "group_by_no_agg",
@@ -81,8 +81,9 @@ def analyze_query(
                 continue
             if table in indexed and column in indexed[table]:
                 continue
+            join_type_str = join.join_type.value if hasattr(join.join_type, "value") else str(join.join_type)
             suggestions.append({
-                "severity": "high" if join.join_type.value == "INNER" else "medium",
+                "severity": "high" if join_type_str == "INNER" else "medium",
                 "code": "missing_index",
                 "message": f"JOIN {role} column '{table}.{column}' is not a primary/foreign key. Consider an index.",
                 "table": table,
@@ -104,7 +105,17 @@ def analyze_query(
             })
 
     suggestions.sort(key=lambda s: SEVERITY_ORDER.get(s["severity"], 3))
-    return suggestions
+
+    # Deduplicate suggestions that target the same (code, table, column).
+    seen: set[tuple[str, str | None, str | None]] = set()
+    deduped: list[dict[str, Any]] = []
+    for s in suggestions:
+        key = (s["code"], s.get("table"), s.get("column"))
+        if key not in seen:
+            seen.add(key)
+            deduped.append(s)
+
+    return deduped
 
 
 # Convenience function

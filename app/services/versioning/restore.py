@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.report import Report, ReportVersion
+from app.services.versioning.diff import ReportDiffEngine
 
 
 async def restore_version(
@@ -44,6 +45,12 @@ async def restore_version(
     
     new_version_number = max_version + 1
 
+    # Compute diff between current definition and the restored one.
+    diff_summary = None
+    if report.definition != version.definition:
+        diff_engine = ReportDiffEngine()
+        diff_summary = diff_engine.diff(report.definition, version.definition)
+
     report.definition = version.definition.copy()
     report.updated_at = datetime.now(timezone.utc)
 
@@ -53,6 +60,7 @@ async def restore_version(
         definition=version.definition.copy(),
         commit_message=commit_message or f"Restored to v{version_number}",
         created_by=user_id,
+        diff_summary=diff_summary,
     )
     db.add(new_version)
     await db.commit()

@@ -95,3 +95,54 @@ def test_higher_severity_suggestions_come_first():
 def test_optimize_query_wrapper_matches_analyze_query():
     cfg = _sample_config()
     assert optimize_query(cfg) == analyze_query(cfg)
+
+
+def test_group_by_with_select_star_does_not_flag_no_agg():
+    """GROUP BY with SELECT * (empty select list) should not fire group_by_no_agg.
+
+    Regression: the check used ``not any(c.aggregation for c in config.select)``
+    which is True when ``config.select`` is empty, so a valid ``SELECT * ... GROUP
+    BY`` query was incorrectly flagged.
+    """
+    config = QueryConfig(select=[], from_tables=["orders"], group_by=["orders.customer_id"])
+    codes = {s["code"] for s in analyze_query(config)}
+    assert "group_by_no_agg" not in codes
+
+
+def test_duplicate_where_columns_are_deduplicated():
+    """Two WHERE filters on the same column should produce one suggestion, not two."""
+    config = QueryConfig(
+        select=[SelectColumn(table="orders", column="customer_id")],
+        from_tables=["orders"],
+        where=[
+            WhereFilter(field="orders.customer_id", operator="=", value=1),
+            WhereFilter(field="orders.customer_id", operator=">", value=5),
+        ],
+    )
+    suggestions = analyze_query(config)
+    missing_index = [s for s in suggestions if s["code"] == "missing_index"]
+    assert len(missing_index) == 1
+    assert missing_index[0]["column"] == "customer_id"
+
+
+def test_join_type_raw_string_does_not_crash():
+    """join_type should be compared safely even when it is a plain string (not an Enum)."""
+    config = QueryConfig(
+        select=[SelectColumn(table="a", column="id")],
+        from_tables=["a"],
+        joins=[
+            JoinConfig(
+                join_type="LEFT",  # plain string, not JoinType enum
+                table="b",
+                on_left_table="a",
+                on_left_column="id",
+                on_right_table="b",
+                on_right_column="a_id",
+            )
+        ],
+    )
+    suggestions = analyze_query(config)
+    join_sugs = [s for s in suggestions if s["code"] == "missing_index" and "JOIN" in s["message"]]
+    # Both left and right join columns produce suggestions; both should be medium severity.
+    assert len(join_sugs) == 2
+    assert all(s["severity"] == "medium" for s in join_sugs)
