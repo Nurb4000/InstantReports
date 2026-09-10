@@ -478,14 +478,18 @@ async def render_report_with_data(definition: dict, title: str, description: str
                 if chart_type == "pie" and chart_data:
                     # Generate pie chart HTML
                     # Filter out None values and use 0 as default
-                    values = [d.get(y_field, 0) or 0 for d in chart_data]
+                    values = []
+                    for d in chart_data:
+                        val = d.get(y_field)
+                        values.append(val if val is not None else 0)
                     total = sum(values)
                     colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e']
                     
                     slices_html = ""
                     for i, item in enumerate(chart_data):
                         label = item.get(x_field, "N/A") if x_field else "N/A"
-                        value = item.get(y_field, 0) or 0
+                        value = item.get(y_field)
+                        value = value if value is not None else 0
                         percentage = (value / total * 100) if total > 0 else 0
                         color = colors[i % len(colors)]
                         
