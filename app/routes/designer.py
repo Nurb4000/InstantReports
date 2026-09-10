@@ -465,6 +465,7 @@ async def import_report(
                 "port": template.get("port", 5432) if template else 5432,
                 "database": template.get("database", "northwind") if template else "northwind",
                 "user": template.get("user", "northwind") if template else "northwind",
+                "password": template.get("password", "northwind") if template else "northwind",
             },
             created_by=current_user.id,
         )

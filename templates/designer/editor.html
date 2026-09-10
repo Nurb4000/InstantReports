@@ -840,13 +840,35 @@
 
             const savedDef = {{ (report.definition or {}) | tojson }};
             if (savedDef && savedDef.data_sources) {
-                linkedConnectionIds = savedDef.data_sources.map(ds => ds.connection_id);
+                linkedConnectionIds = savedDef.data_sources.map(ds => {
+                    if (ds.connection_id) {
+                        return ds.connection_id;
+                    }
+                    // If no connection_id, try to find by name
+                    const conn = allConnections.find(c => c.name === ds.name);
+                    if (conn) {
+                        return conn.id;
+                    }
+                    return null;
+                }).filter(id => id !== null);
+                
+                // Update data_sources with resolved connection_ids
+                savedDef.data_sources.forEach(ds => {
+                    if (!ds.connection_id) {
+                        const conn = allConnections.find(c => c.name === ds.name);
+                        if (conn) {
+                            ds.connection_id = conn.id;
+                        }
+                    }
+                });
+                
                 if (savedDef.selected_fields) {
                     selectedFieldsList = savedDef.selected_fields;
                 }
                 if (savedDef.calculated_fields && Array.isArray(savedDef.calculated_fields)) {
                     calculatedFieldsList = savedDef.calculated_fields.map(cf => ({ name: cf.name, expression: cf.expression }));
                 }
+                currentReportDataSources = savedDef.data_sources.map(ds => ({ ...ds }));
             }
             renderCalculatedFields();
         } catch (e) {
@@ -859,7 +881,7 @@
             text: { content: 'Text', fontSize: 12, bold: false, color: '#000000' },
             image: { src: '', alt: '', width: 200, height: 150 },
             table: { query: '', columns: [], showHeader: true },
-            chart: { type: 'bar', title: 'Chart', xField: '', yField: '' },
+            chart: { type: 'bar', title: 'Chart', xField: '', yField: '', query: '' },
             crosstab: { rowField: '', columnField: '', valueField: '', aggregation: 'sum' },
             subreport: { reportId: '', render_mode: 'inline', pass_parameters: {} }
         };
@@ -1003,7 +1025,7 @@
         
         return {
             layout: { sections: sections },
-            data_sources: [],
+            data_sources: currentReportDataSources,
             parameters: []
         };
     }
@@ -1393,6 +1415,11 @@
                     <input type="text" class="form-control" id="prop-title" value="${elementData.properties.title || ''}">
                 </div>
                 <div class="mb-3">
+                    <label class="form-label">SQL Query</label>
+                    <textarea class="form-control" id="prop-query" rows="3">${elementData.properties.query || ''}</textarea>
+                    <button type="button" class="btn btn-sm btn-primary mt-2" onclick="openQueryBuilder('chart')">🔨 Build Query Visually</button>
+                </div>
+                <div class="mb-3">
                     <label class="form-label">Chart Type</label>
                     <select class="form-control" id="prop-chartType">
                         <option value="bar" ${elementData.properties.type === 'bar' ? 'selected' : ''}>Bar</option>
@@ -1400,9 +1427,6 @@
                         <option value="pie" ${elementData.properties.type === 'pie' ? 'selected' : ''}>Pie</option>
                         <option value="area" ${elementData.properties.type === 'area' ? 'selected' : ''}>Area</option>
                     </select>
-                </div>
-                <div class="mb-3">
-                    <button type="button" class="btn btn-sm btn-primary" onclick="openQueryBuilder('chart')">🔨 Build Query Visually</button>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -1706,11 +1730,16 @@
                 formatting_rules: getCurrentFormattingRules()
             };
         } else if (type === 'chart') {
+            var storedData = getStoredElementData();
+            var storedProps = (storedData && storedData.properties) || {};
             properties = {
                 title: document.getElementById('prop-title')?.value || '',
                 type: document.getElementById('prop-chartType')?.value || 'bar',
                 xField: document.getElementById('prop-xField')?.value || '',
-                yField: document.getElementById('prop-yField')?.value || ''
+                yField: document.getElementById('prop-yField')?.value || '',
+                query: document.getElementById('prop-query')?.value !== undefined
+                    ? (document.getElementById('prop-query').value || '')
+                    : (storedProps.query || '')
             };
         } else if (type === 'crosstab') {
             properties = {
@@ -1853,6 +1882,7 @@
     /* ===== DATA TAB ===== */
     let allConnections = [];
     let linkedConnectionIds = [];
+    let currentReportDataSources = [];
     let availableSchema = {};
     let selectedFieldsList = [];
     let currentConnectorFields = [];
@@ -3118,9 +3148,12 @@
                 queryInput.value = sql;
             }
         } else if (currentQueryBuilderType === 'chart') {
-            // For charts, we'd need to parse the SQL to extract xField and yField
-            // For now, just store the SQL in a hidden field or properties
-            alert('Chart query builder: SQL saved. X/Y fields would be extracted from SELECT clause.');
+            // Store the SQL so the chart element executes the same query the
+            // builder produced for tables.
+            const queryInput = document.getElementById('prop-query');
+            if (queryInput) {
+                queryInput.value = sql;
+            }
         }
         
         closeQueryBuilder();

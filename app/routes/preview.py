@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import logging
+import math
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -396,7 +397,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
                                         cell_css = cf.get_css_styles({"row": None, "cells": {field: cell_fmt}})
                                         if cell_css:
                                             cell_style = f' style="{html.escape(str(cell_css))}"'
-                                    td_cells += '<td style="border: 1px solid #ddd; padding: 6px;"' + cell_style + html.escape(str(row.get(field, '')), quote=True) + '</td>'
+                                    td_cells += '<td style="border: 1px solid #ddd; padding: 6px;">' + cell_style + html.escape(str(row.get(field, '')), quote=True) + '</td>'
                                 td_rows += '<tr' + tr_style + '>' + td_cells + '</tr>\n'
                             
                             table_html = f'''
@@ -473,26 +474,29 @@ async def render_report_with_data(definition: dict, title: str, description: str
                         logger.error(f"Failed to execute chart query via connector: {e}")
                         import traceback
                         logger.error(traceback.format_exc())
-                
+
+                # Coerce all numeric values to float (PostgreSQL returns Decimal)
+                for row in chart_data:
+                    for k, v in row.items():
+                        if v is not None and not isinstance(v, str):
+                            try:
+                                row[k] = float(v)
+                            except (TypeError, ValueError):
+                                pass
+
                 # Render chart based on type
                 if chart_type == "pie" and chart_data:
-                    # Generate pie chart HTML
-                    # Filter out None values and use 0 as default
-                    values = []
-                    for d in chart_data:
-                        val = d.get(y_field)
-                        values.append(val if val is not None else 0)
+                    values = [d.get(y_field, 0) or 0 for d in chart_data]
                     total = sum(values)
                     colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e']
-                    
+
                     slices_html = ""
                     for i, item in enumerate(chart_data):
                         label = item.get(x_field, "N/A") if x_field else "N/A"
-                        value = item.get(y_field)
-                        value = value if value is not None else 0
+                        value = item.get(y_field) or 0
                         percentage = (value / total * 100) if total > 0 else 0
                         color = colors[i % len(colors)]
-                        
+
                         slices_html += f'''
                         <div style="display: flex; align-items: center; margin-bottom: 8px;">
                             <div style="width: 20px; height: 20px; background: {color}; border-radius: 3px; margin-right: 10px;"></div>
@@ -502,17 +506,37 @@ async def render_report_with_data(definition: dict, title: str, description: str
                             </div>
                         </div>
                         '''
-                    
+
+                    svg_slices = ""
+                    start_angle = -90.0
+                    cx, cy, r = 100.0, 100.0, 80.0
+                    total_f = float(total) if total else 0.0
+                    for i, item in enumerate(chart_data):
+                        val = float(item.get(y_field) or 0)
+                        pct = (val / total_f) if total_f > 0 else 0
+                        sweep = pct * 360.0
+                        end_angle = start_angle + sweep
+                        large_arc = 1 if sweep > 180 else 0
+                        x1 = cx + r * math.cos(math.radians(start_angle))
+                        y1 = cy + r * math.sin(math.radians(start_angle))
+                        x2 = cx + r * math.cos(math.radians(end_angle))
+                        y2 = cy + r * math.sin(math.radians(end_angle))
+                        if pct >= 1:
+                            d = f"M {cx},{cy} L {x1:.2f},{y1:.2f} A {r},{r} 0 1,1 {x2:.2f},{y2:.2f} Z"
+                        else:
+                            d = f"M {cx},{cy} L {x1:.2f},{y1:.2f} A {r},{r} 0 {large_arc},1 {x2:.2f},{y2:.2f} Z"
+                        svg_slices += f'<path d="{d}" fill="{colors[i % len(colors)]}" stroke="white" stroke-width="1"/>'
+                        start_angle = end_angle
+
+                    pie_svg = f'''<svg viewBox="0 0 200 200" width="200" height="200" style="display:block;margin:0 auto;">{svg_slices}</svg>'''
+
                     chart_html = f'''
                     {label_html}
                     <div class="report-element chart-element" style="padding: 15px; border: 1px dashed #ccc; margin: 5px 0;">
                         <div style="font-weight: bold; margin-bottom: 15px; text-align: center; font-size: 16px;">{chart_title}</div>
                         <div style="display: flex; gap: 20px;">
                             <div style="flex: 1;">
-                                <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; text-align: center; aspect-ratio: 1;">
-                                    <div style="font-size: 48px; font-weight: bold; color: {colors[0] if chart_data else '#333'};">{len(chart_data)}</div>
-                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">Categories</div>
-                                </div>
+                                {pie_svg}
                             </div>
                             <div style="flex: 1;">
                                 {slices_html}
@@ -521,53 +545,6 @@ async def render_report_with_data(definition: dict, title: str, description: str
                     </div>
                     '''
                 elif chart_data:
-                    # Bar chart (existing logic)
-                    max_value = max([d.get(y_field) or 0 for d in chart_data]) if y_field else 100
-                    bars_html = ""
-                    for item in chart_data[:CHART_ROW_LIMIT]:
-                        label = item.get(x_field, "N/A") if x_field else "N/A"
-                        value = item.get(y_field) or 0 if y_field else 0
-                        bar_width = (value / max_value * 100) if max_value > 0 else 0
-                        bars_html += f'''
-                        <div style="display: flex; align-items: center; margin-bottom: 5px;">
-                            <div style="width: 100px; text-align: right; padding-right: 10px; font-size: 11px; color: #666;">{html.escape(str(label), quote=True)}</div>
-                            <div style="flex: 1; background: #e9ecef; height: 20px; border-radius: 3px;">
-                                <div style="width: {bar_width}%; height: 100%; background: #4CAF50; border-radius: 3px; min-width: 2px;"></div>
-                            </div>
-                            <div style="width: 80px; padding-left: 10px; font-size: 11px; color: #333;">{value:,.2f}</div>
-                        </div>
-                        '''
-                    chart_html = f'''
-                    {label_html}
-                    <div class="report-element chart-element" style="padding: 10px; border: 1px dashed #ccc; margin: 5px 0;">
-                        <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">{chart_title}</div>
-                        <div style="margin-top: 10px;">
-                            {bars_html}
-                        </div>
-                    </div>
-                    '''
-                else:
-                    chart_html = f'''
-                    {label_html}
-                    <div class="report-element chart-element" style="padding: 10px; border: 1px dashed #ccc; margin: 5px 0;">
-                        <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">{chart_title}</div>
-                        <div style="color: #666; font-size: 11px; margin-bottom: 10px; text-align: center;">
-                            Chart Type: {chart_type.capitalize()} | X-Axis: {x_field or 'N/A'} | Y-Axis: {y_field or 'N/A'}
-                        </div>
-                        <div style="margin-top: 10px; padding: 30px; background: #f8f9fa; border: 1px solid #ddd; text-align: center; color: #999;">
-                            Chart requires data source connection to execute query
-                        </div>
-                    </div>
-                    '''
-                elements_html += chart_html
-                
-                # Fallback to demo_data if no query results
-                if not chart_data:
-                    demo_data = element.get("demo_data", [])
-                    if demo_data:
-                        chart_data = demo_data
-                
-                if chart_data and len(chart_data) > 0:
                     max_value = max([d.get(y_field) or 0 for d in chart_data]) if y_field else 100
                     bars_html = ""
                     for item in chart_data[:CHART_ROW_LIMIT]:

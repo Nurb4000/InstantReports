@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 BASE_URL = "http://localhost:8080"
-DEMO_DIR = Path(__file__).parent / "demos"
+DEMO_DIR = Path(__file__).parent.parent / "demos"
 
 def main():
     # Login

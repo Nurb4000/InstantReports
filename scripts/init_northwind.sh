@@ -158,20 +158,36 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "northwind" <<-EOSQ
     INSERT INTO products (product_name, supplier_id, category_id, unit, price) VALUES
     ('Chai', 1, 1, '10 boxes x 20 bags', 18.00),
     ('Chang', 1, 1, '24 - 12 oz bottles', 19.00),
-    ('Aniseed Syrup', 1, 1, '12 - 550 ml bottles', 10.00)
+    ('Aniseed Syrup', 1, 1, '12 - 550 ml bottles', 10.00),
+    ('Grandma''s Boysenberry Spread', 2, 2, '12 - 8 oz jars', 25.00),
+    ('Northwoods Cranberry Sauce', 2, 2, '12 - 12 oz jars', 40.00),
+    ('Sir Rodney''s Marmalade', 2, 3, '30 gift boxes', 81.00),
+    ('Sir Rodney''s Scones', 2, 3, '24 pkgs. x 4 pieces', 10.00)
     ON CONFLICT DO NOTHING;
 
     -- Seed orders
     INSERT INTO orders (customer_id, employee_id, order_date, shipped_date, shipper_id, freight, ship_city, ship_country) VALUES
     (1, 1, '2023-01-05', '2023-01-10', 1, 29.61, 'Berlin', 'Germany'),
-    (2, 2, '2023-01-12', '2023-01-14', 2, 4.39, 'México D.F.', 'Mexico')
+    (2, 2, '2023-01-12', '2023-01-14', 2, 4.39, 'México D.F.', 'Mexico'),
+    (3, 3, '2023-02-01', '2023-02-04', 1, 7.25, 'México D.F.', 'Mexico'),
+    (4, 2, '2023-02-05', '2023-02-08', 2, 19.50, 'London', 'UK'),
+    (5, 3, '2023-02-09', '2023-02-11', 1, 12.10, 'Luleå', 'Sweden'),
+    (1, 1, '2023-02-14', '2023-02-16', 2, 5.40, 'Berlin', 'Germany')
     ON CONFLICT DO NOTHING;
 
-    -- Seed order_details
+    -- Seed order_details (span all 3 categories so the pie demo has real slices)
     INSERT INTO order_details (order_id, product_id, unit_price, quantity, discount) VALUES
     (1, 1, 18.00, 12, 0),
     (1, 2, 19.00, 10, 0),
-    (2, 3, 10.00, 5, 0)
+    (2, 3, 10.00, 5, 0),
+    (3, 4, 25.00, 8, 0),
+    (3, 6, 81.00, 5, 0),
+    (4, 5, 40.00, 6, 0),
+    (4, 6, 81.00, 3, 0),
+    (5, 4, 25.00, 10, 0),
+    (5, 7, 10.00, 14, 0),
+    (6, 5, 40.00, 4, 0),
+    (6, 6, 81.00, 6, 0)
     ON CONFLICT DO NOTHING;
 
     -- Create views

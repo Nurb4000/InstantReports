@@ -50,7 +50,7 @@
       },
       "data_sources": [
         {
-          "name": "Northwind Demo",
+          "name": "Northwind (local)",
           "type": "postgresql"
         }
       ],

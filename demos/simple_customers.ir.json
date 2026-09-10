@@ -47,7 +47,12 @@
           }
         ]
       },
-      "data_sources": [],
+      "data_sources": [
+        {
+          "name": "Northwind (local)",
+          "type": "postgresql"
+        }
+      ],
       "selected_fields": [],
       "query": ""
     }

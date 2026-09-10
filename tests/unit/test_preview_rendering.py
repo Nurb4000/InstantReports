@@ -134,3 +134,48 @@ def test_preview_escapes_untrusted_cell_values(monkeypatch):
     html = asyncio_run(_render(monkeypatch, definition, df))
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_preview_renders_pie_chart_when_query_present(monkeypatch):
+    # Regression: a chart with a configured query must execute it via the connector
+    # and render an SVG pie. If the query is lost (e.g. wiped by the designer),
+    # chart_data stays empty and the fallback placeholder takes its place.
+    df = pd.DataFrame(
+        {
+            "category_name": ["Beverages", "Dairy Products"],
+            "total_sales": [7612.50, 12853.25],
+        }
+    )
+    definition = {
+        "name": "Pie",
+        "layout": {"sections": [{"type": "detail", "elements": [
+            {
+                "type": "chart",
+                "properties": {
+                    "title": "Sales Distribution by Category",
+                    "type": "pie",
+                    "xField": "category_name",
+                    "yField": "total_sales",
+                    "query": "SELECT c.category_name, SUM(od.unit_price * od.quantity) AS total_sales FROM categories c GROUP BY c.category_name",
+                },
+            }
+        ]}]},
+    }
+    html = asyncio_run(_render(monkeypatch, definition, df))
+    assert 'class="report-element chart-element"' in html
+    assert "<svg" in html
+    assert "Beverages" in html and "Dairy Products" in html
+    assert "Chart requires data source connection to execute query" not in html
+
+
+def test_preview_chart_falls_back_to_placeholder_without_query(monkeypatch):
+    # A chart with an empty/missing query can't populate chart_data, so the preview
+    # must degrade to the placeholder instead of crashing or rendering a broken SVG.
+    definition = {
+        "name": "PieNoQuery",
+        "layout": {"sections": [{"type": "detail", "elements": [
+            {"type": "chart", "properties": {"title": "Empty Chart", "type": "pie"}}
+        ]}]},
+    }
+    html = asyncio_run(_render(monkeypatch, definition, pd.DataFrame()))
+    assert "Chart requires data source connection to execute query" in html
