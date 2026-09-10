@@ -188,6 +188,164 @@ class TestDesignerRoutes:
         assert index.status_code == 200
         assert "Colleague Report" not in index.text
 
+    @pytest.mark.asyncio
+    async def test_report_list_defaults_to_active(self, client, db_session):
+        """The list must default to ACTIVE reports only; inactive reports stay
+        hidden unless the user explicitly asks for All/Inactive."""
+        import uuid
+
+        from app.auth import hash_password
+        from app.models.report import Report
+        from app.models.user import AuthSource, User, UserRole
+
+        dev = User(
+            id=uuid.uuid4(), email="dev-active@example.com", name="DevActive",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db_session.add(dev)
+        await db_session.commit()
+
+        active = Report(id=uuid.uuid4(), name="Active Report", created_by=dev.id, is_active=True)
+        inactive = Report(id=uuid.uuid4(), name="Inactive Report", created_by=dev.id, is_active=False)
+        db_session.add_all([active, inactive])
+        await db_session.commit()
+
+        login = await client.post(
+            "/auth/login",
+            data={"email": "dev-active@example.com", "password": "pw"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 302
+        client.headers["Cookie"] = f"access_token={login.cookies.get('access_token')}"
+
+        listing = await client.get("/designer/reports")
+        assert listing.status_code == 200
+        assert "Active Report" in listing.text
+        assert "Inactive Report" not in listing.text
+
+    @pytest.mark.asyncio
+    async def test_report_list_all_filter_shows_inactive(self, client, db_session):
+        """An explicit 'All' status filter must show both active and inactive."""
+        import uuid
+
+        from app.auth import hash_password
+        from app.models.report import Report
+        from app.models.user import AuthSource, User, UserRole
+
+        dev = User(
+            id=uuid.uuid4(), email="dev-all@example.com", name="DevAll",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db_session.add(dev)
+        await db_session.commit()
+
+        active = Report(id=uuid.uuid4(), name="Active All", created_by=dev.id, is_active=True)
+        inactive = Report(id=uuid.uuid4(), name="Inactive All", created_by=dev.id, is_active=False)
+        db_session.add_all([active, inactive])
+        await db_session.commit()
+
+        login = await client.post(
+            "/auth/login",
+            data={"email": "dev-all@example.com", "password": "pw"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 302
+        client.headers["Cookie"] = f"access_token={login.cookies.get('access_token')}"
+
+        listing = await client.get("/designer/reports", params={"status_filter": ""})
+        assert listing.status_code == 200
+        assert "Active All" in listing.text
+        assert "Inactive All" in listing.text
+
+    @pytest.mark.asyncio
+    async def test_report_list_inactive_filter(self, client, db_session):
+        """An explicit 'inactive' status filter shows only inactive reports."""
+        import uuid
+
+        from app.auth import hash_password
+        from app.models.report import Report
+        from app.models.user import AuthSource, User, UserRole
+
+        dev = User(
+            id=uuid.uuid4(), email="dev-in@example.com", name="DevIn",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db_session.add(dev)
+        await db_session.commit()
+
+        active = Report(id=uuid.uuid4(), name="Active In", created_by=dev.id, is_active=True)
+        inactive = Report(id=uuid.uuid4(), name="Inactive In", created_by=dev.id, is_active=False)
+        db_session.add_all([active, inactive])
+        await db_session.commit()
+
+        login = await client.post(
+            "/auth/login",
+            data={"email": "dev-in@example.com", "password": "pw"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 302
+        client.headers["Cookie"] = f"access_token={login.cookies.get('access_token')}"
+
+        listing = await client.get("/designer/reports", params={"status_filter": "inactive"})
+        assert listing.status_code == 200
+        assert "Inactive In" in listing.text
+        assert "Active In" not in listing.text
+
+    @pytest.mark.asyncio
+    async def test_non_admin_filter_keeps_ownership_scope(self, client, db_session):
+        """THE core filter bug: a non-admin who applies any filter must NOT see
+        other users' reports. Previously ownership scoping was dropped whenever a
+        filter was present, producing 'random' result sets."""
+        import uuid
+
+        from app.auth import hash_password
+        from app.models.report import Report
+        from app.models.user import AuthSource, User, UserRole
+
+        dev = User(
+            id=uuid.uuid4(), email="dev-scope@example.com", name="DevScope",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        colleague = User(
+            id=uuid.uuid4(), email="colleague-scope@example.com", name="ColleagueScope",
+            password_hash=hash_password("pw"), role=UserRole.DESIGNER,
+            auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db_session.add_all([dev, colleague])
+        await db_session.commit()
+
+        my_active = Report(id=uuid.uuid4(), name="My Scope Report", created_by=dev.id, is_active=True)
+        foreign = Report(id=uuid.uuid4(), name="Foreign Scope Report", created_by=colleague.id, is_active=True)
+        db_session.add_all([my_active, foreign])
+        await db_session.commit()
+
+        login = await client.post(
+            "/auth/login",
+            data={"email": "dev-scope@example.com", "password": "pw"},
+            follow_redirects=False,
+        )
+        assert login.status_code == 302
+        client.headers["Cookie"] = f"access_token={login.cookies.get('access_token')}"
+
+        # Filter by status/search/sort — none of these may widen scope.
+        listing = await client.get(
+            "/designer/reports",
+            params={"search": "Report", "status_filter": "active", "sort_by": "updated_at"},
+        )
+        assert listing.status_code == 200
+        assert "My Scope Report" in listing.text
+        assert "Foreign Scope Report" not in listing.text
+
+        # Even an explicit 'All' status filter must stay scoped to own reports.
+        listing_all = await client.get("/designer/reports", params={"status_filter": ""})
+        assert listing_all.status_code == 200
+        assert "My Scope Report" in listing_all.text
+        assert "Foreign Scope Report" not in listing_all.text
+
 
 class TestVersionRoutes:
     """Test version history routes."""

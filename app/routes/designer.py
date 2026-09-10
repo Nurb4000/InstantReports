@@ -82,28 +82,7 @@ async def designer_index(
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    # Fetch reports for the index page. Mirrors list_reports scoping: admins see
-    # every report for oversight; other roles only see reports they created, so
-    # lower-privilege users never leak other teams' reports into their view.
-    if get_role_value(current_user) == "admin":
-        result = await db.execute(
-            select(Report).order_by(Report.updated_at.desc()).limit(50)
-        )
-    else:
-        result = await db.execute(
-            select(Report)
-            .where(Report.created_by == current_user.id)
-            .order_by(Report.updated_at.desc())
-            .limit(50)
-        )
-    
-    reports = result.scalars().all()
-
-    templates = request.app.state.templates
-    return templates.TemplateResponse(
-        "designer/index.html",
-        {"request": request, "current_user": current_user, "reports": reports},
-    )
+    return await _render_report_list(request, current_user, db)
 
 
 @router.get("/reports")
@@ -119,22 +98,46 @@ async def list_reports(
     if not current_user:
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    from app.models.user import User as UserModel
-    
+    return await _render_report_list(
+        request, current_user, db, search, status_filter, creator_filter, sort_by
+    )
+
+
+async def _render_report_list(
+    request: Request,
+    current_user: User,
+    db: AsyncSession,
+    search: str | None = None,
+    status_filter: str | None = None,
+    creator_filter: str | None = None,
+    sort_by: str = "updated_at",
+):
+    """Render the designer report list with filters applied.
+
+    Scoping rules shared by the initial page load and the filtered/AJAX reload so
+    both routes behave identically:
+    - The list defaults to ACTIVE reports only (``is_active`` is True) unless the
+      user explicitly chooses All/Inactive. This keeps disabled reports out of
+      the default view.
+    - Non-admin users are ALWAYS scoped to reports they created, regardless of
+      which filters they apply. Without this a designer who searches or filters
+      would suddenly see every report in the system.
+    """
     query = select(Report).options(selectinload(Report.creator))
-    
-    # Default scoping when no filter is applied. Admins see every report in the
-    # system for oversight; designers/developers only see reports they created,
-    # so lower-privilege users never leak other teams' reports into their view.
-    if not creator_filter and not search and not status_filter and get_role_value(current_user) != "admin":
+
+    # Ownership scoping is unconditional for non-admins so a search/filter action
+    # can never widen scope to other teams' reports.
+    if get_role_value(current_user) != "admin":
         query = query.where(Report.created_by == current_user.id)
-    
-    # Apply status filter
-    if status_filter == "active":
-        query = query.where(Report.is_active == True)
+
+    # Default to active reports when no status filter was provided in the
+    # request. An explicit "all" (empty string, sent by the JS apply) shows
+    # both active and inactive reports.
+    if status_filter in (None, "active"):
+        query = query.where(Report.is_active.is_(True))
     elif status_filter == "inactive":
-        query = query.where(Report.is_active == False)
-    
+        query = query.where(Report.is_active.is_(False))
+
     # Apply creator filter
     if creator_filter:
         try:
@@ -142,7 +145,7 @@ async def list_reports(
             query = query.where(Report.created_by == creator_uuid)
         except ValueError:
             pass
-    
+
     # Apply search filter
     if search:
         query = query.where(
@@ -151,7 +154,7 @@ async def list_reports(
                 Report.description.ilike(f"%{search}%"),
             )
         )
-    
+
     # Apply sorting
     if sort_by == "name":
         query = query.order_by(Report.name.asc())
@@ -159,15 +162,15 @@ async def list_reports(
         query = query.order_by(Report.created_at.desc())
     else:
         query = query.order_by(Report.updated_at.desc())
-    
+
     query = query.limit(50)
     result = await db.execute(query)
     reports = result.scalars().all()
-    
+
     # Get all users for the creator filter dropdown
-    user_result = await db.execute(select(UserModel).order_by(UserModel.name.asc()))
+    user_result = await db.execute(select(User).order_by(User.name.asc()))
     users = user_result.scalars().all()
-    
+
     return request.app.state.templates.TemplateResponse(
         "designer/index.html",
         {

@@ -25,14 +25,14 @@
                     <label class="form-label">Search</label>
                     <input type="text" class="form-control" id="filter-search" name="search" 
                            placeholder="Search by name or description..." 
-                           value="{{ filters.search if filters else '' }}">
+                           value="{{ filters.search or '' }}">
                 </div>
                 <div class="col-md-2 mb-3">
                     <label class="form-label">Status</label>
                     <select class="form-control" id="filter-status" name="status_filter">
-                        <option value="">All</option>
-                        <option value="active" {% if filters and filters.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="active" {% if not filters or filters.status in (None, 'active') %}selected{% endif %}>Active</option>
                         <option value="inactive" {% if filters and filters.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        <option value="" {% if filters and filters.status == '' %}selected{% endif %}>All</option>
                     </select>
                 </div>
                 <div class="col-md-2 mb-3">
@@ -135,18 +135,18 @@ function applyFilters(event) {
     const creator = document.getElementById('filter-creator').value;
     const sort = document.getElementById('filter-sort').value;
     
-    let url = '/designer/reports?';
-    if (search) url += `search=${encodeURIComponent(search)}&`;
-    if (status) url += `status_filter=${encodeURIComponent(status)}&`;
-    if (creator) url += `creator_filter=${encodeURIComponent(creator)}&`;
-    if (sort) url += `sort_by=${encodeURIComponent(sort)}&`;
-    
-    window.location.href = url;
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    params.set('status_filter', status);
+    if (creator) params.set('creator_filter', creator);
+    params.set('sort_by', sort);
+
+    window.location.href = '/designer/reports?' + params.toString();
 }
 
 function resetFilters() {
     document.getElementById('filter-search').value = '';
-    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-status').value = 'active';
     document.getElementById('filter-creator').value = '';
     document.getElementById('filter-sort').value = 'updated_at';
     applyFilters(new Event('submit'));
