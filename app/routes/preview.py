@@ -55,6 +55,30 @@ def _build_label_html(elem_label: str, hide_label: bool) -> str:
     )
 
 
+@router.get("/temp")
+async def preview_temp(
+    request: Request,
+    definition_json: str = Query(...),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Preview a temporary report definition (from designer)."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    import json
+    try:
+        definition = json.loads(definition_json)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+    
+    title = definition.get("name", "Temporary Preview")
+    description = definition.get("description", "")
+    
+    html_content = await render_report_with_data(definition, title, description, db)
+    return HTMLResponse(content=html_content)
+
+
 @router.get("/{report_id}")
 async def preview_report(
     request: Request,

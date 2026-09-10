@@ -94,7 +94,7 @@
                     <a href="/designer/reports/{{ report.id }}" class="btn btn-secondary btn-sm">Edit</a>
                     <a href="/designer/reports/{{ report.id }}/export" class="btn btn-outline-success btn-sm">Export</a>
                     <button class="btn btn-sm {% if report.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" 
-                            onclick="toggleReportStatus('{{ report.id }}', {{ not report.is_active }})">
+                            onclick="toggleReportStatus('{{ report.id }}', {{ 'true' if not report.is_active else 'false' }})">
                         {% if report.is_active %}Disable{% else %}Enable{% endif %}
                     </button>
                 </td>
