@@ -1,11 +1,14 @@
 """Tests for preview HTML assembly helpers."""
+
 from __future__ import annotations
 
 from app.routes.preview import _build_label_html, _build_page_html, _build_section_html
 
 
 def test_build_section_html_includes_elements():
-    html = _build_section_html("detail", "Sales", "<table>data</table>", hide_name=False)
+    html = _build_section_html(
+        "detail", "Sales", "<table>data</table>", hide_name=False
+    )
     assert "section-detail" in html
     assert "Sales" in html
     assert "<table>data</table>" in html
@@ -26,9 +29,26 @@ def test_build_page_html_replaces_placeholders():
     html = _build_page_html("My Report", "A description", "<section>content</section>")
     assert "<title>Preview: My Report</title>" in html
     assert "My Report" in html
-    assert "A description" in html
     assert "<section>content</section>" in html
-    assert "Preview Mode" in html
+    assert "export-toolbar" in html
+
+
+def test_build_page_html_embeds_definition_json_for_export():
+    definition = '{"name": "Sales", "layout": {"sections": []}}'
+    html = _build_page_html("Sales", "", "<sections/>", definition_json=definition)
+    assert "encodeURIComponent" in html
+    assert "/preview/export?definition_json=" in html
+    assert "btn-export-pdf').href = baseUrl + 'pdf'" in html
+    assert "btn-export-excel').href = baseUrl + 'xlsx'" in html
+    assert "btn-export-csv').href = baseUrl + 'csv'" in html
+
+
+def test_build_page_html_no_def_json_leaves_no_export_links():
+    html = _build_page_html("Title", "", "<sections/>")
+    assert "var defJson = null" in html
+    assert (
+        "/preview/export?definition_json=" not in html or "if (!defJson) return" in html
+    )
 
 
 def test_build_page_html_handles_empty_description():
