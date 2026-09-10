@@ -522,11 +522,11 @@ async def render_report_with_data(definition: dict, title: str, description: str
                     '''
                 elif chart_data:
                     # Bar chart (existing logic)
-                    max_value = max([d.get(y_field, 0) for d in chart_data]) if y_field else 100
+                    max_value = max([d.get(y_field) or 0 for d in chart_data]) if y_field else 100
                     bars_html = ""
                     for item in chart_data[:CHART_ROW_LIMIT]:
                         label = item.get(x_field, "N/A") if x_field else "N/A"
-                        value = item.get(y_field, 0) if y_field else 0
+                        value = item.get(y_field) or 0 if y_field else 0
                         bar_width = (value / max_value * 100) if max_value > 0 else 0
                         bars_html += f'''
                         <div style="display: flex; align-items: center; margin-bottom: 5px;">
@@ -568,11 +568,11 @@ async def render_report_with_data(definition: dict, title: str, description: str
                         chart_data = demo_data
                 
                 if chart_data and len(chart_data) > 0:
-                    max_value = max([d.get(y_field, 0) for d in chart_data]) if y_field else 100
+                    max_value = max([d.get(y_field) or 0 for d in chart_data]) if y_field else 100
                     bars_html = ""
                     for item in chart_data[:CHART_ROW_LIMIT]:
                         label = item.get(x_field, "N/A") if x_field else "N/A"
-                        value = item.get(y_field, 0) if y_field else 0
+                        value = item.get(y_field) or 0 if y_field else 0
                         bar_width = (value / max_value * 100) if max_value > 0 else 0
                         bars_html += f'''
                         <div style="display: flex; align-items: center; margin-bottom: 5px;">
