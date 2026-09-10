@@ -55,7 +55,7 @@ def _build_label_html(elem_label: str, hide_label: bool) -> str:
     )
 
 
-@router.get("/preview/{report_id}")
+@router.get("/{report_id}")
 async def preview_report(
     request: Request,
     report_id: uuid.UUID,
