@@ -317,6 +317,7 @@ async def render_report_with_data(definition: dict, title: str, description: str
             props = element.get("properties", {})
             elem_label = element.get("label", "")
             hide_label = element.get("hide_label", False)
+            logger.info(f"Processing element: type={elem_type}, has_query={'query' in props}")
             
             label_html = _build_label_html(elem_label, hide_label)
             
@@ -337,11 +338,12 @@ async def render_report_with_data(definition: dict, title: str, description: str
                 # Try to execute the query using the resolved data source connector
                 if query and connection_config and connector:
                     try:
-                        logger.info("Executing query against data source")
-                        logger.info(f"Query: {query[:100]}...")
-                        
                         # Execute query using the connector
                         df = await connector.execute_query(connection_config, query)
+                        
+                        if df is None or len(df) == 0:
+                            elements_html += '<div style="padding: 10px; color: #999;">No data returned</div>'
+                            continue
                         
                         # Commit after query to avoid transaction issues
                         await db.commit()
