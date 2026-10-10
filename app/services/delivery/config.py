@@ -67,6 +67,65 @@ def build_delivery_config(
     return config
 
 
+_VALID_DELIVERY_TYPES = ("email", "sftp", "smb", "webhook")
+
+
+async def sync_schedule_deliveries(db, schedule) -> None:
+    """Reconcile a schedule's normalized ``Delivery``/``DeliveryRecipient`` rows.
+
+    The schedule create/update routes persist delivery settings on the
+    ``Schedule`` row (``delivery_type``/``delivery_config``/``recipient_emails``),
+    but the scheduler's delivery path (``_deliver_scheduled`` -> ``deliver_report``)
+    reads normalized ``Delivery``/``DeliveryRecipient`` rows. Previously nothing
+    ever created those rows, so every scheduled report was generated but never
+    delivered. This rebuilds them from the schedule's fields (delete + recreate,
+    so updates reconcile without duplicating). Must be followed by a commit.
+    """
+    from sqlalchemy import delete, select
+
+    from app.models.connection import Delivery, DeliveryRecipient
+
+    existing_ids = list(
+        (
+            await db.execute(
+                select(Delivery.id).where(Delivery.schedule_id == schedule.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if existing_ids:
+        await db.execute(
+            delete(DeliveryRecipient).where(
+                DeliveryRecipient.delivery_id.in_(existing_ids)
+            )
+        )
+        await db.execute(delete(Delivery).where(Delivery.id.in_(existing_ids)))
+        await db.flush()
+
+    delivery_type = (schedule.delivery_type or "").strip().lower()
+    if delivery_type not in _VALID_DELIVERY_TYPES or not schedule.delivery_config:
+        return
+
+    delivery = Delivery(
+        schedule_id=schedule.id,
+        delivery_type=delivery_type,
+        config=schedule.delivery_config,
+        is_active=True,
+    )
+    db.add(delivery)
+    await db.flush()
+
+    if delivery_type == "email":
+        emails = [
+            addr.strip()
+            for addr in (schedule.recipient_emails or "").split(",")
+            if addr.strip()
+        ]
+        for email in emails:
+            db.add(DeliveryRecipient(delivery_id=delivery.id, email=email))
+
+
 def redact_delivery_config(config: dict[str, Any] | None) -> dict[str, Any] | None:
     """Return a copy of ``config`` with secret fields masked.
 

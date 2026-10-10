@@ -13,7 +13,11 @@ from app.models.connection import Schedule
 from app.models.user import User
 from app.routes._auth_helpers import check_role, get_auth_source_value, get_role_value
 from app.routes.auth import get_current_user_optional
-from app.services.delivery.config import build_delivery_config, redact_delivery_config
+from app.services.delivery.config import (
+    build_delivery_config,
+    redact_delivery_config,
+    sync_schedule_deliveries,
+)
 from app.services.exporters import normalize_output_format
 
 router = APIRouter()
@@ -228,6 +232,12 @@ async def create_schedule(
     await db.commit()
     await db.refresh(schedule)
 
+    # Materialize the normalized Delivery/DeliveryRecipient rows the scheduler
+    # reads at run time; without this a scheduled report is generated but never
+    # delivered.
+    await sync_schedule_deliveries(db, schedule)
+    await db.commit()
+
     return {"status": "ok", "id": str(schedule.id)}
 
 
@@ -426,6 +436,9 @@ async def update_schedule(
     if active_value is not None:
         schedule.is_active = active_value
 
+    # Reconcile normalized delivery rows with the (possibly updated) schedule
+    # fields so the scheduler picks up delivery changes.
+    await sync_schedule_deliveries(db, schedule)
     await db.commit()
     return {"status": "ok"}
 
