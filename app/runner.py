@@ -112,8 +112,13 @@ async def execute_report(schedule: Schedule, db: AsyncSession) -> ReportOutput |
         return output
 
     except Exception as e:
+        # Re-raise so the scheduler's retry/failure-notification logic can see
+        # the failure. Previously this swallowed every error and returned None,
+        # so the scheduler's retry branch and failure-notification email were
+        # dead code and transient failures were never retried. A missing report
+        # still returns None normally (handled above), not via this path.
         logger.error(f"Failed to execute report: {e}")
-        return None
+        raise
 
 
 async def deliver_report(

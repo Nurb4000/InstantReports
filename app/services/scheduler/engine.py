@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -160,16 +160,24 @@ class ReportScheduler:
         self.scheduler.resume_job(job_id)
         logger.info(f"Resumed schedule job: {job_id}")
 
+    # Delay between in-process retry attempts of a failed scheduled run.
+    RETRY_DELAY_SECONDS = 30.0
+
     async def _execute_report(self, *args: Any, **kwargs: Any) -> None:
         """Execute the report referenced by a scheduled job.
 
-        Runs inside APScheduler's event loop; opens its own DB session and
-        delegates to ``runner.execute_report`` via a lazy import to avoid a
-        circular dependency at module load time.
+        Runs inside APScheduler's event loop; opens a fresh DB session per
+        attempt and delegates to ``runner.execute_report`` via a lazy import to
+        avoid a circular dependency at module load time.
 
-        Implements automatic retry on transient failures (up to MAX_RETRIES).
-        After exhausting retries, sends a failure notification.
+        Retries transient failures in-process (``max_retries`` *total* attempts)
+        with a short delay, then sends a failure notification. The previous
+        implementation called ``scheduler.reschedule_job(..., args=..., kwargs=...)``,
+        which APScheduler 3.x does not accept (it takes only trigger arguments),
+        so retries never actually happened.
         """
+        import asyncio
+
         from app.runner import execute_report
 
         args_tuple = args if args else ()
@@ -187,55 +195,59 @@ class ReportScheduler:
         from app.database import async_session_factory
         from app.models.connection import Schedule
 
-        # Track retry count via job metadata (APSCHEDULER_JOB_ARGS/kwargs)
-        retry_count = kwargs.get("retry_count", 0)
-        max_retries = kwargs.get("max_retries", 1)
+        max_attempts = max(1, int(kwargs.get("max_retries", 1) or 1))
+        retry_delay = float(
+            kwargs.get("retry_delay", self.RETRY_DELAY_SECONDS) or 0.0
+        )
+        last_exc: Exception | None = None
+        schedule = None
 
-        async with async_session_factory() as db:
-            result = await db.execute(
-                select(Schedule).where(Schedule.id == schedule_id)
-            )
-            schedule = result.scalar_one_or_none()
-            if not schedule:
-                logger.error("Schedule %s not found; skipping execution", schedule_id)
-                return
-            try:
-                output = await execute_report(schedule, db)
-                if output is not None:
-                    await _deliver_scheduled(output, schedule_id, db)
-            except Exception as exc:
-                retry_count += 1
-                if retry_count < max_retries:
-                    # Re-schedule with incremented retry count
+        for attempt in range(1, max_attempts + 1):
+            # A fresh session per attempt: if one attempt's session is left in a
+            # failed state, the retry still starts clean.
+            async with async_session_factory() as db:
+                result = await db.execute(
+                    select(Schedule).where(Schedule.id == schedule_id)
+                )
+                schedule = result.scalar_one_or_none()
+                if not schedule:
+                    logger.error(
+                        "Schedule %s not found; skipping execution", schedule_id
+                    )
+                    return
+                try:
+                    output = await execute_report(schedule, db)
+                    if output is not None:
+                        await _deliver_scheduled(output, schedule_id, db)
+                    return
+                except Exception as exc:
+                    last_exc = exc
                     logger.warning(
-                        "Report execution failed for schedule %s (attempt %d/%d): %s. Retrying...",
-                        schedule_id, retry_count, max_retries, exc,
+                        "Report execution failed for schedule %s (attempt %d/%d): %s",
+                        schedule_id, attempt, max_attempts, exc,
                     )
-                    self.scheduler.reschedule_job(
-                        job_id=str(schedule_id),
-                        trigger="date",
-                        run_date=datetime.now(timezone.utc) + timedelta(seconds=30),
-                        args=args,
-                        kwargs={**kwargs, "retry_count": retry_count, "max_retries": max_retries},
-                    )
-                else:
-                    logger.error("Report execution failed for schedule %s after %d retries: %s", schedule_id, max_retries, exc)
-                    # Wire up the failure-notification feature (backlog #9): email the
-                    # configured SMTP address when a scheduled run raises. It was
-                    # implemented in app.services.cleanup but never called, so scheduled
-                    # failures were logged but nobody was notified. Imported lazily to
-                    # keep this module's load path decoupled from the cleanup/delivery
-                    # stack. A notification failure is logged, not raised, so it cannot
-                    # mask the original execution error.
-                    from app.services.cleanup import send_failure_notification
 
-                    try:
-                        await send_failure_notification(schedule.name, str(exc))
-                    except Exception as notify_exc:
-                        logger.error(
-                            "Failed to send failure notification for schedule %s: %s",
-                            schedule_id, notify_exc,
-                        )
+            if attempt < max_attempts:
+                await asyncio.sleep(retry_delay)
+
+        logger.error(
+            "Report execution failed for schedule %s after %d attempt(s)",
+            schedule_id, max_attempts,
+        )
+        # Failure-notification feature (backlog #9): email the configured SMTP
+        # address when a scheduled run exhausts its retries. Imported lazily to
+        # keep this module's load path decoupled from the cleanup/delivery stack.
+        # A notification failure is logged, not raised, so it cannot mask the
+        # original execution error.
+        from app.services.cleanup import send_failure_notification
+
+        try:
+            await send_failure_notification(schedule.name, str(last_exc))
+        except Exception as notify_exc:
+            logger.error(
+                "Failed to send failure notification for schedule %s: %s",
+                schedule_id, notify_exc,
+            )
 
 
 async def _deliver_scheduled(
