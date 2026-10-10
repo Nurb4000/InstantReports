@@ -172,7 +172,8 @@ async def create_schedule(
         "webhook_url": webhook_url,
         "webhook_secret": webhook_secret,
     }
-    if request.headers.get('content-type') == 'application/json':
+    content_type = (request.headers.get('content-type') or '').split(';')[0].strip().lower()
+    if content_type == 'application/json':
         body = await request.json()
         form_fields = _parse_json_body(body, form_fields)
 
@@ -371,7 +372,8 @@ async def update_schedule(
         "webhook_url": webhook_url,
         "webhook_secret": webhook_secret,
     }
-    if request.headers.get('content-type') == 'application/json':
+    content_type = (request.headers.get('content-type') or '').split(';')[0].strip().lower()
+    if content_type == 'application/json':
         body = await request.json()
         form_fields = _parse_json_body(body, form_fields)
 
