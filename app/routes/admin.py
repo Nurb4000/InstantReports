@@ -488,7 +488,8 @@ async def get_audit_log(
     
     # Apply search filter (search in details JSON)
     if search:
-        query = query.where(AuditLog.details.ilike(f"%{search}%"))
+        from sqlalchemy import func, text
+        query = query.where(func.cast(AuditLog.details, text("text")).ilike(f"%{search}%"))
     
     # Apply sorting
     if sort_by == "action":

@@ -114,9 +114,11 @@ async def create_version(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     # Get role value (handle both Enum and string)
     role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
-    if not current_user or role not in ("admin", "designer"):
+    if role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     form = await request.form()
@@ -158,9 +160,11 @@ async def restore_version_endpoint(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     # Get role value (handle both Enum and string)
     role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
-    if not current_user or role not in ("admin", "designer"):
+    if role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     await _require_report_access(db, report_id, current_user)
@@ -186,9 +190,11 @@ async def tag_version(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     # Get role value (handle both Enum and string)
     role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
-    if not current_user or role not in ("admin", "designer"):
+    if role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     await _require_report_access(db, report_id, current_user)
@@ -213,9 +219,11 @@ async def untag_version(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     # Get role value (handle both Enum and string)
     role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
-    if not current_user or role not in ("admin", "designer"):
+    if role not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     await _require_report_access(db, report_id, current_user)
