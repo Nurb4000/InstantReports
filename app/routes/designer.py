@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import os
@@ -642,36 +643,71 @@ async def delete_report(
     return {"status": "ok"}
 
 
-def _build_report_export_data(report, current_user, db=None) -> dict:
+# Connection-config keys that are safe to embed in an exported report. This is
+# an allow-list (not a denylist) so new credential-bearing keys added to a
+# connector's config never leak into exports. Secrets like password, secret,
+# auth_token, auth_password, api_key and dsn are deliberately excluded.
+_EXPORT_SAFE_CONNECTION_CONFIG_KEYS = frozenset({
+    "host",
+    "port",
+    "database",
+    "user",
+    "username",
+    "schema",
+    "server",
+    "share",
+    "remote_path",
+    "endpoint",
+    "file_path",
+    "filepath",
+    "path",
+})
+
+
+async def _build_report_export_data(report, current_user, db=None) -> dict:
     """Build the export dict for a report definition.
 
-    Pure function: no DB or HTTP state. Testable in isolation.
-    Includes connection templates so exports are self-contained.
+    Includes connection templates so exports are self-contained. The definition
+    is deep-copied (so exporting never mutates the stored row) and connection
+    configs are filtered through an allow-list so no credentials are written to
+    the exported file.
     """
-    definition = report.definition or {}
-    
+    definition = copy.deepcopy(report.definition) or {}
+
     # Enrich data sources with connection templates
     data_sources = definition.get("data_sources", [])
-    for ds in data_sources:
-        if "connection_id" in ds and db is not None:
-            from app.models.connection import DataConnection
-            from sqlalchemy import select
-            
-            result = db.execute(select(DataConnection).where(DataConnection.id == ds["connection_id"]))
+    if db is not None:
+        from app.models.connection import DataConnection
+
+        for ds in data_sources:
+            if "connection_id" not in ds:
+                continue
+
+            try:
+                connection_id = uuid.UUID(str(ds["connection_id"]))
+            except (ValueError, TypeError):
+                continue
+
+            result = await db.execute(
+                select(DataConnection).where(DataConnection.id == connection_id)
+            )
             conn = result.scalar_one_or_none()
-            
+
             if conn:
-                # Create a template without sensitive info
                 ds["connection_template"] = {
                     "name": conn.name,
                     "connector_type": conn.connector_type,
-                    **{k: v for k, v in conn.config.items() if k not in ("password", "secret")},
+                    **{
+                        k: v
+                        for k, v in (conn.config or {}).items()
+                        if k in _EXPORT_SAFE_CONNECTION_CONFIG_KEYS
+                    },
                 }
                 # Remove the connection_id since we're embedding the template
                 del ds["connection_id"]
-    
+
     definition["data_sources"] = data_sources
-    
+
     return {
         "instantreports_export": True,
         "version": "1.0",
@@ -701,7 +737,7 @@ async def export_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    export_data = _build_report_export_data(report, current_user, db)
+    export_data = await _build_report_export_data(report, current_user, db)
 
     import tempfile
     fd, path = tempfile.mkstemp(suffix=".ir.json")
