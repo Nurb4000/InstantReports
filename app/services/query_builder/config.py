@@ -168,6 +168,17 @@ class WhereFilter(BaseModel):
     def _check_ident(cls, v: str) -> str:
         return _validate_identifier(v)
 
+    @field_validator("logic")
+    @classmethod
+    def _check_logic(cls, v: str) -> str:
+        # ``logic`` is interpolated *unquoted* into the generated WHERE clause, so
+        # it must be constrained to the two legal boolean connectors. Without this
+        # a crafted config (e.g. logic="OR 1=1 UNION SELECT ... --") injects SQL.
+        normalized = (v or "AND").strip().upper()
+        if normalized not in ("AND", "OR"):
+            raise ValueError(f"Invalid WHERE logic: {v!r} (expected 'AND' or 'OR')")
+        return normalized
+
     def to_sql(self) -> str:
         """Generate SQL for this filter."""
         if self.operator == Operator.IS_NULL:

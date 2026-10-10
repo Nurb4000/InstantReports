@@ -33,6 +33,9 @@ from app.services.query_builder.config import (
             on_right_table="b", on_right_column="id",
         ),
         lambda: WhereFilter(field="t.n; DROP", operator="=", value=1),
+        # ``logic`` is emitted unquoted; anything other than AND/OR is injection.
+        lambda: WhereFilter(field="t.a", operator="=", value=1, logic="OR 1=1 UNION SELECT * FROM users --"),
+        lambda: WhereFilter(field="t.a", operator="=", value=1, logic="; DROP TABLE users"),
         lambda: OrderByField(field="t.a", direction="ASC; DROP TABLE t"),
         lambda: QueryConfig(from_tables=["orders;--"], select=[SelectColumn(table="a", column="b")]),
         lambda: QueryConfig(group_by=["x; DROP"]),
@@ -49,6 +52,22 @@ def test_valid_identifiers_accepted():
     SelectColumn(table="orders", column="amount", alias="total")
     OrderByField(field="orders.order_id", direction="desc")
     QueryConfig(from_tables=["public.orders"], group_by=["orders.customer_id"])
+
+
+def test_valid_where_logic_accepted_and_normalized():
+    # AND/OR (any case) is accepted and normalized to upper case; the value is
+    # emitted verbatim into SQL, so the normal form must be canonical.
+    assert WhereFilter(field="t.a", operator="=", value=1).logic == "AND"
+    assert WhereFilter(field="t.a", operator="=", value=1, logic="or").logic == "OR"
+    cfg = QueryConfig(
+        from_tables=["orders"],
+        select=[SelectColumn(table="orders", column="id")],
+        where=[
+            WhereFilter(field="orders.id", operator="=", value=1),
+            WhereFilter(field="orders.id", operator="=", value=2, logic="or"),
+        ],
+    )
+    assert "WHERE orders.id = '1' OR orders.id = '2'" in cfg.to_sql()
 
 
 @pytest.mark.asyncio
