@@ -11,6 +11,7 @@ Create Date: 2026-09-05 12:00:00.000000
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -22,20 +23,30 @@ down_revision: str | None = "a1b2c3d4e5f6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+# A SHA-256 hex digest is exactly 64 lowercase hex characters; anything else is
+# still a plaintext key.
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+
 
 def _hash(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
-def upgrade() -> None:
-    from alembic import context
+def _is_hashed(key: str) -> bool:
+    return bool(_SHA256_HEX_RE.match(key))
 
-    conn = context.get_context().connection
-    for row in conn.execute(sa.text("SELECT id, key FROM api_keys")).all():
-        if row.key:
+
+def upgrade() -> None:
+    # Idempotent: only plaintext keys are hashed, so re-running the migration
+    # (or running it over a partially-migrated table) never double-hashes a key.
+    conn = op.get_bind()
+    rows = conn.execute(sa.text("SELECT id, key FROM api_keys")).all()
+    for row in rows:
+        key = row.key
+        if key and not _is_hashed(key):
             conn.execute(
                 sa.text("UPDATE api_keys SET key = :k WHERE id = :id"),
-                {"k": _hash(row.key), "id": row.id},
+                {"k": _hash(key), "id": row.id},
             )
 
 
