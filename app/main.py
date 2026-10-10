@@ -27,7 +27,8 @@ async def lifespan(app: FastAPI):
         engine = create_async_engine(app_settings.DATABASE_URL)
         async with engine.begin() as conn:
             try:
-                await conn.run_sync(Base.metadata.create_all)
+                # Rely on Alembic migrations; create_all may diverge
+                # await conn.run_sync(Base.metadata.create_all)
             except Exception as create_err:
                 # Tables may already exist from migrations - that's OK
                 logger.info(f"Tables may already exist: {create_err}")
