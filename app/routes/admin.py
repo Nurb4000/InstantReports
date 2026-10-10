@@ -777,7 +777,9 @@ async def change_password(
     if not verify_password(current_password, user.password_hash or ""):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
-    user.password_hash = __import__("app.auth").hash_password(new_password)
+    from app.auth import hash_password
+
+    user.password_hash = hash_password(new_password)
     await db.commit()
     return {"status": "ok"}
 
