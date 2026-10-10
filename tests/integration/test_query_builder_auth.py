@@ -104,6 +104,35 @@ async def test_admin_can_access_any_template(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_viewer_cannot_use_query_builder(client, db_session):
+    """A viewer session must not introspect schemas or run raw SQL via the
+    query-builder API. It previously required only an authenticated session, so
+    any user could execute arbitrary SQL against any connection."""
+    owner = await _make_user(db_session, "owner5@qb.test", UserRole.DESIGNER)
+    await _make_user(db_session, "viewer@qb.test", UserRole.VIEWER)
+    conn = DataConnection(
+        id=uuid.uuid4(), name="Conn", connector_type="postgresql",
+        config={}, created_by=owner.id,
+    )
+    db_session.add(conn)
+    await db_session.commit()
+
+    viewer_client = await _login(client, "viewer@qb.test")
+
+    assert (
+        await viewer_client.get(f"/api/query-builder/schema/{conn.id}")
+    ).status_code == 403
+    assert (
+        await viewer_client.post(
+            "/api/query-builder/test",
+            params={"connection_id": str(conn.id)},
+            json={"from_tables": ["orders"]},
+        )
+    ).status_code == 403
+    assert (await viewer_client.get("/api/query-builder/templates")).status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_list_scopes_away_others_templates(client, db_session):
     owner = await _make_user(db_session, "owner4@qb.test", UserRole.DESIGNER)
     await _make_user(db_session, "other2@qb.test", UserRole.DESIGNER)

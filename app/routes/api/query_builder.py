@@ -41,15 +41,20 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 async def require_auth(
     current_user: User | None = Depends(get_current_user_optional),
 ) -> User:
-    """Require an authenticated user for the query-builder API.
+    """Require an admin/designer for the query-builder API.
 
     Every endpoint here runs against real DB connections (schema introspection,
     raw-SQL /test, template save/import, AI nl-to-query), so it must sit behind
-    auth like the rest of the app. The previous get_current_user_simple stub
-    returned None unconditionally, leaving all 17 routes effectively anonymous.
+    the same role gate as the datasource/designer routes. Requiring only *any*
+    authenticated session would let a viewer introspect schemas and execute
+    arbitrary SQL against any connection.
     """
+    from app.routes._auth_helpers import check_role
+
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    if not check_role(current_user, "admin", "designer"):
+        raise HTTPException(status_code=403, detail="Not authorized")
     return current_user
 
 
