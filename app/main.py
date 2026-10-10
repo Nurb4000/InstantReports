@@ -47,21 +47,37 @@ async def lifespan(app: FastAPI):
             # Seed admin user
             result = await db.execute(select(User).where(User.email == "admin@example.com"))
             if not result.scalar_one_or_none():
-                admin = User(
-                    email="admin@example.com",
-                    name="Admin",
-                    password_hash=hash_password("admin"),
-                    role=UserRole.ADMIN,
-                    auth_source=AuthSource.LOCAL,
-                    is_active=True,
-                )
-                db.add(admin)
-                try:
-                    await db.commit()
-                    logger.info("Seeded admin user (admin@example.com / admin)")
-                except IntegrityError as e:
-                    await db.rollback()
-                    logger.info(f"Admin user may already exist: {e}")
+                import os
+
+                env_email = os.getenv("INITIAL_ADMIN_EMAIL", "admin@example.com")
+                env_pass = os.getenv("INITIAL_ADMIN_PASSWORD")
+                if not env_pass or len(env_pass) < 8 or env_pass in {
+                    "admin",
+                    "password",
+                    "12345678",
+                }:
+                    # Do not seed a known-weak default admin. Require env.
+                    logger.warning(
+                        "Refusing to seed weak default admin; set "
+                        "INITIAL_ADMIN_EMAIL/INITIAL_ADMIN_PASSWORD with a strong "
+                        "password (>=8 chars)."
+                    )
+                else:
+                    admin = User(
+                        email=env_email,
+                        name="Admin",
+                        password_hash=hash_password(env_pass),
+                        role=UserRole.ADMIN,
+                        auth_source=AuthSource.LOCAL,
+                        is_active=True,
+                    )
+                    db.add(admin)
+                    try:
+                        await db.commit()
+                        logger.info(f"Seeded initial admin user ({env_email})")
+                    except IntegrityError as e:
+                        await db.rollback()
+                        logger.info(f"Admin user may already exist: {e}")
 
             # Seed default northwind connection with fixed UUID for sample reports
             nw_result = await db.execute(

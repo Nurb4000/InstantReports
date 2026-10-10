@@ -27,11 +27,23 @@ class Settings(BaseSettings):
         # The JWT signing secret must never be empty or the well-known development
         # placeholder: with it, anyone can forge an admin token (full auth
         # bypass). Fail loudly at startup instead of shipping with a weak key.
-        if not v or v in ("change-me-in-production", "your-secret-key-here"):
+        if not v:
             raise ValueError(
-                "SECRET_KEY is not set or still a placeholder value. "
-                "Set a strong, private SECRET_KEY via environment variable or .env "
-                "before starting the app."
+                "SECRET_KEY is not set. Set a strong, private SECRET_KEY via "
+                "environment variable or .env before starting the app."
+            )
+        weak = {
+            "change-me-in-production",
+            "your-secret-key-here",
+            "secret",
+            "changeme",
+            "admin",
+        }
+        if v in weak or len(v) < 16:
+            raise ValueError(
+                "SECRET_KEY is too short or still a placeholder/weak value. "
+                "Set a strong, random SECRET_KEY (at least 16 characters) before "
+                "starting the app."
             )
         return v
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
@@ -70,6 +82,11 @@ class Settings(BaseSettings):
     # Runner mode: how often (seconds) the scheduler re-syncs schedules from the
     # DB so new/changed schedules take effect without a runner restart.
     SCHEDULE_SYNC_INTERVAL_SECONDS: int = 60
+
+    # Login rate limiting (protect against brute force). A single-process
+    # in-memory limiter; multiple workers do not share state.
+    LOGIN_RATE_LIMIT_ATTEMPTS: int = 5
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
     # Preview row limits: cap rows returned in preview/export to avoid memory
     # issues with large datasets. Tables show up to this many rows; charts limit
