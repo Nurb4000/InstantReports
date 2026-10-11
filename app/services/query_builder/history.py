@@ -47,9 +47,14 @@ async def list_snapshots(
     report_id: uuid.UUID | None = None,
     element_id: str | None = None,
     connection_id: uuid.UUID | None = None,
+    created_by: uuid.UUID | None = None,
     limit: int = 50,
 ) -> list[QueryHistory]:
-    """List snapshots ordered newest-first, filtered by the provided keys."""
+    """List snapshots ordered newest-first, filtered by the provided keys.
+
+    When ``created_by`` is supplied the result is scoped to snapshots owned by
+    that user; it is omitted only for admins who may see every user's history.
+    """
     query = select(QueryHistory)
 
     if report_id is not None:
@@ -58,6 +63,8 @@ async def list_snapshots(
         query = query.where(QueryHistory.element_id == element_id)
     if connection_id is not None:
         query = query.where(QueryHistory.connection_id == connection_id)
+    if created_by is not None:
+        query = query.where(QueryHistory.created_by == created_by)
 
     query = query.order_by(QueryHistory.created_at.desc()).limit(limit)
     result = await db.execute(query)

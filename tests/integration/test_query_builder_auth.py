@@ -50,6 +50,21 @@ async def _seed_template(db, connection, name="Other Template"):
     return template
 
 
+async def _seed_history(db, connection, user_id, label="Secret History"):
+    from app.models.connection import QueryHistory
+
+    snapshot = QueryHistory(
+        connection_id=connection.id,
+        query_config={"from_tables": ["orders"]},
+        label=label,
+        created_by=user_id,
+    )
+    db.add(snapshot)
+    await db.commit()
+    await db.refresh(snapshot)
+    return snapshot
+
+
 @pytest.mark.asyncio
 async def test_non_owner_cannot_read_or_delete_others_template(client, db_session):
     owner = await _make_user(db_session, "owner@qb.test", UserRole.DESIGNER)
@@ -149,3 +164,52 @@ async def test_list_scopes_away_others_templates(client, db_session):
     assert listing.status_code == 200
     names = [t["name"] for t in listing.json()]
     assert "Secret Template" not in names
+
+
+@pytest.mark.asyncio
+async def test_non_owner_cannot_read_or_delete_others_history(client, db_session):
+    """Query-history snapshots hold raw SQL, so they must be scoped to their
+    creator. Previously any user could read the full query_config or delete
+    another user's snapshot by id."""
+    owner = await _make_user(db_session, "howner@qb.test", UserRole.DESIGNER)
+    await _make_user(db_session, "hother@qb.test", UserRole.DESIGNER)
+    conn = DataConnection(
+        id=uuid.uuid4(), name="Conn", connector_type="postgresql",
+        config={}, created_by=owner.id,
+    )
+    db_session.add(conn)
+    await db_session.commit()
+    snapshot = await _seed_history(db_session, conn, owner.id)
+
+    other_client = await _login(client, "hother@qb.test")
+
+    assert (
+        await other_client.get(f"/api/query-builder/history/{snapshot.id}")
+    ).status_code == 403
+    assert (
+        await other_client.delete(f"/api/query-builder/history/{snapshot.id}")
+    ).status_code == 403
+    listing = await other_client.get("/api/query-builder/history")
+    assert listing.status_code == 200
+    assert str(snapshot.id) not in [h["id"] for h in listing.json()]
+
+
+@pytest.mark.asyncio
+async def test_owner_and_admin_can_access_history(client, db_session):
+    owner = await _make_user(db_session, "howner2@qb.test", UserRole.DESIGNER)
+    await _make_user(db_session, "hadmin@qb.test", UserRole.ADMIN)
+    conn = DataConnection(
+        id=uuid.uuid4(), name="Conn", connector_type="postgresql",
+        config={}, created_by=owner.id,
+    )
+    db_session.add(conn)
+    await db_session.commit()
+    snapshot = await _seed_history(db_session, conn, owner.id)
+
+    owner_client = await _login(client, "howner2@qb.test")
+    assert (
+        await owner_client.get(f"/api/query-builder/history/{snapshot.id}")
+    ).status_code == 200
+    assert (
+        await owner_client.delete(f"/api/query-builder/history/{snapshot.id}")
+    ).status_code == 200

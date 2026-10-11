@@ -72,6 +72,19 @@ async def _require_template_access(db, template, current_user):
     raise HTTPException(status_code=403, detail="Not authorized to access this template")
 
 
+async def _require_history_access(snapshot, current_user):
+    """Guard query-history read/delete with the same ownership model.
+
+    A snapshot's ``query_config`` can contain raw SQL, so it must not be
+    readable or deletable by other users. Admins retain oversight access.
+    """
+    from app.routes._auth_helpers import get_role_value
+
+    if get_role_value(current_user) == "admin" or snapshot.created_by == current_user.id:
+        return
+    raise HTTPException(status_code=403, detail="Not authorized to access this history")
+
+
 @router.get("/schema/{connection_id}")
 async def get_schema_endpoint(
     connection_id: str,
@@ -451,11 +464,16 @@ async def list_query_history(
     conn_uuid = _to_uuid(connection_id, "connection_id")
     report_uuid = _to_uuid(report_id, "report_id")
 
+    from app.routes._auth_helpers import get_role_value
+
+    owner_scope = None if get_role_value(current_user) == "admin" else current_user.id
+
     snapshots = await list_snapshots(
         db,
         report_id=report_uuid,
         element_id=element_id,
         connection_id=conn_uuid,
+        created_by=owner_scope,
         limit=limit,
     )
 
@@ -487,6 +505,7 @@ async def get_query_history(
     snapshot = await get_snapshot(db, tmpl_uuid)
     if not snapshot:
         raise HTTPException(status_code=404, detail="History snapshot not found")
+    await _require_history_access(snapshot, current_user)
 
     return {
         "id": str(snapshot.id),
@@ -510,6 +529,11 @@ async def delete_query_history(
         tmpl_uuid = uuid.UUID(snapshot_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid snapshot_id")
+
+    snapshot = await get_snapshot(db, tmpl_uuid)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="History snapshot not found")
+    await _require_history_access(snapshot, current_user)
 
     removed = await delete_snapshot(db, tmpl_uuid)
     if not removed:
