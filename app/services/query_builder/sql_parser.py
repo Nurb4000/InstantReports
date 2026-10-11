@@ -33,7 +33,7 @@ _JOIN_PATTERN = re.compile(
 
 # Matches: <table>.<column> <operator> <value>
 _OPERATOR_PATTERN = re.compile(
-    r"^(\w+)\.(\w+)\s*(=|!=|<|<=|>|>=|LIKE)\s*(.+)$",
+    r"^(\w+)\.(\w+)\s*(<=|>=|!=|=|<|>|LIKE)\s*(.+)$",
     re.IGNORECASE,
 )
 
