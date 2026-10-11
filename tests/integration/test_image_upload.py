@@ -65,7 +65,10 @@ async def test_svg_disguised_as_image_rejected(client):
 
 
 @pytest.mark.asyncio
-async def test_valid_png_accepted_with_trusted_extension(client):
+async def test_valid_png_accepted_with_trusted_extension(client, tmp_path, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "STATIC_DIR", tmp_path)
     _override_user(_user())
 
     resp = await client.post(
@@ -76,6 +79,7 @@ async def test_valid_png_accepted_with_trusted_extension(client):
     body = resp.json()
     assert body["filename"].endswith(".png")
     assert body["url"].startswith("/static/img/")
+    assert (tmp_path / "img" / body["filename"]).read_bytes() == PNG_BYTES
 
 
 @pytest.mark.asyncio
