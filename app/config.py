@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
 
+    # CORS: comma-separated list of allowed browser origins. Empty (the default)
+    # means "same-origin only" — no cross-origin requests are permitted, which is
+    # safe for the bundled same-origin UI. Never use "*" together with
+    # credentials: Starlette then reflects the caller's Origin back, letting any
+    # site make authenticated requests.
+    CORS_ALLOW_ORIGINS: str = ""
+
+    # Auth cookies: mark them Secure (HTTPS-only) in production. Set to false
+    # only for local development over plain HTTP.
+    COOKIE_SECURE: bool = True
+
+
     @field_validator("SECRET_KEY")
     @classmethod
     def _reject_placeholder_secret(cls, v: str) -> str:

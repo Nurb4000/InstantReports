@@ -5,16 +5,17 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings as app_settings
-from app.database import Base
+from app.database import get_db
 from app.models import *
 
 logger = logging.getLogger(__name__)
@@ -25,20 +26,22 @@ async def lifespan(app: FastAPI):
     # Auto-create tables and seed admin user on startup (dev convenience)
     try:
         engine = create_async_engine(app_settings.DATABASE_URL)
-        async with engine.begin() as conn:
+        async with engine.begin():
             # Rely on Alembic migrations; create_all may diverge (skip)
             pass
         await engine.dispose()
         logger.info("Database tables ensured (created if missing)")
 
         # Seed admin user and default northwind connection if not exists
+        import uuid
+
+        from sqlalchemy import select
+        from sqlalchemy.exc import IntegrityError
+
         from app.auth import hash_password
         from app.database import async_session_factory
         from app.models.connection import DataConnection
         from app.models.user import AuthSource, User, UserRole
-        from sqlalchemy import select
-        from sqlalchemy.exc import IntegrityError
-        import uuid
 
         async with async_session_factory() as db:
             # Seed admin user
@@ -120,13 +123,20 @@ app = FastAPI(
     debug=app_settings.DEBUG,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_cors_origins = [
+    origin.strip()
+    for origin in app_settings.CORS_ALLOW_ORIGINS.split(",")
+    if origin.strip()
+]
+
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Custom exception handlers. Every error returns a consistent JSON payload:
 #   {"detail": "<user-facing message>", "status_code": <int>}
@@ -211,5 +221,17 @@ async def startup_event():
 
 
 @app.get("/health")
-async def health():
+async def health(response: Response, db: AsyncSession = Depends(get_db)):
+    """Liveness/readiness probe that verifies the database is reachable.
+
+    A bare ``{"status": "ok"}`` reports healthy even when the DB is down, so
+    orchestrators keep routing traffic to a broken instance. Pinging the DB
+    surfaces that as a 503 so the container can be restarted/unregistered.
+    """
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.error(f"Health check failed: {exc}")
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {"status": "unhealthy"}
     return {"status": "ok"}

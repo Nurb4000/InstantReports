@@ -18,6 +18,14 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_FROM=${SMTP_FROM:-reports@example.com}
+      # Bootstrap admin (created on first start if the users table is empty).
+      - INITIAL_ADMIN_EMAIL=${INITIAL_ADMIN_EMAIL:-}
+      - INITIAL_ADMIN_PASSWORD=${INITIAL_ADMIN_PASSWORD:-}
+      # Local HTTP stack: cookies must not require TLS. Set to "true" (or drop
+      # this line) when serving over HTTPS.
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      # Comma-separated extra browser origins allowed to call the API.
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-}
     depends_on:
       postgres:
         condition: service_healthy

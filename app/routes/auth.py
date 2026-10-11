@@ -118,6 +118,7 @@ async def login(
         key="access_token",
         value=access_token,
         httponly=True,
+        secure=settings.COOKIE_SECURE,
         max_age=60 * 60 * 8,
         samesite="lax",
     )
@@ -126,6 +127,7 @@ async def login(
         key="current_user_id",
         value=str(user.id),
         httponly=True,
+        secure=settings.COOKIE_SECURE,
         max_age=60 * 60 * 8,
         samesite="lax",
     )
