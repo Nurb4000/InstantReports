@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import ast
+import logging
 import operator
 import re
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Binary/unary/comparison operators permitted in a calculated-field expression.
 # Everything else (attributes, calls to unlisted names, comprehensions, ...) is
@@ -17,8 +20,20 @@ _SAFE_BINOPS = {
     ast.Div: operator.truediv,
     ast.FloorDiv: operator.floordiv,
     ast.Mod: operator.mod,
-    ast.Pow: operator.pow,
 }
+
+# Exponentiation is allowed but only with a bounded exponent, so an expression
+# like ``9**9**99999999`` cannot exhaust CPU/memory in the render/export path.
+_MAX_POW_EXPONENT = 1000
+
+
+def _safe_pow(base: Any, exponent: Any) -> Any:
+    if isinstance(exponent, (int, float)) and abs(exponent) > _MAX_POW_EXPONENT:
+        raise ValueError("Exponent too large")
+    return operator.pow(base, exponent)
+
+
+_SAFE_BINOPS[ast.Pow] = _safe_pow
 
 _SAFE_UNARYOPS = {
     ast.UAdd: operator.pos,
@@ -129,7 +144,11 @@ class CalculatedFieldEvaluator:
         try:
             tree = ast.parse(processed_expr, mode="eval")
             result = _SafeExpressionEvaluator(df).eval_node(tree)
-        except Exception:
+        except Exception as exc:
+            # Surface the failure instead of silently producing all-None columns.
+            logger.warning(
+                "Calculated field %r failed to evaluate: %s", expression, exc
+            )
             return pd.Series([None] * len(df), index=df.index)
 
         if isinstance(result, pd.Series):

@@ -494,6 +494,16 @@ class TestConditionalFormatterOperators:
         result = evaluator.evaluate(malicious, df)
         assert list(result) == [None, None]
 
+    def test_evaluate_rejects_absurd_exponent(self):
+        """A huge exponent (e.g. 9**9**99999999) must be rejected instead of
+        exhausting CPU/memory in the render/export path; the result is all-None
+        while legitimate exponents still evaluate."""
+        evaluator = CalculatedFieldEvaluator()
+        df = pd.DataFrame({"revenue": [1, 2]})
+        result = evaluator.evaluate("9**9**99999999", df)
+        assert list(result) == [None, None]
+        assert list(evaluator.evaluate("2**10", df)) == [1024, 1024]
+
     def test_process_expression_escapes_single_quotes_in_column_names(self):
         """Column names containing single quotes must be escaped so the generated
         df['col'] reference does not produce a syntax error in the AST evaluator.
