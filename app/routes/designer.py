@@ -424,8 +424,12 @@ async def import_report(
         
         # First, try to find by connection_id
         if "connection_id" in ds:
+            try:
+                cid = uuid.UUID(str(ds["connection_id"]))
+            except Exception:
+                cid = ds["connection_id"]
             existing = await db.execute(
-                select(DataConnection).where(DataConnection.id == ds["connection_id"])
+                select(DataConnection).where(DataConnection.id == cid)
             )
             conn = existing.scalar_one_or_none()
             
