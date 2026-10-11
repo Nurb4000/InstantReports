@@ -205,6 +205,21 @@ async def preview_report(
             definition_json=definition_json,
         )
 
+        if format and format.lower() == "pdf":
+            from app.services.exporters import export_report, normalize_output_format
+
+            fmt = normalize_output_format(format)
+            pdf_bytes = export_report({"html": html_content}, fmt)
+            safe_base = (title or "report").replace(" ", "_")
+            from app.services.exporters import get_file_extension, get_mime_type
+
+            return Response(
+                content=pdf_bytes,
+                media_type=get_mime_type(fmt),
+                headers={
+                    "Content-Disposition": f'attachment; filename="{safe_base}.{get_file_extension(fmt)}"'
+                },
+            )
         return HTMLResponse(content=html_content)
 
     except Exception as e:
