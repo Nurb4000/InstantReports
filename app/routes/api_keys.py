@@ -38,7 +38,7 @@ async def get_current_user_from_api_key(
     key_obj = await validate_api_key(db, credentials.credentials)
     if key_obj:
         return User(id=key_obj.user_id, email="api-key", name="API Key", role="viewer")
-    return None
+    raise HTTPException(status_code=401, detail="Missing/invalid API key")
 
 
 @router.get("/")
