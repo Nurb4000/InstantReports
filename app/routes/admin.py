@@ -25,6 +25,21 @@ router = APIRouter()
 __all__ = ["check_role", "get_auth_source_value", "get_role_value"]
 
 
+def _require_schedule_access(schedule: Schedule, current_user: User) -> None:
+    """Guard schedule read/write with the app's ownership model.
+
+    Admins get oversight access to every schedule; designers may only touch
+    schedules they own or created. Without this, any designer could read or
+    edit another user's schedule (including recipient_emails, delivery
+    credentials, and owner reassignment).
+    """
+    if get_role_value(current_user) == "admin":
+        return
+    if schedule.owner_id == current_user.id or schedule.created_by == current_user.id:
+        return
+    raise HTTPException(status_code=403, detail="Not authorized for this schedule")
+
+
 def _parse_json_body(body: dict | None, form_fields: dict) -> dict:
     """Merge JSON body fields into form fields, preferring JSON values.
 
@@ -306,6 +321,8 @@ async def get_schedule(
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
 
+    _require_schedule_access(schedule, current_user)
+
     return {
         "id": str(schedule.id),
         "name": schedule.name,
@@ -391,6 +408,8 @@ async def update_schedule(
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
 
+    _require_schedule_access(schedule, current_user)
+
     # Parse is_active from string or boolean
     active_value = None
     if is_active is not None:
@@ -434,6 +453,10 @@ async def update_schedule(
         if delivery_type == "email":
             schedule.recipient_emails = recipient_emails
     if parsed_owner_id:
+        if get_role_value(current_user) != "admin" and parsed_owner_id != schedule.owner_id:
+            raise HTTPException(
+                status_code=403, detail="Only admins can reassign a schedule's owner"
+            )
         schedule.owner_id = parsed_owner_id
     if active_value is not None:
         schedule.is_active = active_value
@@ -527,7 +550,16 @@ async def list_schedules(
     from app.models.report import Report
     
     query = select(Schedule).options(selectinload(Schedule.report), selectinload(Schedule.owner))
-    
+
+    # Designers only see schedules they own or created; admins see everything.
+    if get_role_value(current_user) != "admin":
+        query = query.where(
+            or_(
+                Schedule.owner_id == current_user.id,
+                Schedule.created_by == current_user.id,
+            )
+        )
+
     # Apply status filter
     if status_filter == "active":
         query = query.where(Schedule.is_active.is_(True))
@@ -543,11 +575,9 @@ async def list_schedules(
             )
         ).join(Report, Report.id == Schedule.report_id)
     
-    # Apply sorting
+    # Apply sorting (Schedule has no updated_at column; fall back to created_at)
     if sort_by == "name":
         query = query.order_by(Schedule.name.asc())
-    elif sort_by == "updated_at":
-        query = query.order_by(Schedule.updated_at.desc())
     else:
         query = query.order_by(desc(Schedule.created_at))
     
@@ -593,6 +623,8 @@ async def get_schedule_api(
 
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
+
+    _require_schedule_access(schedule, current_user)
 
     return {
         "id": str(schedule.id),

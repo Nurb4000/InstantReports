@@ -84,7 +84,7 @@ async def test_schedule_read_endpoints_redact_delivery_secrets(
     db_session.add_all([schedule, webhook])
     await db_session.commit()
 
-    _override_user(designer)
+    _override_user(admin)
 
     listed = await client.get("/admin/api/schedules")
     assert listed.status_code == 200, listed.text
@@ -99,3 +99,12 @@ async def test_schedule_read_endpoints_redact_delivery_secrets(
     assert single.status_code == 200, single.text
     assert "s3cret-pw" not in single.text
     assert single.json()["delivery_config"]["password"] == "***REDACTED***"
+
+    # A designer who neither owns nor created these schedules must not see them.
+    _override_user(designer)
+    isolated = await client.get("/admin/api/schedules")
+    assert isolated.status_code == 200, isolated.text
+    assert "sftp-job" not in {s["name"] for s in isolated.json()}
+    assert (
+        await client.get(f"/admin/api/schedules/{schedule.id}")
+    ).status_code == 403
