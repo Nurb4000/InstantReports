@@ -56,6 +56,26 @@ def _require_report_access(report, current_user) -> None:
     raise HTTPException(status_code=403, detail="Not authorized for this report")
 
 
+_ALLOWED_IMAGE_FORMATS = frozenset({"png", "jpg", "gif", "webp"})
+
+
+def _detect_image_format(contents: bytes) -> str | None:
+    """Return the image extension implied by the file's magic bytes.
+
+    Never trusts the client-supplied filename or Content-Type, so an ``.html``
+    or ``.svg`` payload cannot be stored and later served same-origin.
+    """
+    if contents.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if contents.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if contents[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
 def _parse_definition_field(definition: str | None, default: dict) -> dict:
     """Parse the definition form field, returning a dict.
 
@@ -522,22 +542,34 @@ async def upload_image(
     if not current_user or not _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # Validate file type
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="Only image files are allowed")
+    # Read one byte past the cap so an oversized upload is detected without
+    # buffering unbounded input into memory.
+    max_bytes = app_settings.MAX_IMAGE_UPLOAD_BYTES
+    contents = await file.read(max_bytes + 1)
+    if len(contents) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image exceeds the {max_bytes // (1024 * 1024)}MB limit",
+        )
 
-    # Generate unique filename
+    # Determine the real format from magic bytes; ignore the client filename.
+    image_format = _detect_image_format(contents)
+    if image_format is None or image_format not in _ALLOWED_IMAGE_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported image format (allowed: png, jpg, gif, webp)",
+        )
+
+    # Generate a unique, server-chosen filename with a trusted extension.
     import uuid
-    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-    filename = f"{uuid.uuid4()}.{ext}"
+    filename = f"{uuid.uuid4()}.{image_format}"
 
     # Save to static/img directory
     from pathlib import Path
     upload_dir = Path(app_settings.STATIC_DIR) / "img"
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
     filepath = upload_dir / filename
 
-    contents = await file.read()
     await asyncio.to_thread(filepath.write_bytes, contents)
 
     return {

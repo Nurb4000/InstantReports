@@ -98,5 +98,10 @@ class Settings(BaseSettings):
     STATIC_DIR: Path = BASE_DIR / "static"
     TEMPLATES_DIR: Path = BASE_DIR / "templates"
 
+    # Image uploads: hard cap and the image formats we accept. The actual
+    # format is detected from the file's magic bytes, never from the
+    # client-supplied filename or Content-Type.
+    MAX_IMAGE_UPLOAD_BYTES: int = 5 * 1024 * 1024
+
 
 settings = Settings()
