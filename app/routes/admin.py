@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import desc, or_, select
+from sqlalchemy import desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -488,7 +488,6 @@ async def get_audit_log(
     
     # Apply search filter (search in details JSON)
     if search:
-        from sqlalchemy import func, text
         query = query.where(func.cast(AuditLog.details, text("text")).ilike(f"%{search}%"))
     
     # Apply sorting
