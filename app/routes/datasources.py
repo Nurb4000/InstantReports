@@ -216,9 +216,13 @@ async def test_connection(
     connector = get_connector(connection.connector_type)
     try:
         success = await connector.test_connection(connection.config)
-        return {"status": "ok", "success": success}
+        if success:
+            return {"status": "ok", "success": True}
+        raise HTTPException(status_code=400, detail="Connection test failed")
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"status": "error", "success": False, "message": str(e)}
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{connection_id}/schema")
