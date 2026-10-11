@@ -6,6 +6,7 @@
     <title>{% block title %}InstantReports{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/bootstrap.min.css') }}?v={{ now() }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/main.css') }}?v={{ now() }}">
+    <script src="{{ url_for('static', path='/js/escape.js') }}"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">

@@ -1046,9 +1046,9 @@
                             <strong>v${v.version_number}</strong>
                             <small class="text-muted">${new Date(v.created_at).toLocaleString()}</small>
                         </div>
-                        <p>${v.commit_message}</p>
+                        <p>${escapeHtml(v.commit_message)}</p>
                         <div class="btn-group btn-group-sm">
-                            <a href="${v.compare_url}" class="btn btn-outline-info">Compare</a>
+                            <a href="${encodeURI(v.compare_url)}" class="btn btn-outline-info">Compare</a>
                             <button class="btn btn-outline-primary" onclick="viewVersion('${reportId}', ${v.version_number})">View</button>
                             <button class="btn btn-outline-success" onclick="restoreVersion('${reportId}', ${v.version_number})">Restore</button>
                         </div>
@@ -1934,18 +1934,18 @@
                 <div class="connection-card ${isLinked ? 'linked' : ''}">
                     <div class="connection-header">
                         <div>
-                            <strong>${conn.name}</strong>
-                            <span class="connection-badge ms-2">${conn.connector_type}</span>
+                            <strong>${escapeHtml(conn.name)}</strong>
+                            <span class="connection-badge ms-2">${escapeHtml(conn.connector_type)}</span>
                         </div>
                         <div class="d-flex gap-2">
                             ${isLinked ? '<span class="badge bg-success">Linked</span>' : ''}
-                            <button class="btn btn-sm btn-outline-primary" onclick="editConnection('${conn.id}')">Edit</button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="testConnection('${conn.id}')">Test</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editConnection('${encodeURIComponent(conn.id)}')">Edit</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="testConnection('${encodeURIComponent(conn.id)}')">Test</button>
                             <button class="btn btn-sm ${isLinked ? 'btn-outline-secondary' : 'btn-success'}" 
-                                onclick="toggleLinkConnection('${conn.id}')">
+                                onclick="toggleLinkConnection('${encodeURIComponent(conn.id)}')">
                                 ${isLinked ? 'Unlink' : 'Link'}
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteConnection('${conn.id}')">Delete</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteConnection('${encodeURIComponent(conn.id)}')">Delete</button>
                         </div>
                     </div>
                     <small class="text-muted">Created: ${new Date(conn.created_at).toLocaleString()}</small>

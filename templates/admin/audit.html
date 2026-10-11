@@ -123,10 +123,10 @@ async function loadAuditLog() {
             tbody.innerHTML = logs.map(log => `
                 <tr>
                     <td>${new Date(log.executed_at).toLocaleString()}</td>
-                    <td><span class="badge bg-${log.action === 'generated' ? 'success' : log.action === 'failed' ? 'danger' : 'info'}">${log.action}</span></td>
-                    <td>${log.report_id || '-'}</td>
-                    <td>${log.schedule_id || '-'}</td>
-                    <td><pre class="small">${JSON.stringify(log.details, null, 2)}</pre></td>
+                    <td><span class="badge bg-${log.action === 'generated' ? 'success' : log.action === 'failed' ? 'danger' : 'info'}">${escapeHtml(log.action)}</span></td>
+                    <td>${escapeHtml(log.report_id || '-')}</td>
+                    <td>${escapeHtml(log.schedule_id || '-')}</td>
+                    <td><pre class="small">${escapeHtml(JSON.stringify(log.details, null, 2))}</pre></td>
                 </tr>
             `).join('');
         }

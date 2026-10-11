@@ -125,14 +125,14 @@ async function loadUsers() {
 
             tbody.innerHTML = users.map(user => `
                 <tr>
-                    <td>${user.name}</td>
-                    <td>${user.email}</td>
-                    <td><span class="badge bg-${user.role === 'admin' ? 'danger' : user.role === 'designer' ? 'primary' : 'secondary'}">${user.role}</span></td>
-                    <td>${user.auth_source}</td>
+                    <td>${escapeHtml(user.name)}</td>
+                    <td>${escapeHtml(user.email)}</td>
+                    <td><span class="badge bg-${user.role === 'admin' ? 'danger' : user.role === 'designer' ? 'primary' : 'secondary'}">${escapeHtml(user.role)}</span></td>
+                    <td>${escapeHtml(user.auth_source)}</td>
                     <td>${user.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
                     <td>
-                        <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">Delete</button>
+                        <button class="btn btn-sm btn-secondary" onclick="editUser('${encodeURIComponent(user.id)}')">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${encodeURIComponent(user.id)}')">Delete</button>
                     </td>
                 </tr>
             `).join('');
