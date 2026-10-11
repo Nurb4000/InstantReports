@@ -490,7 +490,7 @@ async def import_report(
     
     logger.info(f"Imported report: {report.id} - {name}")
 
-    return RedirectResponse(url=f"/designer/reports/{report.id}", status_code=status.HTTP_303_SEE_OTHER)
+    return {"status": "ok", "id": str(report.id)}
 
 
 @router.post("/images/upload")
@@ -557,7 +557,7 @@ async def create_report(
     commit_msg = _build_commit_message(current_user, commit_message, "Created")
     await save_version(db, report.id, report.definition, commit_msg, current_user.id)
 
-    return RedirectResponse(url=f"/designer/reports/{report.id}", status_code=status.HTTP_303_SEE_OTHER)
+    return {"status": "ok", "id": str(report.id)}
 
 
 @router.post("/reports/{report_id}/toggle-status")
