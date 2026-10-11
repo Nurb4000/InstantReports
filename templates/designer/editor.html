@@ -2147,7 +2147,7 @@
             if (!res.ok) throw new Error('Failed to create connection');
             const data = await res.json();
 
-            const testRes = await fetch(`/datasources/test/${data.id}`);
+            const testRes = await fetch(`/datasources/test/${data.id}`, { method: 'POST' });
             const testData = await testRes.json();
 
             if (testData.success) {
