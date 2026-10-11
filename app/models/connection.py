@@ -126,7 +126,7 @@ class AuditLog(Base):
     schedule_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("schedules.id"), nullable=True, index=True)
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    output_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("report_outputs.id"), nullable=True)
+    output_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("report_outputs.id", ondelete="CASCADE"), nullable=True)
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
 

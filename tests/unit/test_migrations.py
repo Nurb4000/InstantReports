@@ -25,7 +25,8 @@ def _load_hash_migration():
 def test_alembic_has_single_head():
     """Regression (H5): two heads made `alembic upgrade head` fail."""
     script = ScriptDirectory.from_config(Config(str(_REPO_ROOT / "alembic.ini")))
-    assert list(script.get_heads()) == ["d8e9f0a1b2c3"]
+    heads = list(script.get_heads())
+    assert len(heads) == 1  # Exactly one head after merging and any additional migrations
 
 
 def test_hash_api_keys_migration_is_idempotent():
