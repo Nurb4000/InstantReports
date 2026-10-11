@@ -161,7 +161,7 @@ async def get_current_user(
     if not email:
         return None
 
-    result = await db.execute(select(User).where(User.email == email, User.is_active == True))
+    result = await db.execute(select(User).where(User.email == email, User.is_active.is_(True)))
     user = result.scalar_one_or_none()
     return user
 

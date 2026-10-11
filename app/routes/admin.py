@@ -531,7 +531,7 @@ async def list_schedules(
     
     # Apply status filter
     if status_filter == "active":
-        query = query.where(Schedule.is_active == True)
+        query = query.where(Schedule.is_active.is_(True))
     elif status_filter == "inactive":
         query = query.where(Schedule.is_active == False)
     
@@ -631,7 +631,7 @@ async def list_users(
     
     # Apply status filter
     if status_filter == "active":
-        query = query.where(User.is_active == True)
+        query = query.where(User.is_active.is_(True))
     elif status_filter == "inactive":
         query = query.where(User.is_active == False)
     
