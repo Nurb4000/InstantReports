@@ -70,8 +70,8 @@ def _inject_fake_httpx(
     return client
 
 
-def _expected_signature(secret: bytes, body: bytes) -> str:
-    return hmac.new(secret, body, hashlib.sha256).hexdigest()
+def _expected_signature(secret: bytes, timestamp: str, body: bytes) -> str:
+    return hmac.new(secret, f"{timestamp}.".encode() + body, hashlib.sha256).hexdigest()
 
 
 def test_send_webhook_sets_json_content_type(monkeypatch):
@@ -106,7 +106,9 @@ def test_send_webhook_signs_payload_with_hmac(monkeypatch):
     body = client.last_request["content"]  # type: ignore[union-attr]
     sig_line = headers["X-Webhook-Signature"]  # type: ignore[index]
     parts = dict(pair.split("=", 1) for pair in sig_line.split(","))
-    assert parts["v1"] == _expected_signature(secret.encode(), body)
+    # Stripe convention: the signature covers "<timestamp>.<body>", not the body
+    # alone, so a captured payload cannot be replayed with a fresh timestamp.
+    assert parts["v1"] == _expected_signature(secret.encode(), parts["t"], body)
     # timestamp is unix seconds
     assert parts["t"].isdigit()
 

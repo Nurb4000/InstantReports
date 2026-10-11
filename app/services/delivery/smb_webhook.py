@@ -6,6 +6,22 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _sign_webhook(secret: str, timestamp: str, body: bytes) -> str:
+    """Compute the Stripe-convention webhook signature.
+
+    The ``X-Webhook-Signature`` header advertises ``t=<ts>,v1=<sig>``, so the
+    signed message must be ``"<ts>.<body>"`` (not the body alone). Signing only
+    the body lets an attacker replay a captured payload with a fresh timestamp,
+    and receivers implementing the advertised convention reject body-only
+    signatures outright.
+    """
+    import hashlib
+    import hmac
+
+    signed_payload = f"{timestamp}.".encode() + body
+    return hmac.new(secret.encode(), signed_payload, hashlib.sha256).hexdigest()
+
+
 async def send_smb(
     server: str,
     share: str,
@@ -69,8 +85,6 @@ async def send_webhook(
         True if successful, False otherwise
     """
     try:
-        import hashlib
-        import hmac
         from datetime import datetime, timezone
 
         import httpx
@@ -82,11 +96,7 @@ async def send_webhook(
 
         if secret:
             timestamp = str(int(datetime.now(timezone.utc).timestamp()))
-            signature = hmac.new(
-                secret.encode(),
-                body,
-                hashlib.sha256,
-            ).hexdigest()
+            signature = _sign_webhook(secret, timestamp, body)
             request_headers["X-Webhook-Signature"] = f"t={timestamp},v1={signature}"
 
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -149,8 +159,6 @@ async def test_webhook_connection(
         return False, "A webhook URL is required"
 
     try:
-        import hashlib
-        import hmac
         from datetime import datetime, timezone
 
         import httpx
@@ -161,11 +169,7 @@ async def test_webhook_connection(
         request_headers = {"Content-Type": "application/json"}
         if secret:
             timestamp = str(int(datetime.now(timezone.utc).timestamp()))
-            signature = hmac.new(
-                secret.encode(),
-                body,
-                hashlib.sha256,
-            ).hexdigest()
+            signature = _sign_webhook(secret, timestamp, body)
             request_headers["X-Webhook-Signature"] = f"t={timestamp},v1={signature}"
 
         async with httpx.AsyncClient(timeout=timeout) as client:
