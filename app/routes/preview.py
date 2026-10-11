@@ -44,9 +44,24 @@ class _PreviewContext:
     log: logging.Logger = field(default_factory=lambda: logger)
 
 
+def _safe_url(value: Any) -> str:
+    """Return ``value`` only if it is a safe URL scheme, else an empty string.
+
+    Blocks ``javascript:``/``data:``/``vbscript:`` payloads in element
+    ``src`` attributes while allowing http(s), protocol-relative and
+    root-relative URLs (the app serves uploads from ``/static/...``).
+    """
+    text_value = str(value or "").strip()
+    if not text_value:
+        return ""
+    lowered = text_value.lower()
+    if lowered.startswith(("http://", "https://", "//", "/")):
+        return text_value
+    return ""
+
+
 def _build_label_html(elem_label: str, hide_label: bool) -> str:
     """Build the label div HTML for a report element.
-
     Returns an empty string when the label is blank or hidden.
     """
     if not elem_label or hide_label:
@@ -233,7 +248,7 @@ def _build_section_html(
     header_html = ""
     if not hide_name:
         header_html = f"""            <div class="section-header" style="background: #f8f9fa; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">
-                {section_name}
+                {html.escape(str(section_name), quote=True)}
             </div>
         """
     return f"""
@@ -259,7 +274,9 @@ def _build_page_html(
         js_def = js_def.replace("</", "<\\/").replace("<!--", "<\\!--")
     else:
         js_def = "null"
-    js_title = json.dumps(title or "")
+    # Same neutralization for the report name literal: a raw "</script>" in the
+    # name would otherwise close the surrounding <script> block.
+    js_title = json.dumps(title or "").replace("</", "<\\/").replace("<!--", "<\\!--")
     page_html = """<!DOCTYPE html>
 <html>
 <head>
@@ -378,7 +395,7 @@ def _build_page_html(
 </body>
 </html>"""
 
-    page_html = page_html.replace("REPORT_TITLE", title)
+    page_html = page_html.replace("REPORT_TITLE", html.escape(str(title or "")))
     page_html = page_html.replace("EXPORT_DEF_JSON", js_def)
     page_html = page_html.replace("EXPORT_REPORT_NAME", js_title)
     page_html = page_html.replace("SECTIONS_HTML", sections_html)
@@ -575,23 +592,29 @@ async def render_report_with_data(
                     {label_html}
                     <div class="report-element table-element" style="padding: 5px; border: 1px dashed #ccc; margin: 5px 0;">
                         <div style="font-weight: bold; margin-bottom: 5px;">Table Element (Preview Mode)</div>
-                        <pre style="font-size: 11px; background: #f8f9fa; padding: 5px; overflow: auto; max-height: 200px;">{query}</pre>
+                        <pre style="font-size: 11px; background: #f8f9fa; padding: 5px; overflow: auto; max-height: 200px;">{html.escape(str(query), quote=True)}</pre>
                     </div>
                     """
             elif elem_type == "image":
-                img_src = props.get("src", "")
-                img_alt = props.get("alt", "Image")
-                img_width = props.get("width", 200)
-                img_height = props.get("height", 150)
+                img_src = _safe_url(props.get("src", ""))
+                img_alt = html.escape(str(props.get("alt", "Image")), quote=True)
+                try:
+                    img_width = int(props.get("width", 200))
+                except (TypeError, ValueError):
+                    img_width = 200
+                try:
+                    img_height = int(props.get("height", 150))
+                except (TypeError, ValueError):
+                    img_height = 150
                 elements_html += f'''
                 {label_html}
                 <div class="report-element image-element" style="padding: 10px; border: 1px dashed #ccc; margin: 5px 0; text-align: center;">
-                    <img src="{img_src}" alt="{img_alt}" style="max-width: {img_width}px; max-height: {img_height}px;" />
+                    <img src="{html.escape(img_src, quote=True)}" alt="{img_alt}" style="max-width: {img_width}px; max-height: {img_height}px;" />
                 </div>
                 '''
             elif elem_type == "chart":
                 chart_type = props.get("type", "bar")
-                chart_title = props.get("title", "Chart")
+                chart_title = html.escape(str(props.get("title", "Chart")), quote=True)
                 x_field = props.get("xField", "")
                 y_field = props.get("yField", "")
 
@@ -737,7 +760,7 @@ async def render_report_with_data(
                     <div class="report-element chart-element" style="padding: 10px; border: 1px dashed #ccc; margin: 5px 0;">
                         <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">{chart_title}</div>
                         <div style="color: #666; font-size: 11px; margin-bottom: 10px; text-align: center;">
-                            Chart Type: {chart_type.capitalize()} | X-Axis: {x_field or "N/A"} | Y-Axis: {y_field or "N/A"}
+                            Chart Type: {html.escape(str(chart_type).capitalize(), quote=True)} | X-Axis: {html.escape(str(x_field or "N/A"), quote=True)} | Y-Axis: {html.escape(str(y_field or "N/A"), quote=True)}
                         </div>
                         <div style="margin-top: 10px; padding: 30px; background: #f8f9fa; border: 1px solid #ddd; text-align: center; color: #999;">
                             Chart requires data source connection to execute query

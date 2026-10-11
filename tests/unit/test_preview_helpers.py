@@ -2,7 +2,38 @@
 
 from __future__ import annotations
 
-from app.routes.preview import _build_label_html, _build_page_html, _build_section_html
+from app.routes.preview import (
+    _build_label_html,
+    _build_page_html,
+    _build_section_html,
+    _safe_url,
+)
+
+
+def test_safe_url_allows_http_https_and_relative():
+    assert _safe_url("https://example.com/a.png") == "https://example.com/a.png"
+    assert _safe_url("http://example.com/a.png") == "http://example.com/a.png"
+    assert _safe_url("/static/img/a.png") == "/static/img/a.png"
+    assert _safe_url("//cdn.example.com/a.png") == "//cdn.example.com/a.png"
+
+
+def test_safe_url_blocks_javascript_and_data_schemes():
+    assert _safe_url("javascript:alert(1)") == ""
+    assert _safe_url("JavaScript:alert(1)") == ""
+    assert _safe_url("data:text/html,<script>alert(1)</script>") == ""
+    assert _safe_url(None) == ""
+
+
+def test_build_section_html_escapes_section_name():
+    html = _build_section_html("detail", "<img src=x onerror=alert(1)>", "", False)
+    assert "<img src=x" not in html
+    assert "&lt;img" in html
+
+
+def test_build_page_html_escapes_title():
+    html = _build_page_html("</title><script>alert(1)</script>", "", "<s/>")
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;" in html
 
 
 def test_build_section_html_includes_elements():

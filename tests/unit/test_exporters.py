@@ -111,6 +111,27 @@ class TestHTMLExporter:
         assert "<script>alert(1)</script>" not in html
         assert "&lt;script&gt;" in html
 
+    def test_text_element_content_is_escaped(self):
+        # Text-element content is author-controlled and must be escaped, else a
+        # stored payload reaches the browser when the HTML export is opened.
+        exporter = HTMLExporter()
+        rendered = {
+            "name": "Report",
+            "sections": [
+                {
+                    "type": "detail",
+                    "elements": [
+                        {"type": "text", "content": "<img src=x onerror=alert(1)>"}
+                    ],
+                }
+            ],
+        }
+
+        html = exporter.export(rendered)
+
+        assert "<img src=x onerror=alert(1)>" not in html
+        assert "&lt;img" in html
+
 
 class TestCSVExporter:
     """Test CSV export."""

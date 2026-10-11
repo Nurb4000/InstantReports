@@ -242,13 +242,13 @@ class HTMLExporter:
         if elem_type == "subreport":
             return self._render_subreport_html(element)
         if elem_type == "text":
-            return "<p>{}</p>".format(element.get("content", ""))
+            return "<p>{}</p>".format(html.escape(str(element.get("content", ""))))
         if elem_type == "table":
             return self._render_table_html(element)
         if elem_type == "chart":
             return self._render_chart_html(element)
         # Unknown element types render as a muted note rather than vanishing.
-        return '<p class="text-muted">Unsupported element: {}'.format(elem_type or "?") + "</p>"
+        return '<p class="text-muted">Unsupported element: {}'.format(html.escape(str(elem_type or "?"))) + "</p>"
 
     def _render_table_html(self, element: dict[str, Any]) -> str:
         """Render a table element (top-level or nested in a subreport) to HTML."""
@@ -288,7 +288,7 @@ class HTMLExporter:
             return (
                 '<div class="subreport-placeholder" '
                 'style="border:1px dashed #ccc; padding:8px; margin:8px 0; '
-                f'color:#666;">Sub-report ({render_mode}) — content not embedded in HTML export'
+                f'color:#666;">Sub-report ({html.escape(str(render_mode))}) — content not embedded in HTML export'
                 + "</div>"
             )
         body = '<div class="subreport" style="margin:8px 0;">'
@@ -312,7 +312,7 @@ class HTMLExporter:
         try:
             png_bytes = ChartGenerator().generate(element, chart_data)
         except Exception as exc:
-            return f'<p class="text-danger">Chart failed to render: {exc}</p>'
+            return f'<p class="text-danger">Chart failed to render: {html.escape(str(exc))}</p>'
         b64 = base64.b64encode(png_bytes).decode("ascii")
         return (
             '<div class="report-chart" style="text-align:center; margin:12px 0;">'
