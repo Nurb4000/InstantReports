@@ -43,6 +43,19 @@ def _check_role(user, *allowed):
     return check_role(user, *allowed)
 
 
+def _require_report_access(report, current_user) -> None:
+    """Guard report read/write with the app's ownership model.
+
+    Admins get oversight access to every report; other users may only touch
+    reports they created. The list endpoint and version routes already scope by
+    ``created_by``; this keeps get/edit/update/export consistent so a designer
+    cannot view, overwrite, or export another designer's report by UUID.
+    """
+    if get_role_value(current_user) == "admin" or report.created_by == current_user.id:
+        return
+    raise HTTPException(status_code=403, detail="Not authorized for this report")
+
+
 def _parse_definition_field(definition: str | None, default: dict) -> dict:
     """Parse the definition form field, returning a dict.
 
@@ -366,6 +379,8 @@ async def edit_report_page(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
+    _require_report_access(report, current_user)
+
     return request.app.state.templates.TemplateResponse(
         "designer/editor.html",
         {
@@ -407,9 +422,10 @@ async def import_report(
     definition = report_data.get("definition", {"layout": {"sections": []}, "data_sources": [], "parameters": []})
 
     # Auto-create or reuse connections from templates
-    from app.models.connection import DataConnection
     import uuid as uuid_module
-    
+
+    from app.models.connection import DataConnection
+
     data_sources = definition.get("data_sources", [])
     logger.info(f"Importing report with {len(data_sources)} data sources")
     for ds in data_sources:
@@ -611,6 +627,8 @@ async def update_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
+    _require_report_access(report, current_user)
+
     if name:
         report.name = name
     if description is not None:
@@ -740,6 +758,8 @@ async def export_report(
 
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    _require_report_access(report, current_user)
 
     export_data = await _build_report_export_data(report, current_user, db)
 
