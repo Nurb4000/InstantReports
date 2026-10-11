@@ -356,7 +356,7 @@ async def compare_version_with_current(
     return comparison
 
 
-@router.get("/{report_id}/versions/{version_number}/compare", response_class=HTMLResponse)
+@router.get("/{report_id}/versions/{version_number}/compare/html", response_class=HTMLResponse)
 async def compare_version_page(
     request: Request,
     report_id: uuid.UUID,
