@@ -92,9 +92,10 @@ async def validate_api_key(db: AsyncSession, key: str) -> APIKey | None:
     if expires_at and expires_at < datetime.now(timezone.utc):
         return None
 
-    # Update last used timestamp
+    # Update last used timestamp.  Use ``expire_on_commit=False``-style lazy
+    # flush: mark the attribute and let the caller's session commit it later,
+    # avoiding a synchronous ``COMMIT`` on every API-key-authenticated request.
     api_key.last_used_at = datetime.now(timezone.utc)
-    await db.commit()
 
     return api_key
 

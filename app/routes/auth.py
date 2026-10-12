@@ -70,6 +70,18 @@ async def get_current_user_optional(
         return None
 
 
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Render the login form.
+
+    Several routes (e.g. version compare) redirect to ``/auth/login`` on 401;
+    without this handler the browser sees a 405 Method Not Allowed.
+    """
+    return request.app.state.templates.TemplateResponse(
+        "login.html", {"request": request}
+    )
+
+
 @router.post("/login", response_class=HTMLResponse)
 async def login(
     request: Request,
@@ -112,7 +124,13 @@ async def login(
 
     access_token = create_access_token(data={"sub": user.email})
 
-    redirect_url = "/designer"
+    # Route viewers to the portal; everyone else goes to the designer.
+    from app.models.user import UserRole
+
+    if user.role == UserRole.VIEWER:
+        redirect_url = "/portal"
+    else:
+        redirect_url = "/designer"
     response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
     response.set_cookie(
         key="access_token",

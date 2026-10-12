@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.connection import DataConnection
 from app.models.user import User
+from app.routes._auth_helpers import get_role_value
 from app.routes.auth import get_current_user_optional
 
 logger = logging.getLogger(__name__)
@@ -34,8 +35,11 @@ async def list_connections(
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    # Only designers and admins need to see connection details; viewers only
+    # need the report portal.  Without this gate, any authenticated user can
+    # enumerate all connection names and types (L12).
+    if not current_user or get_role_value(current_user) == "viewer":
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     query = select(DataConnection)
     

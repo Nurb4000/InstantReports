@@ -17,7 +17,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -795,18 +795,12 @@ async def export_report(
 
     export_data = await _build_report_export_data(report, current_user, db)
 
-    import tempfile
-    fd, path = tempfile.mkstemp(suffix=".ir.json")
-    try:
-        with os.fdopen(fd, 'w') as f:
-            json.dump(export_data, f, indent=2, default=str)
-        return FileResponse(
-            path,
-            media_type="application/json",
-            filename=f"{report.name.replace(' ', '_')}_export.json",
-        )
-    except Exception:
-        if os.path.exists(path):
-            os.unlink(path)
-        raise
+    export_bytes = json.dumps(export_data, indent=2, default=str).encode("utf-8")
+    return Response(
+        content=export_bytes,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{report.name.replace(" ", "_")}_export.json"'
+        },
+    )
 

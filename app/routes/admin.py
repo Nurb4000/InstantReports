@@ -122,7 +122,6 @@ async def admin_schedules(
 async def admin_audit_log(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
-    limit: int = Query(50, ge=1, le=200),
 ):
     if not current_user or get_role_value(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -873,6 +872,16 @@ async def delete_user(
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
-    await db.delete(user)
-    await db.commit()
+    # Soft-delete: mark inactive so FKs on reports/schedules/audit-log remain
+    # valid.  A hard ``DELETE`` would fail with IntegrityError for any user who
+    # owns rows in those tables (L15).
+    user.is_active = False
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"User still referenced by related rows: {exc}",
+        )
     return {"status": "ok"}

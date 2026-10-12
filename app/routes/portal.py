@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -20,6 +21,8 @@ from app.services.exporters import (
 from app.services.report.rendering import fetch_element_data, render_report_bytes
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 async def _owns_schedule_for_report(db, report_id, user_id):
@@ -275,10 +278,16 @@ async def export_report(
         )
 
     definition = report.definition or {}
-    element_data = await fetch_element_data(
-        definition, db, parameters=definition.get("parameters"), label=report.name
-    )
-    report_bytes = render_report_bytes(definition, element_data, fmt)
+    try:
+        element_data = await fetch_element_data(
+            definition, db, parameters=definition.get("parameters"), label=report.name
+        )
+        report_bytes = render_report_bytes(definition, element_data, fmt)
+    except Exception as exc:
+        logger.error(f"Export failed for report {report_id}: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Report export failed: {exc}"
+        )
 
     return Response(
         content=report_bytes,
