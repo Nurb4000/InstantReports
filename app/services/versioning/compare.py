@@ -110,13 +110,13 @@ def _compare_data_sources(
     diff: dict[str, Any],
 ) -> list[dict[str, Any]]:
     """Compare data sources between old and new definitions."""
-    old_ds = {ds["id"]: ds for ds in old_def.get("data_sources", [])}
-    new_ds = {ds["id"]: ds for ds in new_def.get("data_sources", [])}
+    old_ds = {str(ds.get("id", i)): ds for i, ds in enumerate(old_def.get("data_sources", []))}
+    new_ds = {str(ds.get("id", i)): ds for i, ds in enumerate(new_def.get("data_sources", []))}
 
     comparisons = []
     all_ids = set(old_ds.keys()) | set(new_ds.keys())
 
-    for ds_id in sorted(all_ids):
+    for ds_id in sorted(all_ids, key=lambda x: (x.isdigit(), int(x) if x.isdigit() else 0, x)):
         comparison = {"id": ds_id}
 
         if ds_id in old_ds and ds_id in new_ds:
@@ -147,8 +147,8 @@ def _compare_parameters(
     new_def: dict[str, Any],
 ) -> list[dict[str, Any]]:
     """Compare parameters between old and new definitions."""
-    old_params = {p["name"]: p for p in old_def.get("parameters", [])}
-    new_params = {p["name"]: p for p in new_def.get("parameters", [])}
+    old_params = {str(p.get("name", i)): p for i, p in enumerate(old_def.get("parameters", []))}
+    new_params = {str(p.get("name", i)): p for i, p in enumerate(new_def.get("parameters", []))}
 
     comparisons = []
     all_names = set(old_params.keys()) | set(new_params.keys())

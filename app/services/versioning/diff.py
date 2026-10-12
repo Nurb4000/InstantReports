@@ -48,8 +48,20 @@ class ReportDiffEngine:
             for _ in old_idx[len(new_idx):]:
                 changes["sections_removed"].append(section_type)
 
-        old_ds = {ds.get("id", id(ds)): ds for ds in old_def.get("data_sources", [])}
-        new_ds = {ds.get("id", id(ds)): ds for ds in new_def.get("data_sources", [])}
+        def _ds_key(ds: dict[str, Any]) -> str:
+            """Return a stable key for a data-source entry.
+
+            Prefer the explicit ``id`` field; fall back to a JSON hash of the
+            config so that identical unnamed sources are matched rather than
+            appearing as added+removed.
+            """
+            ds_id = ds.get("id")
+            if ds_id is not None:
+                return str(ds_id)
+            return f"__anon__{json.dumps(ds, sort_keys=True)}"
+
+        old_ds = {_ds_key(ds): ds for ds in old_def.get("data_sources", [])}
+        new_ds = {_ds_key(ds): ds for ds in new_def.get("data_sources", [])}
 
         for ds_id in set(old_ds.keys()) | set(new_ds.keys()):
             if ds_id not in old_ds and ds_id in new_ds:
