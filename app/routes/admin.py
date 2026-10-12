@@ -5,12 +5,13 @@ import uuid
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import desc, func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.connection import Schedule
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.routes._auth_helpers import check_role, get_auth_source_value, get_role_value
 from app.routes.auth import get_current_user_optional
 from app.services.delivery.config import (
@@ -227,10 +228,32 @@ async def create_schedule(
 
     if not report_id:
         raise HTTPException(status_code=400, detail="report_id is required")
-    
+
     report_uuid = _parse_optional_uuid(report_id)
     if report_uuid is None:
         raise HTTPException(status_code=400, detail="Invalid report_id format")
+
+    # Validate that the report actually exists before creating a schedule.
+    from sqlalchemy import select as sa_select
+
+    from app.models.report import Report
+
+    report_row = await db.execute(
+        sa_select(Report).where(Report.id == report_uuid)
+    )
+    if not report_row.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Validate the cron expression so a typo fails fast with a clear 400.
+    if cron_expression:
+        try:
+            from apscheduler.triggers.cron import CronTrigger
+
+            CronTrigger.from_crontab(cron_expression)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid cron expression: {exc}"
+            )
 
     schedule = Schedule(
         report_id=report_uuid,
@@ -715,9 +738,18 @@ async def create_user(
 
     from app.auth import create_local_user
 
+    # Validate role string before hitting the DB.
+    valid_roles = {r.value for r in UserRole}
+    if role not in valid_roles:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid role; must be one of: {', '.join(sorted(valid_roles))}"
+        )
+
     try:
         new_user = await create_local_user(db, email=email, name=name, password=password, role=role)
         return {"status": "ok", "id": str(new_user.id)}
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="User with this email already exists")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -799,6 +831,10 @@ async def change_password(
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Null guard: anonymous callers have no identity to compare against.
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     # Allow users to change their own password, or admins to change any password
     is_admin = get_role_value(current_user) == "admin"

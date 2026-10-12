@@ -571,7 +571,7 @@ async def render_report_with_data(
                                     </tbody>
                                 </table>
                                 <div style="font-size: 10px; color: #999; margin-top: 5px;">
-                                    Showing {min(len(rows), 50)} of {len(df)} rows
+                                    Showing {min(len(rows), settings.PREVIEW_TABLE_ROW_LIMIT)} of {len(df)} rows
                                 </div>
                             </div>
                             """
@@ -635,7 +635,7 @@ async def render_report_with_data(
 
                             if df is not None and len(df) > 0:
                                 # Convert DataFrame to list of dicts for chart rendering
-                                chart_data = df.head(10).to_dict(orient="records")
+                                chart_data = df.head(settings.PREVIEW_CHART_ROW_LIMIT).to_dict(orient="records")
                                 logger_chart.info(
                                     f"Chart query returned {len(chart_data)} rows"
                                 )

@@ -22,18 +22,20 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def escape_ldap_filter(value: str) -> str:
-    """Escape LDAP search-filter metacharacters per RFC 5012.
+    """Escape LDAP search-filter metacharacters per RFC 4515.
 
     Login input (email/username) is embedded in an LDAP search filter; without
     escaping, characters like ``*`` ``(`` ``)`` and ``\\`` let an attacker
     restructure the filter (LDAP injection, CWE-546) to enumerate users or
-    manipulate results.
+    manipulate results. The NUL byte is also escaped since it terminates the
+    filter string in many LDAP server implementations.
     """
     return (
         value.replace("\\", "\\5C")
         .replace("*", "\\2A")
         .replace("(", "\\28")
         .replace(")", "\\29")
+        .replace("\x00", "\\00")
     )
 
 

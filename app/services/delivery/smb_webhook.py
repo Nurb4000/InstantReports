@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -50,12 +51,16 @@ async def send_smb(
         import smbprotocol
 
         smb_url = f"\\\\{server}\\{share}"
-        smbclient.register_session(smb_url, username=username, password=password)
-
         remote_file = f"{smb_url}{remote_path.rstrip('/')}/{filename}" if filename else f"{smb_url}{remote_path}"
 
-        with smbprotocol.open_file(remote_file, mode="wb") as f:
-            f.write(file_data)
+        # smbclient / smbprotocol are synchronous; run them in a thread pool so
+        # the event loop is not blocked for the entire transfer.
+        def _do_smb():
+            smbclient.register_session(smb_url, username=username, password=password)
+            with smbprotocol.open_file(remote_file, mode="wb") as f:
+                f.write(file_data)
+
+        await asyncio.to_thread(_do_smb)
 
         logger.info(f"SMB file sent to {remote_file}")
         return True

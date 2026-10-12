@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -195,18 +195,6 @@ async def deliver_report(
                 success = False
 
     return success
-
-
-async def cleanup_old_outputs(retention_days: int = 90) -> int:
-    """Delete report outputs older than retention period."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
-
-    async with async_session_factory() as db:
-        result = await db.execute(
-            delete(ReportOutput).where(ReportOutput.generated_at < cutoff)
-        )
-        await db.commit()
-        return result.rowcount
 
 
 async def run_scheduler():

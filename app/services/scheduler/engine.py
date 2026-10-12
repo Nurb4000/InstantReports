@@ -27,7 +27,12 @@ def is_past_one_shot(schedule) -> bool:
     if getattr(schedule, "cron_expression", None):
         return False
     run_at = getattr(schedule, "run_at", None)
-    return run_at is not None and run_at < datetime.now(timezone.utc)
+    if run_at is None:
+        return False
+    # Ensure timezone-aware comparison: SQLite may return a naive datetime.
+    if run_at.tzinfo is None:
+        run_at = run_at.replace(tzinfo=timezone.utc)
+    return run_at < datetime.now(timezone.utc)
 
 
 class ReportScheduler:

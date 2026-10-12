@@ -122,7 +122,27 @@ async def lifespan(app: FastAPI):
                     logger.info(f"Connection may already exist: {e}")
     except Exception as e:
         logger.warning(f"Could not auto-seed database: {e}")
+
+    # Start the embedded scheduler as a background task. Storing it on app.state
+    # lets us cancel it cleanly on shutdown instead of relying on the deprecated
+    # ``@app.on_event("startup")`` which discards the task handle.
+    import asyncio
+
+    from app.runner import run_scheduler
+
+    app.state._scheduler_task = asyncio.create_task(run_scheduler())
+    logger.info("Embedded scheduler started")
+
     yield
+
+    # Graceful shutdown: cancel the scheduler and wait for it to finish.
+    if hasattr(app.state, "_scheduler_task"):
+        app.state._scheduler_task.cancel()
+        try:
+            await app.state._scheduler_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Embedded scheduler stopped")
 
 
 app = FastAPI(
@@ -220,14 +240,6 @@ app.include_router(api_keys.router, tags=["api-keys"])
 app.include_router(portal.router, prefix="/portal", tags=["portal"])
 app.include_router(settings.router, prefix="/admin", tags=["settings"])
 app.include_router(query_builder.router)
-
-
-@app.on_event("startup")
-async def startup_event():
-    import asyncio
-
-    from app.runner import run_scheduler
-    asyncio.create_task(run_scheduler())
 
 
 @app.get("/health")

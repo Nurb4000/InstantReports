@@ -138,4 +138,5 @@ async def login(
 async def logout(request: Request) -> RedirectResponse:
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     response.delete_cookie(key="access_token")
+    response.delete_cookie(key="current_user_id")
     return response

@@ -28,7 +28,7 @@ async def generate_api_key(
     user_id: uuid.UUID,
     permissions: list[str] | None = None,
     expires_in_days: int | None = None,
-) -> APIKey:
+) -> tuple[APIKey, str]:
     """Generate a new API key.
 
     Args:
@@ -39,7 +39,8 @@ async def generate_api_key(
         expires_in_days: Number of days until expiration (None for no expiry)
 
     Returns:
-        APIKey with the generated key
+        Tuple of (persisted APIKey model, raw plaintext key string). The raw
+        key is shown to the user once and never persisted.
     """
     key = f"ir_{secrets.token_urlsafe(32)}"
 
