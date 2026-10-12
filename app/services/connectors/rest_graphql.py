@@ -8,6 +8,7 @@ import httpx
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
+from app.services.delivery.smb_webhook import _validate_outbound_url
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class RESTAPIConnector(DataConnector):
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
+            _validate_outbound_url(config.get("url", ""))
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await self._make_request(client, config, "GET")
                 return response.status_code in (200, 201)
@@ -64,6 +66,7 @@ class RESTAPIConnector(DataConnector):
 
     async def get_schema(self, config: dict[str, Any]) -> dict[str, Any]:
         try:
+            _validate_outbound_url(config.get("url", ""))
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await self._make_request(client, config, "GET")
                 if response.status_code == 200:
@@ -88,6 +91,7 @@ class RESTAPIConnector(DataConnector):
         query: str,
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
+        _validate_outbound_url(config.get("url", ""))
         async with httpx.AsyncClient(timeout=30) as client:
             response = await self._make_request(client, config, "GET", parameters)
 
@@ -161,6 +165,7 @@ class GraphQLConnector(DataConnector):
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
+            _validate_outbound_url(config.get("url", ""))
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await self._make_request(client, config, "{ __typename }")
                 return response.status_code == 200
@@ -169,6 +174,7 @@ class GraphQLConnector(DataConnector):
 
     async def get_schema(self, config: dict[str, Any]) -> dict[str, Any]:
         try:
+            _validate_outbound_url(config.get("url", ""))
             async with httpx.AsyncClient(timeout=10) as client:
                 introspection_query = """
                 {
@@ -214,6 +220,7 @@ class GraphQLConnector(DataConnector):
         query: str,
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
+        _validate_outbound_url(config.get("url", ""))
         async with httpx.AsyncClient(timeout=30) as client:
             response = await self._make_request(client, config, query, parameters)
 

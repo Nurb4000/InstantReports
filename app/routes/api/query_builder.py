@@ -173,13 +173,15 @@ async def test_query_endpoint(
         )
     except Exception as e:
         logger.error(f"Query execution error: {e}")
+        # Return a user-friendly message; the full exception is logged server-side.
+        # Avoid leaking raw driver internals (credentials, paths) to the client.
         return {
             "success": False,
             "sql": sql,
             "row_count": 0,
             "preview": [],
             "message": f"Query execution failed: {e!s}",
-            "error": str(e),
+            "error": type(e).__name__,
         }
 
     return {
@@ -424,7 +426,12 @@ async def save_query_history(
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail=f"Connection {connection_id} not found")
 
-    tmpl_report = uuid.UUID(report_id) if report_id else None
+    tmpl_report = None
+    if report_id:
+        try:
+            tmpl_report = uuid.UUID(report_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid report_id")
     created_by = current_user.id if current_user else None
 
     snapshot = await save_snapshot(

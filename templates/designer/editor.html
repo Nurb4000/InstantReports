@@ -1845,11 +1845,25 @@
 
             if (response.ok || (response.status >= 300 && response.status < 400)) {
                 showEditorToast('Report saved successfully.', 'success', 4000);
-                const location = response.headers.get('location');
-                if (location && !reportId) {
-                    const idMatch = location.match(/\/reports\/([a-f0-9-]+)/);
-                    if (idMatch && idMatch[1]) {
-                        document.getElementById('report-id').textContent = idMatch[1];
+                // Try JSON response first (create_report returns {"id": "..."}).
+                let jsonId = null;
+                try {
+                    const json = await response.json();
+                    if (json && json.id) {
+                        jsonId = json.id;
+                    }
+                } catch { /* not JSON */ }
+                if (!reportId && jsonId) {
+                    reportId = jsonId;
+                    document.getElementById('report-id').textContent = jsonId;
+                } else if (!reportId) {
+                    // Fallback: extract from Location header (303 redirect).
+                    const location = response.headers.get('location');
+                    if (location) {
+                        const idMatch = location.match(/\/reports\/([a-f0-9-]+)/);
+                        if (idMatch && idMatch[1]) {
+                            document.getElementById('report-id').textContent = idMatch[1];
+                        }
                     }
                 }
                 // Always refresh history after save

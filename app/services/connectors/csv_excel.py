@@ -3,13 +3,42 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+from app.config import settings
 from app.services.connectors.base import DataConnector
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_file_path(file_path: str) -> Path:
+    """Resolve a user-supplied file path against the configured data directory.
+
+    * If ``file_path`` is absolute, it is used directly (convenient for tests
+      and deployments that mount data volumes at arbitrary paths).
+    * If relative, it is resolved against ``DATA_DIR`` and must not escape it
+      via ``..`` segments.
+    """
+    root = settings.DATA_DIR
+    if not root.exists():
+        root.mkdir(parents=True, exist_ok=True)
+
+    raw = Path(file_path)
+    if raw.is_absolute():
+        return raw.resolve()
+
+    resolved = (root / file_path).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError:
+        raise ValueError(
+            f"File path escapes data directory: {file_path!r} "
+            f"(resolved to {resolved}, root is {root})"
+        )
+    return resolved
 
 
 class CSVConnector(DataConnector):
@@ -22,7 +51,8 @@ class CSVConnector(DataConnector):
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
-            df = await asyncio.to_thread(pd.read_csv, config.get("file_path", ""), nrows=5)
+            path = _resolve_file_path(config.get("file_path", ""))
+            df = await asyncio.to_thread(pd.read_csv, str(path), nrows=5)
             return not df.empty
         except Exception:
             return False
@@ -30,7 +60,8 @@ class CSVConnector(DataConnector):
     async def get_schema(self, config: dict[str, Any]) -> dict[str, Any]:
         file_path = config.get("file_path", "")
         try:
-            df = await asyncio.to_thread(pd.read_csv, file_path, nrows=0)
+            path = _resolve_file_path(file_path)
+            df = await asyncio.to_thread(pd.read_csv, str(path), nrows=0)
             columns = []
             for col in df.columns:
                 columns.append({
@@ -52,7 +83,8 @@ class CSVConnector(DataConnector):
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
         file_path = config.get("file_path", "")
-        df = await asyncio.to_thread(pd.read_csv, file_path)
+        path = _resolve_file_path(file_path)
+        df = await asyncio.to_thread(pd.read_csv, str(path))
 
         if parameters:
             for key, value in parameters.items():
@@ -73,17 +105,19 @@ class ExcelConnector(DataConnector):
 
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
-            df = await asyncio.to_thread(pd.read_excel, config.get("file_path", ""), nrows=5)
+            path = _resolve_file_path(config.get("file_path", ""))
+            df = await asyncio.to_thread(pd.read_excel, str(path), nrows=5)
             return not df.empty
         except Exception:
             return False
 
     async def get_schema(self, config: dict[str, Any]) -> dict[str, Any]:
         try:
-            xl = await asyncio.to_thread(pd.ExcelFile, config.get("file_path", ""))
+            path = _resolve_file_path(config.get("file_path", ""))
+            xl = await asyncio.to_thread(pd.ExcelFile, str(path))
             tables = []
             for sheet in xl.sheet_names:
-                df = await asyncio.to_thread(pd.read_excel, config.get("file_path", ""), sheet_name=sheet, nrows=0)
+                df = await asyncio.to_thread(pd.read_excel, str(path), sheet_name=sheet, nrows=0)
                 columns = []
                 for col in df.columns:
                     columns.append({
@@ -104,7 +138,8 @@ class ExcelConnector(DataConnector):
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
         sheet_name = config.get("sheet", 0)
-        df = await asyncio.to_thread(pd.read_excel, config.get("file_path", ""), sheet_name=sheet_name)
+        path = _resolve_file_path(config.get("file_path", ""))
+        df = await asyncio.to_thread(pd.read_excel, str(path), sheet_name=sheet_name)
 
         if query:
             try:

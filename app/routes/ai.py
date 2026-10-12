@@ -56,6 +56,10 @@ async def generate_report(
         generator = AIReportGenerator(client)
         report_def = await generator.generate_report(prompt, schema)
         return {"status": "ok", "report_definition": report_def}
+    except HTTPException:
+        # Re-raise the deliberate 503 from ``get_ai_client`` so the frontend
+        # can detect "AI disabled" instead of seeing a generic 500.
+        raise
     except Exception as e:
         raise _ai_error_to_http(e, "report generation")
 
@@ -82,6 +86,8 @@ async def generate_sql(
         generator = AISQLGenerator(client)
         sql = await generator.generate_sql(prompt, schema, connector_type)
         return {"status": "ok", "sql": sql}
+    except HTTPException:
+        raise
     except Exception as e:
         raise _ai_error_to_http(e, "SQL generation")
 
@@ -107,6 +113,8 @@ async def suggest_layout(
         assistant = AILayoutAssistant(client)
         layout = await assistant.suggest_layout(data_schema, report_type)
         return {"status": "ok", "layout_suggestion": layout}
+    except HTTPException:
+        raise
     except Exception as e:
         raise _ai_error_to_http(e, "layout suggestion")
 
@@ -132,6 +140,8 @@ async def get_insights(
         insights_gen = AIDataInsights(client)
         insights = await insights_gen.generate_insights(data, context)
         return {"status": "ok", "insights": insights}
+    except HTTPException:
+        raise
     except Exception as e:
         raise _ai_error_to_http(e, "insights generation")
 
@@ -159,9 +169,15 @@ async def ai_chat(
             {"role": "system", "content": "You are a helpful report design assistant. Help users create, modify, and understand reports."},
         ]
         messages.extend(conversation_history)
-        messages.append({"role": "user", "content": message})
+        # The frontend may already have appended the current message to history;
+        # deduplicate so the model doesn't see it twice per turn.
+        last = conversation_history[-1] if conversation_history else {}
+        if last.get("role") != "user" or last.get("content") != message:
+            messages.append({"role": "user", "content": message})
 
         response = await client.chat_completion(messages=messages, temperature=0.7)
         return {"status": "ok", "response": response}
+    except HTTPException:
+        raise
     except Exception as e:
         raise _ai_error_to_http(e, "chat")

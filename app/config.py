@@ -110,6 +110,17 @@ class Settings(BaseSettings):
     STATIC_DIR: Path = BASE_DIR / "static"
     TEMPLATES_DIR: Path = BASE_DIR / "templates"
 
+    # CSV/Excel connector data directory: file_path values are resolved relative
+    # to this directory and must not escape it via ``..`` segments.  Defaults to
+    # the repo's ``data/`` folder; override via env for production deployments.
+    DATA_DIR: Path = BASE_DIR / "data"
+
+    # Comma-separated list of allowed private IP ranges for outbound HTTP calls
+    # (webhooks, REST connectors).  Empty means "public only".  Common values:
+    # ``10.0.0.0/8``, ``172.16.0.0/12``, ``192.168.0.0/16``, ``127.0.0.0/8``.
+    # Default includes loopback so local dev/test servers are reachable.
+    ALLOWED_PRIVATE_RANGES: str = "127.0.0.0/8"
+
     # Image uploads: hard cap and the image formats we accept. The actual
     # format is detected from the file's magic bytes, never from the
     # client-supplied filename or Content-Type.

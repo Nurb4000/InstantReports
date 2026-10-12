@@ -288,7 +288,8 @@ async def test_delivery_connection(
     if not current_user or get_role_value(current_user) not in ("admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    if request.headers.get('content-type') == 'application/json':
+    content_type = (request.headers.get('content-type') or '').split(';')[0].strip().lower()
+    if content_type == 'application/json':
         body = await request.json()
     else:
         body = {}

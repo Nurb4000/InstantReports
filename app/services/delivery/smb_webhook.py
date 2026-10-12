@@ -1,10 +1,57 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_outbound_url(url: str) -> None:
+    """Validate an outbound URL to mitigate SSRF / NTLM capture.
+
+    * Only ``http`` and ``https`` schemes are accepted.
+    * The host is resolved (via ``ipaddress``) and checked against a set of
+      private/loopback/link-local ranges.  If the configured
+      ``ALLOWED_PRIVATE_RANGES`` is empty, any private address raises
+      ``ValueError``.  This prevents designers from probing internal services
+      like ``169.254.169.254`` (metadata) or ``127.0.0.1``.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Scheme must be http or https, got: {parsed.scheme!r}")
+
+    host = parsed.hostname
+    if not host:
+        raise ValueError("URL missing hostname")
+
+    # Check against IP address ranges
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        # Not a bare IP — hostname; DNS resolution happens at request time.
+        return
+
+    allowed_ranges = [
+        ipaddress.ip_network(r.strip())
+        for r in __import__("app.config", fromlist=["settings"]).settings.ALLOWED_PRIVATE_RANGES.split(",")
+        if r.strip()
+    ]
+
+    # If no private ranges are explicitly allowed, reject any non-public address.
+    if not allowed_ranges:
+        if addr.is_private or addr.is_loopback or addr.is_link_local:
+            raise ValueError(
+                f"Private/loopback IP {host} not in ALLOWED_PRIVATE_RANGES"
+            )
+    else:
+        # Only accept if the address falls within one of the allowed ranges.
+        if not any(addr in net for net in allowed_ranges):
+            raise ValueError(
+                f"IP {host} not in any of the allowed private ranges"
+            )
 
 
 def _sign_webhook(secret: str, timestamp: str, body: bytes) -> str:
@@ -94,6 +141,8 @@ async def send_webhook(
 
         import httpx
 
+        _validate_outbound_url(url)
+
         request_headers = headers or {}
         request_headers["Content-Type"] = "application/json"
 
@@ -167,6 +216,8 @@ async def test_webhook_connection(
         from datetime import datetime, timezone
 
         import httpx
+
+        _validate_outbound_url(url)
 
         payload = {"test": True, "timestamp": datetime.now(timezone.utc).isoformat()}
         body = __import__("json").dumps(payload).encode()
