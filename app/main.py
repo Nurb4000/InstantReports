@@ -44,6 +44,16 @@ async def lifespan(app: FastAPI):
         from app.models.user import AuthSource, User, UserRole
 
         async with async_session_factory() as db:
+            # Load admin-edited settings persisted in the DB
+            try:
+                from app.services.settings_store import load_persisted_settings
+
+                loaded = await load_persisted_settings(db)
+                if loaded:
+                    logger.info(f"Loaded {loaded} persisted setting override(s)")
+            except Exception as e:
+                logger.warning(f"Could not load persisted settings: {e}")
+
             # Seed admin user
             result = await db.execute(select(User).where(User.email == "admin@example.com"))
             if not result.scalar_one_or_none():
