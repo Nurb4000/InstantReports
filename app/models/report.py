@@ -3,7 +3,15 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 
 
 def now_utc() -> datetime:
@@ -41,6 +49,9 @@ class Report(Base):
 
 class ReportVersion(Base):
     __tablename__ = "report_versions"
+    __table_args__ = (
+        UniqueConstraint("report_id", "version_number"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     report_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -57,6 +68,9 @@ class ReportVersion(Base):
 
 class ReportTag(Base):
     __tablename__ = "report_tags"
+    __table_args__ = (
+        UniqueConstraint("report_id", "tag_name"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     report_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False, index=True)
