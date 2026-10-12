@@ -311,7 +311,10 @@ async def execute_query(
                 return []
             raw_names = list(rows[0].keys())
             names = _resolve_column_names(raw_names)
-            return [dict(zip(names, tuple(r))) for r in rows]
+            result = [dict(zip(names, tuple(r))) for r in rows]
+            if limit is not None:
+                result = result[:limit]
+            return result
         finally:
             await conn.close()
 

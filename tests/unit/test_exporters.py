@@ -251,7 +251,7 @@ class TestRenderExportIntegration:
         rendered = self._rendered_report_with_chart()
         html = HTMLExporter().export(rendered)
 
-        assert "data:image;base64," in html
+        assert "data:image/png;base64," in html
         # The chart element carries the plotted DataFrame from the renderer.
         chart_element = rendered["sections"][0]["elements"][0]
         assert len(chart_element["data"]) == 3

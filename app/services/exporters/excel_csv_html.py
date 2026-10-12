@@ -28,14 +28,15 @@ class ExcelExporter:
 
         buffer = io.BytesIO()
         workbook = xlsxwriter.Workbook(buffer)
+        used_names: set[str] = set()
 
         for section in rendered_report.get("sections", []):
             if section.get("type") == "detail":
                 for element in section.get("elements", []):
                     if element.get("type") == "subreport":
-                        self._write_subreport(workbook, element)
+                        self._write_subreport(workbook, element, used_names)
                     elif element.get("type") == "table":
-                        self._write_table(workbook, element)
+                        self._write_table(workbook, element, used_names)
 
         workbook.close()
         buffer.seek(0)
@@ -45,12 +46,14 @@ class ExcelExporter:
         self,
         workbook: xlsxwriter.Workbook,
         element: dict[str, Any],
+        used_names: set[str] | None = None,
         sheet_name: str | None = None,
     ) -> None:
         """Write a table element to Excel.
 
         ``sheet_name`` lets callers (e.g. subreport tables) supply a unique name
         so nested tables do not collide on the default "Sheet1".
+        ``used_names`` tracks names already consumed to avoid duplicates.
         """
         data = element.get("data", [])
         columns = element.get("columns", [])
@@ -58,8 +61,9 @@ class ExcelExporter:
         if not data:
             return
 
-        worksheet_name = sheet_name or element.get("name") or "Sheet1"
-        worksheet = workbook.add_worksheet(worksheet_name[:31])
+        raw_name = sheet_name or element.get("name") or "Sheet1"
+        worksheet_name = self._safe_sheet_name(raw_name, used_names)
+        worksheet = workbook.add_worksheet(worksheet_name)
         format_cache: dict[tuple[str, Any], Any] = {}
 
         headers = [col.get("header", col.get("field", "")) for col in columns]
@@ -77,7 +81,12 @@ class ExcelExporter:
                 cell_cell_format = self._get_xlsx_format(workbook, format_cache, cell_format) if cell_format else None
                 worksheet.write(row_idx, col_idx, value, cell_cell_format or row_cell_format)
 
-    def _write_subreport(self, workbook: xlsxwriter.Workbook, element: dict[str, Any]) -> None:
+    def _write_subreport(
+        self,
+        workbook: xlsxwriter.Workbook,
+        element: dict[str, Any],
+        used_names: set[str] | None = None,
+    ) -> None:
         """Write a subreport element to Excel.
 
         Inline subreports recurse into their stored layout and write each nested
@@ -88,13 +97,14 @@ class ExcelExporter:
         render_mode = element.get("render_mode") or "inline"
         layout = element.get("layout") or {}
         if render_mode != "inline":
-            worksheet_name = ((element.get("label") or "Subreport")[:27] + " Sub")[:31]
+            raw_name = ((element.get("label") or "Subreport")[:27] + " Sub")[:31]
+            worksheet_name = self._safe_sheet_name(raw_name, used_names)
             worksheet = workbook.add_worksheet(worksheet_name)
             worksheet.write(0, 0, f"Sub-report ({render_mode}) - content not embedded in Excel export")
             return
         for index, sub_element in enumerate(layout.get("elements", [])):
             if sub_element.get("type") == "table":
-                self._write_table(workbook, sub_element, sheet_name=f"Sub{index + 1}")
+                self._write_table(workbook, sub_element, used_names, sheet_name=f"Sub{index + 1}")
 
     @staticmethod
     def _get_xlsx_format(
@@ -112,6 +122,27 @@ class ExcelExporter:
                 kwargs["bold"] = True
             cache[key] = workbook.add_format(kwargs) if kwargs else workbook.add_format()
         return cache[key]
+
+    @staticmethod
+    def _safe_sheet_name(raw: str, used: set[str] | None = None) -> str:
+        """Sanitize and deduplicate an Excel worksheet name.
+
+        Excel limits: max 31 chars, no ``[]:*?/\\`` characters.
+        If the sanitized name is already in use, a numeric suffix is appended.
+        """
+        if used is None:
+            used = set()
+        # Strip forbidden characters and collapse whitespace
+        cleaned = "".join(c if c not in "[]:*?/\\" else "_" for c in raw)
+        cleaned = cleaned.strip()[:31] or "Sheet"
+        base = cleaned
+        counter = 1
+        while cleaned in used:
+            suffix = f"_{counter}"
+            cleaned = (base + suffix)[:31]
+            counter += 1
+        used.add(cleaned)
+        return cleaned
 
 
 class CSVExporter:
@@ -316,6 +347,6 @@ class HTMLExporter:
         b64 = base64.b64encode(png_bytes).decode("ascii")
         return (
             '<div class="report-chart" style="text-align:center; margin:12px 0;">'
-            f'<img src="data:image;base64,{b64}" style="max-width:100%; height:auto;" alt="chart"/>'
+            f'<img src="data:image/png;base64,{b64}" style="max-width:100%; height:auto;" alt="chart"/>'
             "</div>"
         )
