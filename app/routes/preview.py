@@ -180,6 +180,7 @@ async def preview_report(
     report_id: uuid.UUID,
     format: str = "html",
     use_current: bool = False,
+    definition: str | None = Query(None),
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -203,11 +204,14 @@ async def preview_report(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
-        # If use_current is true, we'll need to get the current canvas state from the request
-        # For now, just use the saved definition
         import json
 
-        definition = report.definition
+        if use_current and definition:
+            # The editor can pass a JSON-encoded definition in the query string
+            # to preview the current canvas state instead of the saved version.
+            definition = json.loads(definition)
+        else:
+            definition = report.definition or {}
         definition_json = json.dumps(definition)
         title = report.name
         description = report.description or ""
@@ -773,43 +777,136 @@ async def render_report_with_data(
                 col_field = props.get("columnField", "")
                 value_field = props.get("valueField", "")
                 aggregation = props.get("aggregation", "sum")
-                elements_html += f"""
-                {label_html}
-                <div class="report-element crosstab-element" style="padding: 10px; border: 1px dashed #ccc; margin: 5px 0;">
-                    <div style="font-weight: bold; margin-bottom: 10px;">Crosstab Pivot Table</div>
-                    <div style="color: #666; font-size: 11px; margin-bottom: 10px;">
-                        Rows: {row_field or "N/A"} | Columns: {col_field or "N/A"} | Value: {value_field or "N/A"} ({aggregation})
+                query = props.get("query", "")
+
+                crosstab_html = ""
+                if query and connection_config and connector:
+                    try:
+                        df = await connector.execute_query(connection_config, query)
+                        if df is not None and len(df) > 0:
+                            # Pivot the data into a crosstab table.
+                            agg_func = aggregation.lower() if aggregation else "sum"
+                            if agg_func == "count":
+                                agg_func = "size"
+                            try:
+                                pivoted = df.pivot_table(
+                                    index=row_field,
+                                    columns=col_field,
+                                    values=value_field,
+                                    aggfunc=agg_func,
+                                    fill_value=0,
+                                )
+                            except (ValueError, KeyError) as pivot_err:
+                                pivoted = None
+                                logger.warning(f"Crosstab pivot failed: {pivot_err}")
+
+                            if pivoted is not None and len(pivoted) > 0:
+                                # Render the pivoted DataFrame as an HTML table.
+                                col_headers = [html.escape(str(c)) for c in pivoted.columns]
+                                th_cells = (
+                                    '<th style="border:1px solid #ddd;padding:6px;font-weight:bold;background:#f8f9fa;">'
+                                    + html.escape(str(row_field or "Row"))
+                                    + "</th>"
+                                    + "".join(
+                                        f'<th style="border:1px solid #ddd;padding:6px;font-weight:bold;background:#f8f9fa;text-align:right;">{h}</th>'
+                                        for h in col_headers
+                                    )
+                                )
+                                td_rows = ""
+                                for idx_val, row_data in pivoted.iterrows():
+                                    td_cells = (
+                                        f'<td style="border:1px solid #ddd;padding:6px;font-weight:500;">{html.escape(str(idx_val), quote=True)}</td>'
+                                    )
+                                    for val in row_data:
+                                        td_cells += (
+                                            f'<td style="border:1px solid #ddd;padding:6px;text-align:right;">{html.escape(str(val))}</td>'
+                                        )
+                                    td_rows += f"<tr>{td_cells}</tr>\n"
+
+                                crosstab_html = f"""
+                                <div class="report-element crosstab-element" style="padding:5px;border:1px solid #ddd;margin:5px 0;overflow-x:auto;">
+                                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                                        <thead><tr>{th_cells}</tr></thead>
+                                        <tbody>{td_rows}</tbody>
+                                    </table>
+                                </div>
+                                """
+                    except Exception as e:
+                        logger.warning(f"Crosstab query failed: {e}")
+
+                if not crosstab_html:
+                    crosstab_html = f"""
+                    {label_html}
+                    <div class="report-element crosstab-element" style="padding:10px;border:1px dashed #ccc;margin:5px 0;">
+                        <div style="font-weight:bold;margin-bottom:5px;">Crosstab Pivot Table</div>
+                        <div style="color:#666;font-size:11px;">
+                            Rows: {html.escape(str(row_field or "N/A"))} | Columns: {html.escape(str(col_field or "N/A"))} | Value: {html.escape(str(value_field or "N/A"))} ({html.escape(str(aggregation))})
+                        </div>
+                        <div style="margin-top:10px;padding:15px;background:#f8f9fa;border:1px solid #ddd;text-align:center;color:#999;">
+                            No data available for crosstab
+                        </div>
                     </div>
-                    <div style="margin-top: 10px; padding: 20px; background: #f8f9fa; border: 1px solid #ddd; text-align: center; color: #999;">
-                        Crosstab visualization requires data processing engine
-                    </div>
-                </div>
-                """
+                    """
+                elements_html += crosstab_html
             elif elem_type == "subreport":
-                report_id = props.get("reportId", "")
+                sub_report_id = props.get("reportId", "")
                 render_mode = props.get("render_mode", "inline")
                 pass_parameters = props.get("pass_parameters", {}) or {}
-                param_lines = (
-                    "".join(
-                        f'<div style="font-size: 11px; color: #555;">• {k}: <code>{v or "-"}</code></div>'
-                        for k, v in pass_parameters.items()
+
+                sub_html = ""
+                if sub_report_id and render_mode == "inline" and db:
+                    try:
+                        import uuid as _uuid
+
+                        from app.models.report import Report
+
+                        sub_uuid = _uuid.UUID(sub_report_id)
+                        sub_result = await db.execute(
+                            select(Report).where(Report.id == sub_uuid, Report.is_active.is_(True))
+                        )
+                        sub_report = sub_result.scalar_one_or_none()
+                        if sub_report:
+                            sub_def = sub_report.definition or {}
+                            sub_html = await render_report_with_data(
+                                sub_def,
+                                title=sub_report.name,
+                                description=sub_report.description or "",
+                                db=db,
+                            )
+                    except ValueError:
+                        logger.warning(f"Subreport invalid report ID: {sub_report_id}")
+                    except Exception as e:
+                        logger.warning(f"Subreport render failed for {sub_report_id}: {e}")
+
+                if sub_html:
+                    elements_html += f"""
+                    <div class="report-element subreport-element" style="padding:10px;border:1px solid #ddd;margin:5px 0;">
+                        {label_html}
+                        {sub_html}
+                    </div>
+                    """
+                else:
+                    param_lines = (
+                        "".join(
+                            f'<div style="font-size:11px;color:#555;">• {html.escape(str(k))}: <code>{html.escape(str(v or "-"))}</code></div>'
+                            for k, v in pass_parameters.items()
+                        )
+                        or '<div style="font-size:11px;color:#999;">No parameters</div>'
                     )
-                    or '<div style="font-size: 11px; color: #999;">No parameters</div>'
-                )
-                elements_html += f"""
-                {label_html}
-                <div class="report-element subreport-element" style="padding: 10px; border: 1px dashed #ccc; margin: 5px 0;">
-                    <div style="font-weight: bold; margin-bottom: 5px;">Sub-report</div>
-                    <div style="color: #666; font-size: 12px;">Report ID: {report_id or "Not set"} &nbsp;|&nbsp; Render mode: {render_mode}</div>
-                    <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border: 1px solid #ddd; text-align: left;">
-                        <div style="font-size: 11px; font-weight: bold; color: #777; margin-bottom: 3px;">Pass parameters:</div>
-                        {param_lines}
+                    elements_html += f"""
+                    {label_html}
+                    <div class="report-element subreport-element" style="padding:10px;border:1px dashed #ccc;margin:5px 0;">
+                        <div style="font-weight:bold;margin-bottom:5px;">Sub-report</div>
+                        <div style="color:#666;font-size:12px;">Report ID: {html.escape(str(sub_report_id or "Not set"))} &nbsp;|&nbsp; Render mode: {html.escape(str(render_mode))}</div>
+                        <div style="margin-top:8px;padding:8px;background:#f8f9fa;border:1px solid #ddd;text-align:left;">
+                            <div style="font-size:11px;font-weight:bold;color:#777;margin-bottom:3px;">Pass parameters:</div>
+                            {param_lines}
+                        </div>
+                        <div style="margin-top:10px;padding:15px;background:#fffaf0;border:1px dashed #eee;text-align:center;color:#999;font-size:11px;">
+                            Sub-report not found or render mode is "{html.escape(str(render_mode))}"
+                        </div>
                     </div>
-                    <div style="margin-top: 10px; padding: 15px; background: #fffaf0; border: 1px dashed #eee; text-align: center; color: #999; font-size: 11px;">
-                        Sub-report embedding requires report ID resolution
-                    </div>
-                </div>
-                """
+                    """
             else:
                 elements_html += f"""
                 {label_html}
