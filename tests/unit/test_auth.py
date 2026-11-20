@@ -307,6 +307,87 @@ class TestLdapAuthLogging:
         assert result is None
 
 
+class TestLdapTlsEnforcement:
+    """D2: the LDAP bind channel must be encrypted (ldaps:// or STARTTLS)."""
+
+    def _server_kwargs(self, fake_ldap3):
+        return fake_ldap3.Server.call_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_ldap_url_uses_starttls_by_default(self):
+        """A cleartext ldap:// URL negotiates STARTTLS (use_tls=True) by default."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        fake_ldap3, _ = _fake_ldap3()
+        # Empty search result returns None right after the Server is created, so
+        # we can assert on the Server kwargs without driving the full bind flow.
+        search_conn = MagicMock()
+        search_conn.entries = []
+        fake_ldap3.Server.return_value = MagicMock()
+        fake_ldap3.Connection.return_value = search_conn
+
+        with (
+            patch("app.auth.logger", MagicMock()),
+            patch(
+                "app.auth.settings",
+                _ldap_settings(LDAP_URL="ldap://ldap.example:389", LDAP_USE_TLS=True),
+            ),
+            patch.dict(sys.modules, {"ldap3": fake_ldap3, "ldap3.exceptions": fake_ldap3.exceptions}),
+        ):
+            result = await authenticate_ldap_user(mock_db, "alice@example.com", "pass")
+
+        assert result is None
+        assert self._server_kwargs(fake_ldap3).get("use_tls") is True
+
+    @pytest.mark.asyncio
+    async def test_ldaps_url_does_not_starttls(self):
+        """ldaps:// uses implicit TLS; use_tls is not forced on."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        fake_ldap3, _ = _fake_ldap3()
+        search_conn = MagicMock()
+        search_conn.entries = []
+        fake_ldap3.Server.return_value = MagicMock()
+        fake_ldap3.Connection.return_value = search_conn
+
+        with (
+            patch("app.auth.logger", MagicMock()),
+            patch(
+                "app.auth.settings",
+                _ldap_settings(LDAP_URL="ldaps://ldap.example:636", LDAP_USE_TLS=True),
+            ),
+            patch.dict(sys.modules, {"ldap3": fake_ldap3, "ldap3.exceptions": fake_ldap3.exceptions}),
+        ):
+            result = await authenticate_ldap_user(mock_db, "alice@example.com", "pass")
+
+        assert result is None
+        assert self._server_kwargs(fake_ldap3).get("use_tls") is False
+
+    @pytest.mark.asyncio
+    async def test_cleartext_warns_when_tls_disabled(self):
+        """ldap:// with LDAP_USE_TLS=false stays cleartext and logs a warning."""
+        mock_db = AsyncMock(spec=AsyncSession)
+        mock_logger = MagicMock()
+        fake_ldap3, _ = _fake_ldap3()
+        search_conn = MagicMock()
+        search_conn.entries = []
+        fake_ldap3.Server.return_value = MagicMock()
+        fake_ldap3.Connection.return_value = search_conn
+
+        with (
+            patch("app.auth.logger", mock_logger),
+            patch(
+                "app.auth.settings",
+                _ldap_settings(LDAP_URL="ldap://ldap.example:389", LDAP_USE_TLS=False),
+            ),
+            patch.dict(sys.modules, {"ldap3": fake_ldap3, "ldap3.exceptions": fake_ldap3.exceptions}),
+        ):
+            result = await authenticate_ldap_user(mock_db, "alice@example.com", "pass")
+
+        assert result is None
+        assert self._server_kwargs(fake_ldap3).get("use_tls") is False
+        warnings = [c for c in mock_logger.warning.call_args_list if "cleartext" in c.args[0]]
+        assert warnings, "expected a cleartext warning when TLS is disabled on ldap://"
+
+
 class TestLdapProvisioning:
     """LDAP login provisions a local user row; the write path must be safe.
 

@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     LDAP_EMAIL_ATTR: str = "mail"
     LDAP_NAME_ATTR: str = "cn"
 
+    # Enforce TLS for LDAP binds (D2). ldap:// sends the bind DN and password in
+    # cleartext; ldaps:// (implicit TLS) or STARTTLS (ldap:// + use_tls) encrypts
+    # the channel. Defaults True so a plain ldap:// URL negotiates STARTTLS before
+    # the service-account bind. Set False only for cleartext test directories.
+    LDAP_USE_TLS: bool = True
+
     # AI (OpenAI-compatible)
     AI_BASE_URL: str = "http://localhost:8080/v1"
     AI_API_KEY: str = "none"

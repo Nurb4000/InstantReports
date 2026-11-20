@@ -166,11 +166,25 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
     # account. Any failure here means the backend is unreachable or misconfigured
     # (we have not yet looked up this user), so surface it distinctly instead of
     # swallowing it into a generic "wrong password".
+    #
+    # D2: enforce TLS so the bind DN/password are never sent in cleartext.
+    # ldaps:// uses implicit TLS; for a plain ldap:// URL we negotiate STARTTLS
+    # when LDAP_USE_TLS is set. A cleartext channel is logged as a warning.
+    url = settings.LDAP_URL
+    cleartext = not url.lower().startswith("ldaps://") and not settings.LDAP_USE_TLS
+    if cleartext:
+        logger.warning(
+            "LDAP connection to %s uses cleartext (no TLS); bind credentials "
+            "travel unencrypted. Use ldaps:// or set LDAP_USE_TLS=true.",
+            url,
+        )
+    use_tls = settings.LDAP_USE_TLS and not url.lower().startswith("ldaps://")
     try:
         server = ldap3.Server(
-            settings.LDAP_URL,
+            url,
             get_info=ldap3.ALL,
             connect_timeout=5,
+            use_tls=use_tls,
         )
         conn = ldap3.Connection(
             server,
