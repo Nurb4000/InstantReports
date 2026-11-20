@@ -15,6 +15,7 @@
     </div>
     <div class="section-content" style="display: none;">
     <form method="post" action="/admin/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="form_type" value="smtp">
         <div class="row">
             <div class="col-md-6">
@@ -81,6 +82,7 @@
     
     <h3>Test Email</h3>
     <form method="post" action="/admin/settings/test-email">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="test_email">Send test email to:</label>
             <input type="email" id="test_email" name="to_email" class="form-control" value="admin@example.com" required>
@@ -98,6 +100,7 @@
     </div>
     <div class="section-content" style="display: none;">
     <form method="post" action="/admin/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="form_type" value="ldap">
         <div class="form-group">
             <label for="ldap_url">LDAP Server URL</label>
@@ -124,6 +127,7 @@
     </div>
     <div class="section-content" style="display: none;">
     <form method="post" action="/admin/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="form_type" value="ai">
         <div class="form-group">
             <label for="ai_enabled">

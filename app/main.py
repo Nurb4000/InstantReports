@@ -168,6 +168,12 @@ if _cors_origins:
         allow_headers=["*"],
     )
 
+# CSRF protection for cookie-authenticated, state-changing web requests. Added
+# after CORS so it wraps the full request/response cycle. See app/middleware/csrf.py.
+from app.middleware.csrf import CsrfProtectionMiddleware  # noqa: E402
+
+app.add_middleware(CsrfProtectionMiddleware)
+
 # Custom exception handlers. Every error returns a consistent JSON payload:
 #   {"detail": "<user-facing message>", "status_code": <int>}
 # so the client-side toast can surface meaningful messages instead of a generic
@@ -208,6 +214,10 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 app.state.templates = Jinja2Templates(directory=str(templates_dir))
 app.state.templates.env.globals["now"] = lambda: int(datetime.now(timezone.utc).timestamp())
+# Expose the per-request CSRF token to every template (forms + <meta> tag).
+from app.middleware.csrf import get_csrf_token  # noqa: E402
+
+app.state.templates.env.globals["csrf_token"] = get_csrf_token
 
 
 @app.get("/", response_class=HTMLResponse)

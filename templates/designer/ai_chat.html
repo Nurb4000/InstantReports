@@ -47,6 +47,7 @@
             </div>
         </div>
         <form class="ai-chat-input" @submit.prevent="sendMessage">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" 
                    x-model="message" 
                    placeholder="Describe what you want..." 

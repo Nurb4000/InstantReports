@@ -17,6 +17,7 @@
 <div id="filter-panel" class="card mb-3" style="display: none;">
     <div class="card-body">
         <form id="filter-form" onsubmit="applyFilters(event)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Search</label>
@@ -147,6 +148,7 @@ async function loadUsers() {
     <div class="modal-content card">
         <h2>Create New User</h2>
         <form id="create-user-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="user-name">Name</label>
                 <input type="text" id="user-name" name="name" class="form-control" required>
@@ -179,6 +181,7 @@ async function loadUsers() {
     <div class="modal-content card">
         <h2>Edit User</h2>
         <form id="edit-user-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" id="edit-user-id" name="id">
             <div class="form-group">
                 <label for="edit-user-name">Name</label>

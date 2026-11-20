@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # only for local development over plain HTTP.
     COOKIE_SECURE: bool = True
 
+    # CSRF protection for cookie-authenticated, state-changing web requests.
+    # Enabled in production; disabled in the test suite so existing POST tests
+    # are unaffected (dedicated CSRF tests flip this on explicitly).
+    CSRF_ENABLED: bool = True
+
 
     @field_validator("SECRET_KEY")
     @classmethod

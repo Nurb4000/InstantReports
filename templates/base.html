@@ -3,10 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}InstantReports{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/bootstrap.min.css') }}?v={{ now() }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/main.css') }}?v={{ now() }}">
     <script src="{{ url_for('static', path='/js/escape.js') }}"></script>
+    <script>
+        // Push the CSRF token into every state-changing XHR/htmx request so
+        // cookie-authenticated POST/PUT/PATCH/DELETE are protected against CSRF.
+        (function () {
+            function getToken() {
+                var m = document.querySelector('meta[name="csrf-token"]');
+                return m ? m.content : '';
+            }
+            document.addEventListener('htmx:configRequest', function (evt) {
+                evt.detail.headers = evt.detail.headers || {};
+                evt.detail.headers['X-CSRF-Token'] = getToken();
+            });
+            var origFetch = window.fetch;
+            if (origFetch) {
+                window.fetch = function () {
+                    var args = Array.prototype.slice.call(arguments);
+                    var opts = args[1] || {};
+                    opts.headers = Object.assign({}, opts.headers, { 'X-CSRF-Token': getToken() });
+                    return origFetch.apply(this, args);
+                };
+            }
+        })();
+    </script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
