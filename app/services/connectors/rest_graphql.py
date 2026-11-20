@@ -8,7 +8,10 @@ import httpx
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
-from app.services.delivery.smb_webhook import _validate_outbound_url
+from app.services.delivery.smb_webhook import (
+    _validate_outbound_url,
+    make_validating_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,7 @@ class RESTAPIConnector(DataConnector):
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
             _validate_outbound_url(config.get("url", ""))
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with make_validating_client(timeout=10) as client:
                 response = await self._make_request(client, config, "GET")
                 return response.status_code in (200, 201)
         except Exception:
@@ -67,7 +70,7 @@ class RESTAPIConnector(DataConnector):
     async def get_schema(self, config: dict[str, Any]) -> dict[str, Any]:
         try:
             _validate_outbound_url(config.get("url", ""))
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with make_validating_client(timeout=10) as client:
                 response = await self._make_request(client, config, "GET")
                 if response.status_code == 200:
                     data = response.json()
@@ -92,7 +95,7 @@ class RESTAPIConnector(DataConnector):
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
         _validate_outbound_url(config.get("url", ""))
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with make_validating_client(timeout=30) as client:
             response = await self._make_request(client, config, "GET", parameters)
 
             if response.status_code != 200:
@@ -166,7 +169,7 @@ class GraphQLConnector(DataConnector):
     async def test_connection(self, config: dict[str, Any]) -> bool:
         try:
             _validate_outbound_url(config.get("url", ""))
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with make_validating_client(timeout=10) as client:
                 response = await self._make_request(client, config, "{ __typename }")
                 return response.status_code == 200
         except Exception:
@@ -175,7 +178,7 @@ class GraphQLConnector(DataConnector):
     async def get_schema(self, config: dict[str, Any]) -> dict[str, Any]:
         try:
             _validate_outbound_url(config.get("url", ""))
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with make_validating_client(timeout=10) as client:
                 introspection_query = """
                 {
                     __schema {
@@ -221,7 +224,7 @@ class GraphQLConnector(DataConnector):
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
         _validate_outbound_url(config.get("url", ""))
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with make_validating_client(timeout=30) as client:
             response = await self._make_request(client, config, query, parameters)
 
             if response.status_code != 200:

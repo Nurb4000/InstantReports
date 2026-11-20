@@ -66,7 +66,16 @@ def _inject_fake_httpx(
     client = _FakeHttpClient(status_code=status_code)
     fake_httpx = types.ModuleType("httpx")
     fake_httpx.AsyncClient = lambda *a, **k: client
+    # ``make_validating_client`` constructs an AsyncHTTPTransport before the
+    # AsyncClient; provide a no-op stand-in so the real client lambda wins.
+    fake_httpx.AsyncHTTPTransport = lambda *a, **k: MagicMock()
+    fake_httpx.AsyncBaseTransport = object
     monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+    # The client factory is module-level and binds ``httpx`` as a global, so the
+    # sys.modules swap alone is not enough — patch the reference in this module.
+    import app.services.delivery.smb_webhook as smb_webhook
+
+    monkeypatch.setattr(smb_webhook, "httpx", fake_httpx)
     return client
 
 

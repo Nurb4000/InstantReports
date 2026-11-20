@@ -3,21 +3,96 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
-from typing import Any
+import socket
+from typing import Any, Callable
 from urllib.parse import urlparse
 
+import httpx
+
 logger = logging.getLogger(__name__)
+
+
+def _parse_allowed_networks() -> list:
+    """Parse ``ALLOWED_PRIVATE_RANGES`` into a list of networks.
+
+    Returns an empty list when the setting is blank. Each entry lets an
+    operator explicitly permit otherwise-internal addresses (e.g.
+    ``10.0.0.0/8``) for outbound calls.
+    """
+    raw = __import__("app.config", fromlist=["settings"]).settings.ALLOWED_PRIVATE_RANGES
+    networks: list = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(part))
+        except ValueError as exc:
+            raise ValueError(f"Invalid ALLOWED_PRIVATE_RANGES entry: {part!r}") from exc
+    return networks
+
+
+def _validate_ip_address(ip_str: str, allowed_networks: list) -> None:
+    """Fail-closed check for a single resolved IP against the SSRF policy.
+
+    Always permits loopback (local dev/test servers) and public/globally
+    routable addresses (public APIs). Any other internal address — private,
+    link-local (e.g. ``169.254.169.254`` cloud metadata), reserved, or
+    multicast — is rejected unless it falls within an explicitly listed
+    ``ALLOWED_PRIVATE_RANGES`` entry.
+    """
+    ip = ipaddress.ip_address(ip_str)
+    if ip.is_loopback:
+        return
+
+    is_public = not (
+        ip.is_private
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+    if is_public:
+        return
+
+    if allowed_networks and any(ip in net for net in allowed_networks):
+        return
+
+    raise ValueError(f"URL resolves to a blocked internal address: {ip}")
+
+
+def _resolve_host(host: str, allowed_networks: list) -> None:
+    """Resolve ``host`` via DNS and validate every returned address.
+
+    Resolving here is what closes the SSRF gap: the previous implementation
+    inspected only bare-IP literals and returned early for hostnames, so a
+    hostname pointing at an internal service (metadata endpoint, loopback,
+    10.x/192.168.x, ...) bypassed the guard entirely. Fails closed on any DNS
+    error rather than letting the request through.
+    """
+    try:
+        infos = socket.getaddrinfo(host, 0, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except (socket.gaierror, socket.error, UnicodeError) as exc:
+        raise ValueError(f"Could not resolve host {host!r}: {exc}") from exc
+
+    seen: set = set()
+    for info in infos:
+        ip_str = info[4][0]
+        if ip_str in seen:
+            continue
+        seen.add(ip_str)
+        _validate_ip_address(ip_str, allowed_networks)
 
 
 def _validate_outbound_url(url: str) -> None:
     """Validate an outbound URL to mitigate SSRF / NTLM capture.
 
     * Only ``http`` and ``https`` schemes are accepted.
-    * The host is resolved (via ``ipaddress``) and checked against a set of
-      private/loopback/link-local ranges.  If the configured
-      ``ALLOWED_PRIVATE_RANGES`` is empty, any private address raises
-      ``ValueError``.  This prevents designers from probing internal services
-      like ``169.254.169.254`` (metadata) or ``127.0.0.1``.
+    * The host is resolved via DNS and **every** resolved address is checked
+      against the SSRF policy, so a hostname pointing at an internal service
+      (metadata endpoint, loopback, 10.x/192.168.x, ...) is rejected just like
+      a bare private IP. Previously only bare-IP literals were inspected and
+      hostnames bypassed the check entirely.
     """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -27,31 +102,49 @@ def _validate_outbound_url(url: str) -> None:
     if not host:
         raise ValueError("URL missing hostname")
 
-    # Check against IP address ranges
-    try:
-        addr = ipaddress.ip_address(host)
-    except ValueError:
-        # Not a bare IP — hostname; DNS resolution happens at request time.
-        return
+    _resolve_host(host, _parse_allowed_networks())
 
-    allowed_ranges = [
-        ipaddress.ip_network(r.strip())
-        for r in __import__("app.config", fromlist=["settings"]).settings.ALLOWED_PRIVATE_RANGES.split(",")
-        if r.strip()
-    ]
 
-    # If no private ranges are explicitly allowed, reject any non-public address.
-    if not allowed_ranges:
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
-            raise ValueError(
-                f"Private/loopback IP {host} not in ALLOWED_PRIVATE_RANGES"
-            )
-    else:
-        # Only accept if the address falls within one of the allowed ranges.
-        if not any(addr in net for net in allowed_ranges):
-            raise ValueError(
-                f"IP {host} not in any of the allowed private ranges"
-            )
+class ValidatingTransport(httpx.AsyncBaseTransport):
+    """Async httpx transport that re-validates every request URL.
+
+    Wraps an inner transport and runs :func:`_validate_outbound_url` on each
+    request *before* it is sent. Because httpx re-invokes the transport for
+    each redirect, this also blocks redirects to internal addresses (e.g. a
+    public endpoint that 302s to ``http://169.254.169.254``), which a single
+    pre-request check cannot catch. Mounted on both http:// and https://.
+    """
+
+    def __init__(
+        self,
+        inner: httpx.AsyncBaseTransport,
+        validator: Callable[[str], None] = _validate_outbound_url,
+    ) -> None:
+        self._inner = inner
+        self._validator = validator
+
+    async def handle_async_request(self, request):
+        self._validator(str(request.url))
+        return await self._inner.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
+
+def make_validating_client(**kwargs) -> httpx.AsyncClient:
+    """Build an ``AsyncClient`` whose transport validates every outbound URL.
+
+    ``kwargs`` are forwarded to the underlying ``AsyncHTTPTransport`` (e.g.
+    ``timeout=...``). The validating wrapper is mounted for both schemes so
+    redirects are covered too. ``trust_env=False`` keeps an attacker who can
+    set ``HTTP_PROXY``/``HTTPS_PROXY`` from redirecting traffic past the guard.
+    """
+    validating = ValidatingTransport(httpx.AsyncHTTPTransport())
+    # A single default transport covers both http and https (and every
+    # redirect hop), so use ``transport=`` rather than the per-scheme ``mount``
+    # API which differs across httpx versions.
+    client = httpx.AsyncClient(transport=validating, trust_env=False, **kwargs)
+    return client
 
 
 def _sign_webhook(secret: str, timestamp: str, body: bytes) -> str:
@@ -153,7 +246,8 @@ async def send_webhook(
             signature = _sign_webhook(secret, timestamp, body)
             request_headers["X-Webhook-Signature"] = f"t={timestamp},v1={signature}"
 
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        # Validating transport re-checks the URL (and any redirect) at send time.
+        async with make_validating_client(timeout=timeout) as client:
             response = await client.post(url, content=body, headers=request_headers)
             response.raise_for_status()
 
@@ -228,7 +322,7 @@ async def test_webhook_connection(
             signature = _sign_webhook(secret, timestamp, body)
             request_headers["X-Webhook-Signature"] = f"t={timestamp},v1={signature}"
 
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with make_validating_client(timeout=timeout) as client:
             response = await client.post(url, content=body, headers=request_headers)
             response.raise_for_status()
 
