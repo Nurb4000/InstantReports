@@ -3,7 +3,7 @@
 {% block title %}Compare Versions - {{ report.name }} - InstantReports{% endblock %}
 
 {% block extra_head %}
-<style>
+<style nonce="{{ security_nonce() }}">
     .compare-container {
         display: grid;
         grid-template-columns: 1fr 1fr;

@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', path='/css/bootstrap.min.css') }}?v={{ now() }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/main.css') }}?v={{ now() }}">
     <script src="{{ url_for('static', path='/js/escape.js') }}"></script>
-    <script>
+    <script nonce="{{ security_nonce() }}">
         // Push the CSRF token into every state-changing XHR/htmx request so
         // cookie-authenticated POST/PUT/PATCH/DELETE are protected against CSRF.
         (function () {
@@ -78,7 +78,7 @@
     <script src="{{ url_for('static', path='/js/sortable.min.js') }}"></script>
     {% block extra_scripts %}{% endblock %}
 
-    <script>
+    <script nonce="{{ security_nonce() }}">
         // Global toast notification system (shared by admin pages). Replaces
         // blocking alert() dialogs with a non-modal, severity-coded banner.
         // Errors/warns persist until dismissed; success/info auto-dismiss.

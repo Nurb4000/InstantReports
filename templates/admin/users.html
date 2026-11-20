@@ -78,7 +78,7 @@
     </table>
 </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
 let currentFilters = {};
 
 function toggleFilters() {
@@ -216,7 +216,7 @@ async function loadUsers() {
     </div>
 </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
     function showCreateUserModal() {
         document.getElementById('create-user-modal').classList.add('active');
         document.getElementById('create-user-form').reset();

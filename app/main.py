@@ -168,6 +168,14 @@ if _cors_origins:
         allow_headers=["*"],
     )
 
+# Defense-in-depth response headers (CSP + nosniff). Registered before CSRF so
+# it is the outermost application middleware and wraps the full cycle -- every
+# response, including CSRF-rejected 403s, carries the headers. See
+# app/middleware/security_headers.py.
+from app.middleware.security_headers import SecurityHeadersMiddleware  # noqa: E402
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # CSRF protection for cookie-authenticated, state-changing web requests. Added
 # after CORS so it wraps the full request/response cycle. See app/middleware/csrf.py.
 from app.middleware.csrf import CsrfProtectionMiddleware  # noqa: E402
@@ -218,6 +226,11 @@ app.state.templates.env.globals["now"] = lambda: int(datetime.now(timezone.utc).
 from app.middleware.csrf import get_csrf_token  # noqa: E402
 
 app.state.templates.env.globals["csrf_token"] = get_csrf_token
+# Expose the per-request CSP nonce so inline <script>/<style> blocks can tag
+# themselves; the SecurityHeadersMiddleware echoes the same value in the policy.
+from app.middleware.security_headers import get_security_nonce  # noqa: E402
+
+app.state.templates.env.globals["security_nonce"] = get_security_nonce
 
 
 @app.get("/", response_class=HTMLResponse)

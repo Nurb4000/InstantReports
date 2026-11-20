@@ -158,7 +158,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
 function toggleSection(header) {
     const content = header.nextElementSibling;
     const icon = header.querySelector('.toggle-icon');

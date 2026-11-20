@@ -3,7 +3,7 @@
 {% block title %}View Report: {{ output.file_name }} - InstantReports{% endblock %}
 
 {% block extra_head %}
-<style>
+<style nonce="{{ security_nonce() }}">
     .report-viewer {
         width: 100%;
         height: 80vh;

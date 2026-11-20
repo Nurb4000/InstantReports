@@ -3,7 +3,7 @@
 {% block title %}Schedules - InstantReports{% endblock %}
 
 {% block content %}
-<script>
+<script nonce="{{ security_nonce() }}">
     window.currentUserId = {{ current_user_id | tojson }};
 </script>
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -73,7 +73,7 @@
     </table>
 </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
 let currentFilters = {};
 
 function toggleFilters() {
@@ -517,7 +517,7 @@ async function loadSchedules() {
     </div>
 </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
     async function showCreateScheduleModal() {
         try {
             const modal = document.getElementById('create-schedule-modal');

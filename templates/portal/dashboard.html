@@ -84,7 +84,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
 function toggleFilters() {
     const panel = document.getElementById('filter-panel');
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';

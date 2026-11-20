@@ -1,4 +1,4 @@
-<style>
+<style nonce="{{ security_nonce() }}">
     .ai-chat-container {
         display: flex;
         flex-direction: column;
@@ -60,7 +60,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
     function aiChat() {
         return {
             message: '',

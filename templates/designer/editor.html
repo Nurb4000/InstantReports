@@ -3,7 +3,7 @@
 {% block title %}{% if report %}Edit: {{ report.name }}{% else %}New Report{% endif %} - InstantReports{% endblock %}
 
 {% block extra_head %}
-<style>
+<style nonce="{{ security_nonce() }}">
     .designer-layout {
         display: flex;
         flex-direction: column;
@@ -724,7 +724,7 @@
         </div>
     </div>
 
-<script>
+<script nonce="{{ security_nonce() }}">
     // Inline notification system: replaces blocking alert() dialogs with a
     // non-modal, auto-dismissing toast. Errors/warns stay until dismissed and
     // are logged server-side via console for debugging. Success/info toasts
