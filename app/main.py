@@ -169,6 +169,12 @@ if _cors_origins:
         allow_headers=["*"],
     )
 
+# Optional HTTP -> HTTPS redirect (outermost so it runs before anything else).
+# Gated by HTTPS_REDIRECT; safe to leave off for local HTTP dev and tests.
+from app.middleware.https_redirect import HTTPSRedirectMiddleware  # noqa: E402
+
+app.add_middleware(HTTPSRedirectMiddleware)
+
 # Defense-in-depth response headers (CSP + nosniff). Registered before CSRF so
 # it is the outermost application middleware and wraps the full cycle -- every
 # response, including CSRF-rejected 403s, carries the headers. See

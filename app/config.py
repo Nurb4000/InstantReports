@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     # are unaffected (dedicated CSRF tests flip this on explicitly).
     CSRF_ENABLED: bool = True
 
+    # HTTPS enforcement + HSTS. COOKIE_SECURE marks the auth cookie Secure
+    # (HTTPS-only) but does not itself force HTTPS nor tell browsers to always
+    # use it. When HTTPS_ENFORCED is true the app emits a Strict-Transport-Security
+    # header so browsers remember to reuse HTTPS for a MAX_AGE window. When
+    # HTTPS_REDIRECT is true an additional middleware redirects plain HTTP requests
+    # to HTTPS (honouring X-Forwarded-Proto so it is safe behind a TLS-terminating
+    # proxy). Both default off so local HTTP development keeps working.
+    HTTPS_ENFORCED: bool = False
+    HTTPS_REDIRECT: bool = False
+    HSTS_MAX_AGE_SECONDS: int = 31536000
+
     # Optional shared secret that locks down the /health probe (D3). When set,
     # callers must present it via the "Authorization: Bearer" header or a
     # "?token=" query param; without it the endpoint returns 401. Left empty the

@@ -31,6 +31,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from app.config import settings
+
 _nonce_var: ContextVar[str] = ContextVar("security_nonce")
 
 
@@ -75,6 +77,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # nosniff applies to every response, JSON or HTML.
         response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # HSTS tells browsers to always use HTTPS for the max-age window. Only
+        # meaningful when the app is served over TLS (typically behind a proxy),
+        # so it is gated by HTTPS_ENFORCED and defaults off for local HTTP dev.
+        if settings.HTTPS_ENFORCED:
+            response.headers[
+                "Strict-Transport-Security"
+            ] = f"max-age={settings.HSTS_MAX_AGE_SECONDS}; includeSubDomains"
 
         # CSP only needs to guard documents that the browser will execute: HTML.
         content_type = response.headers.get("content-type", "").lower()
