@@ -351,11 +351,18 @@ pytest
 
 ### Cannot login with default credentials
 
-The admin user is created on first migration. If it doesn't exist:
+For security, the app no longer seeds a well-known default admin password (see
+`scripts/seed_admin.py`). To create the initial admin, set a strong password and
+run the seed script:
 
 ```bash
+export INITIAL_ADMIN_EMAIL=admin@example.com
+export INITIAL_ADMIN_PASSWORD='a-strong-password-of-at-least-8-chars'
 python scripts/seed_admin.py
 ```
+
+If `INITIAL_ADMIN_PASSWORD` is left unset, the script generates a random strong
+password and prints it once — save it, as it will not be shown again.
 
 ### AI features not working
 

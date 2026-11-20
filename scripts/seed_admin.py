@@ -1,7 +1,15 @@
-"""Seed script to create initial admin user."""
+"""Seed script to create initial admin user.
+
+C1 fix: refuse to seed a well-known weak default (matching the startup guard in
+app/main.py). If INITIAL_ADMIN_PASSWORD is not provided, a random strong password
+is generated and printed so the operator can capture it. A provided password that
+is too short or a known placeholder is rejected.
+"""
 from __future__ import annotations
 
 import asyncio
+import os
+import secrets
 import sys
 import uuid
 from datetime import datetime
@@ -14,6 +22,33 @@ from sqlalchemy.orm import sessionmaker
 
 from app.auth import hash_password
 from app.models.user import User, AuthSource, UserRole
+
+_WEAK_PASSWORDS = {"admin", "password", "12345678", "changeme", "secret"}
+
+
+def _resolve_admin_password() -> tuple[str, str]:
+    """Return (email, password) for the admin user.
+
+    Reads INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD from the environment. When
+    no password is supplied a random strong one is generated and returned so the
+    caller can display it. A supplied password that is weak is rejected.
+    """
+    email = os.getenv("INITIAL_ADMIN_EMAIL", "admin@example.com")
+    provided = os.getenv("INITIAL_ADMIN_PASSWORD")
+
+    if not provided:
+        # Generate a strong random password and let the operator capture it.
+        return email, secrets.token_urlsafe(24)
+
+    if len(provided) < 8 or provided in _WEAK_PASSWORDS:
+        raise SystemExit(
+            "Refusing to seed a weak admin password.\n"
+            "Set INITIAL_ADMIN_PASSWORD to a strong value (>= 8 chars, not a "
+            f"common placeholder like {'/'.join(sorted(_WEAK_PASSWORDS))}).\n"
+            "Leave it unset to have a random strong password generated for you."
+        )
+
+    return email, provided
 
 
 async def seed_admin_user(database_url: str):
@@ -28,12 +63,13 @@ async def seed_admin_user(database_url: str):
         users = result.scalars().all()
 
         if not users:
+            email, password = _resolve_admin_password()
             # Create default admin user
             admin = User(
                 id=uuid.uuid4(),
-                email="admin@example.com",
+                email=email,
                 name="Admin User",
-                password_hash=hash_password("admin"),
+                password_hash=hash_password(password),
                 role=UserRole.ADMIN,
                 auth_source=AuthSource.LOCAL,
                 is_active=True,
@@ -41,7 +77,12 @@ async def seed_admin_user(database_url: str):
             )
             db.add(admin)
             await db.commit()
-            print(f"Created default admin user: admin@example.com / admin")
+            print("=" * 56)
+            print("Initial admin user created")
+            print(f"  email:    {email}")
+            print(f"  password: {password}")
+            print("=" * 56)
+            print("Save the password above; it will not be shown again.")
         else:
             print(f"Found {len(users)} existing user(s), skipping admin creation")
 
@@ -49,6 +90,5 @@ async def seed_admin_user(database_url: str):
 
 
 if __name__ == "__main__":
-    import os
     database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://ir:secret@postgres:5432/instantreports")
     asyncio.run(seed_admin_user(database_url))
