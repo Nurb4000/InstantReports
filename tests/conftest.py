@@ -21,8 +21,13 @@ os.environ.setdefault(
 )
 
 from app.auth import hash_password
+from app.config import settings
 from app.database import Base, get_db
 from app.models.user import AuthSource, User, UserRole
+
+# CSRF enforcement is tested explicitly in test_csrf.py; keep it off for the rest
+# of the suite so existing POST/PUT/DELETE tests are not required to carry a token.
+settings.CSRF_ENABLED = False
 
 
 # The test DB is SQLite, but the models declare Postgres-only types. Scope each
@@ -51,9 +56,17 @@ test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 test_session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def event_loop() -> Generator:
-    """Create event loop for the test session."""
+    """Create a fresh event loop for each async test.
+
+    Function scope (rather than session scope) is required because some tests
+    call ``asyncio.run()``, which closes its own loop and leaves the process's
+    "current event loop" unset. A session-scoped loop then leaks that bad state
+    into later async tests (``RuntimeError: There is no current event loop``).
+    A per-test loop is created fresh and registered as current by pytest-asyncio
+    before every test, so earlier ``asyncio.run()`` calls cannot contaminate it.
+    """
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
