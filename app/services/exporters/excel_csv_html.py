@@ -236,7 +236,7 @@ class HTMLExporter:
             "<html>",
             "<head>",
             "<meta charset='UTF-8'>",
-            "<title>{}</title>".format(rendered_report.get("name", "Report")),
+            "<title>{}</title>".format(html.escape(str(rendered_report.get("name", "Report")))),
             "<style>",
             "body { font-family: Arial, sans-serif; margin: 20px; }",
             "table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }",
@@ -246,7 +246,7 @@ class HTMLExporter:
             "</style>",
             "</head>",
             "<body>",
-            "<h1>{}</h1>".format(rendered_report.get("name", "Report")),
+            "<h1>{}</h1>".format(html.escape(str(rendered_report.get("name", "Report")))),
         ]
 
         for section in rendered_report.get("sections", []):

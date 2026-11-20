@@ -111,6 +111,31 @@ class TestHTMLExporter:
         assert "<script>alert(1)</script>" not in html
         assert "&lt;script&gt;" in html
 
+    def test_report_name_is_escaped_in_title_and_h1(self):
+        # M3: the report name is interpolated into <title> and <h1> without
+        # escaping, so a report named with markup yields stored XSS in the
+        # exported HTML. Both must be escaped like table cells are.
+        exporter = HTMLExporter()
+        rendered = {
+            "name": "<script>alert(1)</script>",
+            "sections": [
+                {
+                    "type": "detail",
+                    "elements": [
+                        {"type": "text", "content": "hello"}
+                    ],
+                }
+            ],
+        }
+
+        html = exporter.export(rendered)
+
+        assert "<script>alert(1)</script>" not in html
+        assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+        # Escaping must reach both the <title> and the <h1>.
+        assert "<title>&lt;script&gt;alert(1)&lt;/script&gt;</title>" in html
+        assert "<h1>&lt;script&gt;alert(1)&lt;/script&gt;</h1>" in html
+
     def test_text_element_content_is_escaped(self):
         # Text-element content is author-controlled and must be escaped, else a
         # stored payload reaches the browser when the HTML export is opened.
