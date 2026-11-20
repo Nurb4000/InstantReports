@@ -8,6 +8,7 @@ from typing import Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -140,12 +141,31 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
     return user
 
 
+class LDAPConfigError(Exception):
+    """LDAP backend is unreachable or misconfigured.
+
+    Raised by :func:`authenticate_ldap_user` when connecting to, or binding
+    with the service account on, the LDAP server fails (a transport/config
+    error) -- as opposed to a legitimate "unknown user / wrong password"
+    authentication failure, which returns ``None``. Distinguishing the two lets
+    the login path log backend problems for debugging while still showing users
+    the uniform "incorrect email or password" response, so a broken backend does
+    not masquerade as per-user credential failures (which both hides
+    misconfiguration and aids user enumeration).
+    """
+
+
 async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) -> User | None:
     if not settings.LDAP_URL or not settings.LDAP_SEARCH_BASE:
         return None
 
     import ldap3
+    from ldap3.exceptions import LDAPException
 
+    # --- transport/config phase: create the server and bind with the service
+    # account. Any failure here means the backend is unreachable or misconfigured
+    # (we have not yet looked up this user), so surface it distinctly instead of
+    # swallowing it into a generic "wrong password".
     try:
         server = ldap3.Server(
             settings.LDAP_URL,
@@ -158,7 +178,14 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
             password=settings.LDAP_BIND_PASSWORD,
             auto_bind=True,
         )
+    except Exception as exc:  # noqa: BLE001 - any error here is a backend/config failure
+        logger.error(
+            "LDAP backend unreachable or misconfigured at %s: %s",
+            settings.LDAP_URL, exc, exc_info=True,
+        )
+        raise LDAPConfigError(str(exc)) from exc
 
+    try:
         search_filter = f"({settings.LDAP_USER_ATTR}={escape_ldap_filter(email)})"
         conn.search(
             search_base=settings.LDAP_SEARCH_BASE,
@@ -168,7 +195,7 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
         )
 
         if not conn.entries:
-            return None
+            return None  # unknown user -> normal authentication failure
 
         entry = conn.entries[0]
         user_dn = str(entry.entry_dn)
@@ -181,7 +208,7 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
         )
 
         if not user_conn.bound:
-            return None
+            return None  # wrong password -> normal authentication failure
 
         email_attr = settings.LDAP_EMAIL_ATTR.lower()
         name_attr = settings.LDAP_NAME_ATTR.lower()
@@ -191,29 +218,42 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
 
         user_conn.unbind()
 
+        # Reuse an existing LDAP-backed local row.
         result = await db.execute(select(User).where(User.email == ldap_email))
         existing_user = result.scalar_one_or_none()
-
         if existing_user:
-            if existing_user.auth_source != AuthSource.LDAP:
-                return None
-            return existing_user
+            if existing_user.auth_source == AuthSource.LDAP:
+                return existing_user
+            # Email already owned by a LOCAL user; the LDAP login cannot apply.
+            return None
 
-        new_user = User(
-            email=ldap_email,
-            name=ldap_name,
-            role="viewer",
-            auth_source=AuthSource.LDAP,
-            ldap_dn=user_dn,
-            is_active=True,
-        )
-        db.add(new_user)
-        await db.commit()
-        await db.refresh(new_user)
-        return new_user
+        # Provision a new local row for the newly-seen LDAP user. The unique
+        # email column means a concurrent login can race us to the insert; if
+        # that happens, roll back and return the existing row so a valid login is
+        # not swallowed into "incorrect email or password".
+        try:
+            new_user = User(
+                email=ldap_email,
+                name=ldap_name,
+                role="viewer",
+                auth_source=AuthSource.LDAP,
+                ldap_dn=user_dn,
+                is_active=True,
+            )
+            db.add(new_user)
+            await db.commit()
+            await db.refresh(new_user)
+            return new_user
+        except IntegrityError:
+            await db.rollback()
+            result = await db.execute(select(User).where(User.email == ldap_email))
+            return result.scalar_one_or_none()
 
-    except Exception as e:
-        logger.error("LDAP authentication failed for %s: %s", email, e)
+    except LDAPException as exc:
+        # Unexpected LDAP error during search/user-bind (a bad password is
+        # handled above via the bound check). Log distinctly rather than
+        # swallowing it into a uniform response.
+        logger.warning("LDAP authentication error for %s: %s", email, exc)
         return None
 
 

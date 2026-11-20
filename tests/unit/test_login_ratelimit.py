@@ -71,3 +71,45 @@ async def test_login_rate_limit_blocks_after_max_attempts():
         m.setattr(auth, "authenticate_ldap_user", no_user)
         resp = await auth.login(req, email="user@test.com", password="bad4")
     assert resp == "tpl"
+
+
+@pytest.mark.asyncio
+async def test_login_ldap_backend_error_returns_uniform_401_not_500():
+    """A broken LDAP backend (LDAPConfigError) must surface as the same uniform
+    "incorrect email or password" 401 as any other failed login -- not a 500 --
+    so it does not reveal backend state (enumeration) and is still rate-limited."""
+    from app.routes import auth
+
+    app = MagicMock()
+    app.state.templates.TemplateResponse = MagicMock(return_value="tpl")
+
+    limiter = auth.RateLimiter(max_attempts=5, window_seconds=10, clock=lambda: 0.0)
+    auth._login_rate_limiter = limiter
+
+    class DummyReq:
+        def __init__(self):
+            self.client = MagicMock(host="1.2.3.4")
+            self.headers = {}
+            self.app = app
+
+    req = DummyReq()
+
+    with pytest.MonkeyPatch().context() as m:
+        async def local_no_user(*a, **kw):
+            return None
+
+        async def ldap_backend_error(*a, **kw):
+            from app.auth import LDAPConfigError
+
+            raise LDAPConfigError("backend down")
+
+        m.setattr(auth, "authenticate_user", local_no_user)
+        m.setattr(auth, "authenticate_ldap_user", ldap_backend_error)
+        # Must not raise; must return the uniform 401 template.
+        resp = await auth.login(req, email="user@test.com", password="bad")
+
+    assert resp == "tpl"
+    app.state.templates.TemplateResponse.assert_called()
+    # The failed attempt is still counted against the rate limit (proves the
+    # backend-error path took the uniform-failure branch, not a bare 500).
+    assert len(limiter._events["1.2.3.4:user@test.com"]) == 1

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
+    LDAPConfigError,
     authenticate_ldap_user,
     authenticate_user,
     create_access_token,
@@ -112,7 +113,14 @@ async def login(
     user = await authenticate_user(db, email, password)
 
     if not user:
-        user = await authenticate_ldap_user(db, email, password)
+        try:
+            user = await authenticate_ldap_user(db, email, password)
+        except LDAPConfigError:
+            # Backend down/misconfigured (logged at error level inside
+            # authenticate_ldap_user). Keep the uniform "incorrect email or
+            # password" response to resist enumeration; the failed attempt is
+            # rate-limited below so a broken backend cannot be hammered.
+            pass
 
     if not user:
         _login_rate_limiter.record(key)
