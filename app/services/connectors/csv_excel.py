@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,57 @@ from app.config import settings
 from app.services.connectors.base import DataConnector
 
 logger = logging.getLogger(__name__)
+
+
+class ExcelQueryError(ValueError):
+    """Raised when an Excel connector query fails read-only validation (M2)."""
+
+
+# Statement-level keywords that make a query non-read-only or unsafe to hand to
+# pandasql's eval-based compiler. A query containing any of these as a whole
+# word is rejected. (Reserved words used as column/table names can cause false
+# positives; rejecting them is the safe trade-off for a Medium finding.)
+_DANGEROUS_KEYWORDS = (
+    "INSERT", "UPDATE", "DELETE", "REPLACE", "MERGE",
+    "CREATE", "ALTER", "DROP", "TRUNCATE",
+    "EXEC", "EXECUTE", "CALL",
+    "GRANT", "REVOKE",
+    "SET", "USE", "BEGIN", "COMMIT", "ROLLBACK", "TRAN",
+)
+
+
+def _validate_excel_query(query: str) -> None:
+    """Ensure ``query`` is a single read-only SELECT before it reaches pandasql.
+
+    pandasql compiles the SQL into a pandas ``eval`` expression, so an
+    attacker-controlled query is evaluated in a pandas expression context.
+    Restricting to plain SELECT statements limits the blast radius even if
+    ``pandas.eval`` has a sandbox escape (M2). Raises :class:`ExcelQueryError`
+    on anything that is not a single read-only SELECT.
+    """
+    if not query or not query.strip():
+        return
+
+    normalized = re.sub(r"\s+", " ", query).strip()
+
+    # Comments can obfuscate dangerous keywords and add no value to a DataFrame
+    # filter, so reject them outright rather than risk imperfect stripping.
+    if "--" in normalized or "/*" in normalized or "#" in normalized:
+        raise ExcelQueryError("Excel query must not contain SQL comments")
+
+    if ";" in normalized:
+        raise ExcelQueryError(
+            "Excel query must be a single statement; multiple statements are not allowed"
+        )
+
+    first = normalized.split(None, 1)[0].upper()
+    if first != "SELECT":
+        raise ExcelQueryError(f"Excel query must be a SELECT statement, got: {first!r}")
+
+    upper = normalized.upper()
+    for kw in _DANGEROUS_KEYWORDS:
+        if re.search(r"\b" + kw + r"\b", upper):
+            raise ExcelQueryError(f"Excel query contains disallowed keyword: {kw}")
 
 
 def _resolve_file_path(file_path: str) -> Path:
@@ -150,6 +202,8 @@ class ExcelConnector(DataConnector):
         df = await asyncio.to_thread(pd.read_excel, str(path), sheet_name=sheet_name)
 
         if query:
+            # M2: only hand a read-only SELECT to pandasql's eval compiler.
+            _validate_excel_query(query)
             try:
                 import pandasql as psql
 

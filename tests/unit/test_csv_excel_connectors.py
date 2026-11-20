@@ -119,7 +119,11 @@ async def test_excel_schema_reports_each_real_sheet(data_root):
 
 # --- M1: absolute-path traversal boundary -------------------------------------
 
-from app.services.connectors.csv_excel import _resolve_file_path  # noqa: E402
+from app.services.connectors.csv_excel import (  # noqa: E402
+    ExcelQueryError,
+    _resolve_file_path,
+    _validate_excel_query,
+)
 
 
 async def test_absolute_path_inside_root_is_allowed(data_root):
@@ -161,4 +165,85 @@ async def test_excel_absolute_outside_root_blocked(data_root):
     outside = data_root.parent / "secret.xlsx"
     with pytest.raises(ValueError, match="escapes data directory"):
         await ExcelConnector().execute_query({"file_path": str(outside)}, "SELECT *")
+
+
+# --- M2: Excel query read-only validation -------------------------------------
+
+import sys as _sys  # noqa: E402
+import types as _types  # noqa: E402
+
+
+def _inject_fake_pandasql(monkeypatch):
+    """Inject a fake pandasql module that records the query it receives."""
+    captured = {}
+    mod = _types.ModuleType("pandasql")
+
+    def fake_sqldf(query, frame):
+        captured["query"] = query
+        return pd.DataFrame({"q": [query]})
+
+    mod.sqldf = fake_sqldf
+    monkeypatch.setitem(_sys.modules, "pandasql", mod)
+    return captured
+
+
+async def test_valid_select_reaches_pandasql(monkeypatch):
+    captured = _inject_fake_pandasql(monkeypatch)
+
+    def fake_read_excel(*args, **kwargs):
+        return pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+
+    monkeypatch.setattr(pd, "read_excel", fake_read_excel)
+
+    df = await ExcelConnector().execute_query(
+        {"file_path": "dummy.xlsx", "sheet": 0}, "SELECT * WHERE a > 0"
+    )
+    assert captured["query"] == "SELECT * WHERE a > 0"
+    # pandasql received the validated query and returned its (single-row) frame.
+    assert len(df) == 1
+
+
+async def test_select_union_allowed():
+    # UNION of SELECTs is still read-only and must pass validation.
+    _validate_excel_query("SELECT a FROM x UNION SELECT b FROM y")
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "INSERT INTO x VALUES (1)",
+        "UPDATE x SET a = 1",
+        "DELETE FROM x",
+        "DROP TABLE x",
+        "CREATE TABLE x (a int)",
+        "ALTER TABLE x ADD COLUMN c int",
+        "TRUNCATE TABLE x",
+        "EXEC xp_cmdshell 'dir'",
+        "MERGE INTO x USING y ON (x.a = y.a)",
+        "SELECT * FROM x; DROP TABLE x",
+        "-- drop table x\nSELECT 1",
+        "SELECT 1 /* drop table x */ FROM y",
+        "SELECT * # comment\nFROM x",
+    ],
+)
+async def test_dangerous_excel_queries_rejected(query):
+    with pytest.raises(ExcelQueryError):
+        _validate_excel_query(query)
+
+
+async def test_dangerous_query_blocked_through_execute_query(monkeypatch):
+    """A DML query is rejected end-to-end, not silently passed to pandasql."""
+    captured = _inject_fake_pandasql(monkeypatch)
+
+    def fake_read_excel(*args, **kwargs):
+        return pd.DataFrame({"a": [1, 2]})
+
+    monkeypatch.setattr(pd, "read_excel", fake_read_excel)
+
+    with pytest.raises(ExcelQueryError):
+        await ExcelConnector().execute_query(
+            {"file_path": "dummy.xlsx", "sheet": 0}, "DELETE FROM x"
+        )
+    # pandasql must never have been reached.
+    assert "query" not in captured
 
