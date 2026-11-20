@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -10,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.models.revoked_token import RevokedToken
 from app.models.user import AuthSource, User
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,8 @@ def hash_password(password: str) -> str:
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
+    # A unique token id so the JWT can be revoked server-side (e.g. on logout).
+    to_encode.update({"jti": secrets.token_hex(16), "exp": expire})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -56,6 +59,72 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         return payload
     except JWTError:
         return None
+
+
+def _to_aware_datetime(value: Any) -> datetime:
+    """Coerce a JWT ``exp`` (unix seconds) or datetime into an aware datetime.
+
+    ``jose`` decodes ``exp`` to an integer unix timestamp; the DB DateTime column
+    needs a datetime object, so convert here to keep callers simple and safe.
+    """
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value, tz=timezone.utc)
+    raise TypeError(f"Cannot interpret {value!r} as an expiry datetime")
+
+
+async def revoke_access_token(
+    db: AsyncSession, jti: str, sub: str | None, expires_at: datetime
+) -> None:
+    """Record ``jti`` as revoked until ``expires_at`` so the JWT cannot be used again.
+
+    Idempotent: a unique constraint on ``jti`` means re-revoking an already
+    revoked token is a harmless no-op (the insert is rolled back).
+    """
+    try:
+        db.add(RevokedToken(jti=jti, sub=sub, expires_at=_to_aware_datetime(expires_at)))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.warning("Failed to revoke token %s", jti, exc_info=True)
+
+
+async def is_token_revoked(db: AsyncSession, jti: str | None) -> bool:
+    """Return True if ``jti`` has been revoked and the token has not yet expired."""
+    if not jti:
+        return False
+    result = await db.execute(
+        select(RevokedToken.id).where(
+            RevokedToken.jti == jti,
+            RevokedToken.expires_at > datetime.now(timezone.utc),
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def get_current_user(
+    token: str | None = None,
+    db: AsyncSession | None = None,
+) -> User | None:
+    if not token or not db:
+        return None
+
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+
+    # Reject tokens that have been revoked since issuance (e.g. after logout).
+    if await is_token_revoked(db, payload.get("jti")):
+        return None
+
+    email: str | None = payload.get("sub")
+    if not email:
+        return None
+
+    result = await db.execute(select(User).where(User.email == email, User.is_active.is_(True)))
+    user = result.scalar_one_or_none()
+    return user
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
@@ -146,26 +215,6 @@ async def authenticate_ldap_user(db: AsyncSession, email: str, password: str) ->
     except Exception as e:
         logger.error("LDAP authentication failed for %s: %s", email, e)
         return None
-
-
-async def get_current_user(
-    token: str | None = None,
-    db: AsyncSession | None = None,
-) -> User | None:
-    if not token or not db:
-        return None
-
-    payload = decode_access_token(token)
-    if not payload:
-        return None
-
-    email: str | None = payload.get("sub")
-    if not email:
-        return None
-
-    result = await db.execute(select(User).where(User.email == email, User.is_active.is_(True)))
-    user = result.scalar_one_or_none()
-    return user
 
 
 async def create_local_user(

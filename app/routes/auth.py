@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
@@ -12,6 +14,8 @@ from app.auth import (
     authenticate_user,
     create_access_token,
     decode_access_token,
+    is_token_revoked,
+    revoke_access_token,
 )
 from app.config import settings
 from app.database import get_db
@@ -19,6 +23,7 @@ from app.models.user import User
 from app.services.ratelimit import RateLimiter
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
@@ -59,6 +64,9 @@ async def get_current_user_optional(
     try:
         payload = decode_access_token(token)
         if payload is None:
+            return None
+        # Reject tokens revoked since issuance (e.g. the user logged out).
+        if await is_token_revoked(db, payload.get("jti")):
             return None
         email: str | None = payload.get("sub")
         if not email:
@@ -153,8 +161,26 @@ async def login(
 
 
 @router.get("/logout")
-async def logout(request: Request) -> RedirectResponse:
+async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> RedirectResponse:
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+
+    # Revoke the current JWT so a leaked/stolen token cannot be reused after
+    # logout (JWTs are otherwise valid until their ``exp``). Best-effort: a
+    # failure to revoke only leaves the token live until it naturally expires.
+    auth_header = request.headers.get("Authorization", "")
+    token = request.cookies.get("access_token") or (
+        auth_header.removeprefix("Bearer ") if auth_header else None
+    )
+    if token:
+        try:
+            payload = decode_access_token(token)
+            if payload:
+                await revoke_access_token(
+                    db, payload.get("jti"), payload.get("sub"), payload.get("exp")
+                )
+        except Exception:
+            logger.warning("Failed to revoke token on logout", exc_info=True)
+
     response.delete_cookie(key="access_token")
     response.delete_cookie(key="current_user_id")
     return response

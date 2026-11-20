@@ -9,6 +9,7 @@ from app.models.connection import (
     QueryTemplate,
     Schedule,
 )
+from app.models.revoked_token import RevokedToken
 from app.models.report import (
     Report,
     ReportComment,
@@ -35,6 +36,7 @@ __all__ = [
     "ReportTag",
     "ReportTemplate",
     "ReportVersion",
+    "RevokedToken",
     "Schedule",
     "User",
     "UserRole",
