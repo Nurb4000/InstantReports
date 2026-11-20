@@ -12,6 +12,7 @@ from app.models.connection import DataConnection
 from app.models.user import User
 from app.routes._auth_helpers import get_role_value
 from app.routes.auth import get_current_user_optional
+from app.services.connectors.base import redact_connection_config
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -149,7 +150,7 @@ async def get_connection(
         "id": str(connection.id),
         "name": connection.name,
         "connector_type": connection.connector_type,
-        "config": connection.config,
+        "config": redact_connection_config(connection.config),
     }
 
 

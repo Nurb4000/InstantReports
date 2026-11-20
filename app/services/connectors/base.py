@@ -1,9 +1,36 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from typing import Any
 
 import pandas as pd
+
+# Config keys whose values are secrets and must never be returned verbatim in an
+# API response. Matched case-insensitively so any new secret field (e.g.
+# "client_secret", "auth_token") is masked even if this pattern is not updated.
+_SECRET_KEY_RE = re.compile(
+    r"(pass(word|wd)?|pwd|token|secret|api[_-]?key|access[_-]?key|"
+    r"secret[_-]?key|auth(orization)?|private[_-]?key|credential)",
+    re.IGNORECASE,
+)
+
+
+def redact_connection_config(
+    config: dict[str, Any] | None, mask: str = "***"
+) -> dict[str, Any]:
+    """Return a copy of ``config`` with secret values masked.
+
+    Used when serializing a connection for an API response so plaintext
+    passwords, bearer tokens, and basic-auth creds are never leaked to callers.
+    Non-secret fields (host, port, database, user, ...) pass through unchanged.
+    """
+    if not config:
+        return {}
+    return {
+        key: (mask if _SECRET_KEY_RE.search(key) else value)
+        for key, value in config.items()
+    }
 
 
 class DataConnector(ABC):
