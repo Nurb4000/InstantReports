@@ -242,13 +242,17 @@ async def run_scheduler():
 
 
 async def cleanup_old_reports():
-    """Cleanup job to remove old report outputs."""
-    from app.services.cleanup import cleanup_old_outputs
-    
-    logger.info("Running report output cleanup...")
+    """Cleanup job to remove old report outputs and audit-log entries."""
+    from app.services.cleanup import cleanup_old_audit_logs, cleanup_old_outputs
+
+    logger.info("Running report output + audit-log cleanup...")
     try:
-        deleted = await cleanup_old_outputs()
-        logger.info(f"Cleanup complete: {deleted} records deleted")
+        deleted_outputs = await cleanup_old_outputs()
+        deleted_audit = await cleanup_old_audit_logs()
+        logger.info(
+            "Cleanup complete: %d report outputs and %d audit entries deleted",
+            deleted_outputs, deleted_audit,
+        )
     except Exception as e:
         logger.error(f"Cleanup failed: {e}")
 

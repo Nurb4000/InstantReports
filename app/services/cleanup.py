@@ -7,6 +7,7 @@ from sqlalchemy import delete
 
 from app.config import settings
 from app.database import async_session_factory
+from app.models import AuditLog
 from app.models.report import ReportOutput
 from app.services.delivery.email import send_email
 
@@ -35,6 +36,33 @@ async def cleanup_old_outputs(retention_days: int | None = None) -> int:
         deleted_count = result.rowcount
 
     logger.info(f"Cleaned up {deleted_count} report outputs older than {retention_days} days")
+    return deleted_count
+
+
+async def cleanup_old_audit_logs(retention_days: int | None = None) -> int:
+    """Delete audit-log entries older than the retention period.
+
+    The audit trail outlives report outputs, so it uses its own
+    settings.AUDIT_RETENTION_DAYS window (default one year; 0 disables purging).
+    Mirrors :func:`cleanup_old_outputs`. Returns the number of deleted records.
+    """
+    if retention_days is None:
+        retention_days = settings.AUDIT_RETENTION_DAYS
+
+    if retention_days <= 0:
+        logger.info("Audit-log retention disabled (AUDIT_RETENTION_DAYS=0); skipping purge")
+        return 0
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+
+    async with async_session_factory() as db:
+        result = await db.execute(
+            delete(AuditLog).where(AuditLog.executed_at < cutoff)
+        )
+        await db.commit()
+        deleted_count = result.rowcount
+
+    logger.info(f"Cleaned up {deleted_count} audit-log entries older than {retention_days} days")
     return deleted_count
 
 

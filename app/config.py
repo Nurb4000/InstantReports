@@ -109,6 +109,12 @@ class Settings(BaseSettings):
     # Report storage
     REPORT_RETENTION_DAYS: int = 90
 
+    # Audit-log retention. Report *outputs* are purged after REPORT_RETENTION_DAYS;
+    # the audit trail is a separate, longer-lived record of who did what and is
+    # kept for AUDIT_RETENTION_DAYS before cleanup removes older entries. Defaults
+    # to one year. Set 0 to never purge audit records.
+    AUDIT_RETENTION_DAYS: int = 365
+
     # Runner mode: how often (seconds) the scheduler re-syncs schedules from the
     # DB so new/changed schedules take effect without a runner restart.
     SCHEDULE_SYNC_INTERVAL_SECONDS: int = 60
