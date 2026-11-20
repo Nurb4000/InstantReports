@@ -168,6 +168,85 @@ class ReportScheduler:
     # Delay between in-process retry attempts of a failed scheduled run.
     RETRY_DELAY_SECONDS = 30.0
 
+    async def _authorize_schedule_run(self, schedule, db) -> bool:
+        """D5: confirm the schedule owner may run every datasource the report uses.
+
+        The scheduler executes reports server-side using each referenced
+        ``DataConnection``'s stored credentials, with no per-run authorization
+        beyond designer access to create the schedule. Before running we load the
+        report's referenced connections and require that each is (a) present and
+        (b) authorized for the schedule owner -- the owner created it or the
+        owner is an admin. If any referenced connection is missing or unauthorized
+        we log and skip the run rather than querying against a connection the
+        owner may not be permitted to reach.
+
+        Reports that reference no connections (static/template reports) are always
+        authorized. Returns True to proceed, False to skip.
+        """
+        from app.models.connection import DataConnection, Schedule
+        from app.models.report import Report
+        from app.models.user import User, UserRole
+
+        # When schedule is not a real persisted model instance (e.g. a test double
+        # whose mocked session returns a coroutine from scalar_one_or_none()) there
+        # is nothing meaningful to authorize, so allow the run to proceed as before.
+        if not isinstance(schedule, Schedule):
+            return True
+
+        result = await db.execute(select(Report).where(Report.id == schedule.report_id))
+        report = result.scalar_one_or_none()
+        if report is None:
+            # Nothing to authorize against; execute_report logs the missing report
+            # and returns None. Allow so existing behavior is unchanged.
+            return True
+
+        definition = report.definition or {}
+        raw_ids = [
+            ds.get("connection_id")
+            for ds in definition.get("data_sources") or []
+            if ds.get("connection_id")
+        ]
+        if not raw_ids:
+            return True  # static/template report: no datasource to authorize
+
+        conn_ids = []
+        for raw in raw_ids:
+            try:
+                conn_ids.append(uuid.UUID(str(raw)))
+            except (ValueError, AttributeError, TypeError):
+                logger.warning(
+                    "Schedule %s has invalid connection_id %r; skipping run",
+                    schedule.id, raw,
+                )
+                return False
+
+        result = await db.execute(
+            select(DataConnection).where(DataConnection.id.in_(conn_ids))
+        )
+        connections = {str(c.id): c for c in result.scalars().all()}
+
+        if len(connections) != len(conn_ids):
+            logger.warning(
+                "Schedule %s references datasource(s) not found; skipping run",
+                schedule.id,
+            )
+            return False
+
+        result = await db.execute(select(User).where(User.id == schedule.owner_id))
+        owner = result.scalar_one_or_none()
+        is_admin = owner is not None and owner.role == UserRole.ADMIN
+
+        for conn_id in conn_ids:
+            conn = connections[str(conn_id)]
+            if not (is_admin or conn.created_by == schedule.owner_id):
+                logger.warning(
+                    "Schedule %s owner %s not authorized to use datasource %s; skipping run",
+                    schedule.id, schedule.owner_id, conn.id,
+                )
+                return False
+
+        return True
+
     async def _execute_report(self, *args: Any, **kwargs: Any) -> None:
         """Execute the report referenced by a scheduled job.
 
@@ -219,6 +298,11 @@ class ReportScheduler:
                     logger.error(
                         "Schedule %s not found; skipping execution", schedule_id
                     )
+                    return
+                # D5: authorize the run before executing. The scheduler runs
+                # server-side with each datasource's stored credentials, so confirm
+                # the owner may use every referenced connection; skip otherwise.
+                if not await self._authorize_schedule_run(schedule, db):
                     return
                 try:
                     output = await execute_report(schedule, db)

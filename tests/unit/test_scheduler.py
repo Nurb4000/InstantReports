@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import types
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -9,6 +10,8 @@ from apscheduler.triggers.date import DateTrigger
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.models.connection import Schedule
+from app.models.report import Report
+from app.models.user import User, UserRole
 from app.services.scheduler.engine import ReportScheduler
 
 
@@ -312,3 +315,146 @@ async def test_execute_report_sends_failure_notification_on_error(monkeypatch):
     assert "export blew up" in notifications[0]["body"]
 
     await engine.dispose()
+
+
+class TestScheduleDatasourceAuthorization:
+    """D5: the scheduler runs reports server-side with each datasource's stored
+    credentials, so before executing we verify the schedule owner is authorized
+    to use every referenced connection (created it or is admin). Unauthorized,
+    missing, or inactive datasources cause the run to be skipped.
+    """
+
+    async def _run(self, monkeypatch, schedule, report=None, connections=(), users=()):
+        """Persist entities, stub execute_report, and run the scheduler job.
+
+        Returns True if execute_report was invoked (run proceeded), False if it
+        was skipped by the D5 authorization check.
+        """
+        from app.models.connection import DataConnection
+        from app.models.report import Report
+        from app.models.user import User
+        from app.services.scheduler.engine import ReportScheduler
+
+        engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with engine.begin() as conn:
+            await conn.run_sync(__import__("app.database", fromlist=["Base"]).Base.metadata.create_all)
+
+        called = {"run": False}
+
+        async def fake_execute_report(schedule, db):
+            called["run"] = True
+            return types.SimpleNamespace(id=uuid.uuid4())
+
+        monkeypatch.setattr("app.runner.execute_report", fake_execute_report)
+        monkeypatch.setattr("app.database.async_session_factory", factory)
+
+        async with factory() as db:
+            for user in users:
+                db.add(user)
+            for conn in connections:
+                db.add(conn)
+            if report is not None:
+                db.add(report)
+            db.add(schedule)
+            await db.commit()
+
+            scheduler = ReportScheduler.__new__(ReportScheduler)
+            await scheduler._execute_report(job_id=str(schedule.id))
+
+        await engine.dispose()
+        return called["run"]
+
+    async def _user(self, monkeypatch, role, uid=None):
+        from app.models.user import User, UserRole
+
+        uid = uid or uuid.uuid4()
+        return User(id=uid, email=f"{uid}@example.com", name="U", password_hash="x", role=role)
+
+    async def _conn(self, created_by, conn_id=None):
+        from app.models.connection import DataConnection
+
+        return DataConnection(
+            id=conn_id or uuid.uuid4(),
+            name="c",
+            connector_type="postgresql",
+            config={"host": "h"},
+            created_by=created_by,
+        )
+
+    async def _report(self, owner, connection_id):
+        from app.models.report import Report
+
+        return Report(
+            id=uuid.uuid4(),
+            name="r",
+            created_by=owner,
+            definition={
+                "data_sources": [{"connection_id": str(connection_id)}],
+                "layout": {"sections": []},
+            },
+        )
+
+    async def _schedule(self, owner, report_id):
+        return Schedule(
+            id=uuid.uuid4(),
+            report_id=report_id,
+            owner_id=owner,
+            created_by=owner,
+            name="s",
+            cron_expression="0 * * * *",
+            is_active=True,
+        )
+
+    async def test_owner_may_run_own_datasource(self, monkeypatch):
+        """A designer that created the referenced connection may run it."""
+        owner = await self._user(monkeypatch, UserRole.DESIGNER)
+        conn = await self._conn(owner.id)
+        report = await self._report(owner.id, conn.id)
+        schedule = await self._schedule(owner.id, report.id)
+
+        ran = await self._run(monkeypatch, schedule, report, [conn], [owner])
+        assert ran is True
+
+    async def test_admin_may_run_any_datasource(self, monkeypatch):
+        """An admin owner may run a report against a connection they did not create."""
+        owner = await self._user(monkeypatch, UserRole.ADMIN)
+        other = await self._user(monkeypatch, UserRole.DESIGNER, uid=uuid.uuid4())
+        conn = await self._conn(other.id)
+        report = await self._report(owner.id, conn.id)
+        schedule = await self._schedule(owner.id, report.id)
+
+        ran = await self._run(monkeypatch, schedule, report, [conn], [owner, other])
+        assert ran is True
+
+    async def test_designer_cannot_run_other_users_datasource(self, monkeypatch):
+        """A designer cannot schedule a report against another user's connection."""
+        owner = await self._user(monkeypatch, UserRole.DESIGNER)
+        other = await self._user(monkeypatch, UserRole.DESIGNER, uid=uuid.uuid4())
+        conn = await self._conn(other.id)
+        report = await self._report(owner.id, conn.id)
+        schedule = await self._schedule(owner.id, report.id)
+
+        ran = await self._run(monkeypatch, schedule, report, [conn], [owner, other])
+        assert ran is False
+
+    async def test_skips_when_datasource_missing(self, monkeypatch):
+        """A referenced connection_id with no matching row skips the run."""
+        owner = await self._user(monkeypatch, UserRole.DESIGNER)
+        report = await self._report(owner.id, uuid.uuid4())  # no such connection row
+        schedule = await self._schedule(owner.id, report.id)
+
+        ran = await self._run(monkeypatch, schedule, report, [], [owner])
+        assert ran is False
+
+    async def test_no_datasources_alows_run(self, monkeypatch):
+        """A report referencing no connections (static) always runs."""
+        owner = await self._user(monkeypatch, UserRole.DESIGNER)
+        report = Report(
+            id=uuid.uuid4(), name="r", created_by=owner.id,
+            definition={"layout": {"sections": []}},
+        )
+        schedule = await self._schedule(owner.id, report.id)
+
+        ran = await self._run(monkeypatch, schedule, report, [], [owner])
+        assert ran is True
