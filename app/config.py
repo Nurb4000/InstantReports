@@ -120,6 +120,13 @@ class Settings(BaseSettings):
     # the repo's ``data/`` folder; override via env for production deployments.
     DATA_DIR: Path = BASE_DIR / "data"
 
+    # Maximum directory tree that connector files may live in. Both relative and
+    # absolute file_path values must resolve within this root (which defaults to
+    # DATA_DIR). Widen via env for deployments that mount data volumes at an
+    # arbitrary path. This bounds connector reads to the data tree so a report
+    # cannot read arbitrary host files (e.g. /etc/passwd) — see M1.
+    DATA_ROOT: Path = BASE_DIR / "data"
+
     # Comma-separated list of allowed private IP ranges for outbound HTTP calls
     # (webhooks, REST connectors).  Empty means "public only".  Common values:
     # ``10.0.0.0/8``, ``172.16.0.0/12``, ``192.168.0.0/16``, ``127.0.0.0/8``.

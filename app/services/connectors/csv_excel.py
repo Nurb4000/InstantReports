@@ -17,26 +17,34 @@ logger = logging.getLogger(__name__)
 def _resolve_file_path(file_path: str) -> Path:
     """Resolve a user-supplied file path against the configured data directory.
 
-    * If ``file_path`` is absolute, it is used directly (convenient for tests
-      and deployments that mount data volumes at arbitrary paths).
-    * If relative, it is resolved against ``DATA_DIR`` and must not escape it
-      via ``..`` segments.
+    * If ``file_path`` is relative, it is resolved against ``DATA_DIR``.
+    * If absolute, it is used directly (convenient for deployments that mount
+      data volumes at an arbitrary path).
+    * In both cases the resolved path must live within ``DATA_ROOT`` (which
+      defaults to ``DATA_DIR`` but can be widened via env). This bounds every
+      connector read to the data tree so a report cannot read arbitrary host
+      files such as ``/etc/passwd`` — the M1 fix. A path that escapes the root
+      raises ``ValueError``.
     """
     root = settings.DATA_DIR
+    data_root = settings.DATA_ROOT
     if not root.exists():
         root.mkdir(parents=True, exist_ok=True)
 
+    resolved_root = data_root.resolve()
+
     raw = Path(file_path)
     if raw.is_absolute():
-        return raw.resolve()
+        resolved = raw.resolve()
+    else:
+        resolved = (root / file_path).resolve()
 
-    resolved = (root / file_path).resolve()
     try:
-        resolved.relative_to(root.resolve())
+        resolved.relative_to(resolved_root)
     except ValueError:
         raise ValueError(
             f"File path escapes data directory: {file_path!r} "
-            f"(resolved to {resolved}, root is {root})"
+            f"(resolved to {resolved}, allowed root is {resolved_root})"
         )
     return resolved
 

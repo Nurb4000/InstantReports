@@ -13,12 +13,25 @@ import csv
 import pandas as pd
 import pytest
 
+import app.services.connectors.csv_excel as csv_excel_mod
 from app.services.connectors.csv_excel import CSVConnector, ExcelConnector
 
 
 @pytest.fixture
-def csv_file(tmp_path):
-    path = tmp_path / "sales.csv"
+def data_root(tmp_path, monkeypatch):
+    """Isolate connector file resolution to a temp directory.
+
+    With the M1 fix, absolute ``file_path`` values must resolve within
+    ``settings.DATA_ROOT``; point that root at an isolated tmp dir so tests do
+    not depend on (or escape) the repo's real ``data/`` folder.
+    """
+    monkeypatch.setattr(csv_excel_mod.settings, "DATA_ROOT", tmp_path)
+    return tmp_path
+
+
+@pytest.fixture
+def csv_file(data_root):
+    path = data_root / "sales.csv"
     with path.open("w", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(["region", "revenue"])
@@ -94,11 +107,58 @@ def _write_xlsx(path: str) -> None:
         pd.DataFrame({"c": [5]}).to_excel(writer, sheet_name="Data", index=False)
 
 
-async def test_excel_schema_reports_each_real_sheet(tmp_path):
-    path = str(tmp_path / "sheets.xlsx")
+async def test_excel_schema_reports_each_real_sheet(data_root):
+    path = str(data_root / "sheets.xlsx")
     _write_xlsx(path)
 
     schema = await ExcelConnector().get_schema({"file_path": path})
     names = [t["name"] for t in schema["tables"]]
 
     assert names == ["Sheet1", "Data"]
+
+
+# --- M1: absolute-path traversal boundary -------------------------------------
+
+from app.services.connectors.csv_excel import _resolve_file_path  # noqa: E402
+
+
+async def test_absolute_path_inside_root_is_allowed(data_root):
+    """A file inside DATA_ROOT reads fine via an absolute path."""
+    target = data_root / "inside.csv"
+    target.write_text("a,b\n1,2\n")
+
+    df = await CSVConnector().execute_query({"file_path": str(target)}, "SELECT *")
+    assert len(df) == 1
+
+
+async def test_absolute_path_outside_root_is_blocked(data_root):
+    """A file that exists but lives outside DATA_ROOT is rejected (M1)."""
+    outside = data_root.parent / "outside.csv"
+    outside.write_text("a,b\n1,2\n")
+
+    with pytest.raises(ValueError, match="escapes data directory"):
+        await CSVConnector().execute_query({"file_path": str(outside)}, "SELECT *")
+
+
+def test_resolve_absolute_outside_root_raises(data_root):
+    from pathlib import Path
+
+    outside = Path(data_root.parent) / "etc_passwd"
+    with pytest.raises(ValueError, match="escapes data directory"):
+        _resolve_file_path(str(outside))
+
+
+async def test_relative_escape_is_blocked(data_root, monkeypatch):
+    """Relative paths still cannot escape via ``..`` segments (M1 guard)."""
+    monkeypatch.setattr(csv_excel_mod.settings, "DATA_DIR", data_root)
+
+    with pytest.raises(ValueError, match="escapes data directory"):
+        _resolve_file_path("../escape.txt")
+
+
+async def test_excel_absolute_outside_root_blocked(data_root):
+    """The Excel connector honours the same boundary (M1)."""
+    outside = data_root.parent / "secret.xlsx"
+    with pytest.raises(ValueError, match="escapes data directory"):
+        await ExcelConnector().execute_query({"file_path": str(outside)}, "SELECT *")
+
