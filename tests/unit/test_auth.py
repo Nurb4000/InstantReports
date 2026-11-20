@@ -43,6 +43,43 @@ class TestPasswordHashing:
         assert hash1 != hash2
 
 
+class TestPasswordHashingD1Regression:
+    """D1: lock in password-hashing behavior across the known passlib/bcrypt
+    failure modes so a future dependency upgrade cannot silently reintroduce
+    them.
+
+    passlib[bcrypt]==1.7.4 + bcrypt 4.x historically raised encoding errors on
+    non-ASCII passwords (bcrypt operates on bytes) and mishandled the 72-byte
+    bcrypt truncation boundary. These tests pin the correct behavior.
+    """
+
+    def test_unicode_password_roundtrip(self):
+        """Non-ASCII passwords must hash and verify (the passlib/bcrypt
+        encoding bug raised TypeError/UnicodeError on such input)."""
+        hashed = hash_password("pässwörd—✓unicode")
+        assert verify_password("pässwörd—✓unicode", hashed) is True
+        assert verify_password("wrong", hashed) is False
+
+    def test_password_longer_than_72_bytes_verifies(self):
+        """bcrypt truncates at 72 bytes; a longer password must still verify
+        consistently (the stored hash truncates the same way on verify)."""
+        hashed = hash_password("a" * 100)
+        assert verify_password("a" * 100, hashed) is True
+
+    def test_exactly_72_and_73_bytes_both_verify(self):
+        """The 72-byte boundary itself must work on both sides."""
+        for length in (72, 73):
+            pw = "b" * length
+            hashed = hash_password(pw)
+            assert verify_password(pw, hashed) is True, f"length {length} failed"
+
+    def test_empty_password_roundtrip(self):
+        """An empty password must still hash and verify without error."""
+        hashed = hash_password("")
+        assert verify_password("", hashed) is True
+        assert verify_password("x", hashed) is False
+
+
 class TestJWTTokens:
     """Test JWT token creation and decoding."""
 
