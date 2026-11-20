@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -266,13 +267,34 @@ app.include_router(query_builder.router)
 
 
 @app.get("/health")
-async def health(response: Response, db: AsyncSession = Depends(get_db)):
+async def health(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,
+):
     """Liveness/readiness probe that verifies the database is reachable.
 
     A bare ``{"status": "ok"}`` reports healthy even when the DB is down, so
     orchestrators keep routing traffic to a broken instance. Pinging the DB
     surfaces that as a 503 so the container can be restarted/unregistered.
+
+    D3: when HEALTH_CHECK_TOKEN is configured, the probe requires it (Bearer
+    header or ?token= query param) so it does not confirm liveness/readiness to
+    unauthenticated attackers. When unset the endpoint stays public for probes
+    that cannot carry a secret.
     """
+    token = app_settings.HEALTH_CHECK_TOKEN
+    if token:
+        presented = None
+        auth = request.headers.get("authorization")
+        if auth and auth.lower().startswith("bearer "):
+            presented = auth[7:].strip()
+        else:
+            presented = request.query_params.get("token")
+        if not presented or not secrets.compare_digest(presented, token):
+            response.status_code = status.HTTP_401_UNAUTHORIZED
+            return {"status": "unauthorized"}
+
     try:
         await db.execute(text("SELECT 1"))
     except Exception as exc:

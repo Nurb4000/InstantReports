@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # are unaffected (dedicated CSRF tests flip this on explicitly).
     CSRF_ENABLED: bool = True
 
+    # Optional shared secret that locks down the /health probe (D3). When set,
+    # callers must present it via the "Authorization: Bearer" header or a
+    # "?token=" query param; without it the endpoint returns 401. Left empty the
+    # endpoint stays public so out-of-band probes that cannot carry a secret keep
+    # working (backward compatible).
+    HEALTH_CHECK_TOKEN: str = ""
+
 
     @field_validator("SECRET_KEY")
     @classmethod
