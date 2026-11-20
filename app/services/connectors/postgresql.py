@@ -7,6 +7,7 @@ import asyncpg
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
+from app.services.connectors.read_only import validate_read_only_query
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,9 @@ class PostgreSQLConnector(DataConnector):
         query: str,
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
+        # Driver-level read-only guard (feature-gap #7): reject any non-SELECT
+        # statement before opening a connection so a report cannot mutate data.
+        validate_read_only_query(query)
         conn = await asyncpg.connect(
             host=config.get("host", "localhost"),
             port=config.get("port", 5432),

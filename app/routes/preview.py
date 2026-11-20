@@ -20,6 +20,8 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.connectors.read_only import ReadOnlyQueryError
+
 from app.config import settings
 from app.database import get_db
 from app.models.report import Report
@@ -153,6 +155,10 @@ async def preview_export(
             label=definition.get("name", "report"),
         )
         report_bytes = render_report_bytes(definition, element_data, fmt)
+    except ReadOnlyQueryError as e:
+        # A report carrying a non-SELECT query is a client error, not a server
+        # failure -- report it as 400 with a clear message instead of a 500.
+        raise HTTPException(status_code=400, detail=f"Invalid report query: {e}")
     except Exception as e:
         logger.exception("Temporary preview export failed")
         raise HTTPException(status_code=500, detail=f"Export failed: {e!s}")
@@ -241,6 +247,8 @@ async def preview_report(
             )
         return HTMLResponse(content=html_content)
 
+    except ReadOnlyQueryError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid report query: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Preview failed: {e!s}")
 

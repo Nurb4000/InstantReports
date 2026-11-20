@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
+from app.services.connectors.read_only import validate_read_only_query
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,8 @@ class SQLServerConnector(DataConnector):
         query: str,
         parameters: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
+        # Driver-level read-only guard (feature-gap #7).
+        validate_read_only_query(query)
         import pymssql
 
         conn = pymssql.connect(

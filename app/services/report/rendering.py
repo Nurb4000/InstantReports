@@ -18,6 +18,7 @@ from sqlalchemy import select
 
 from app.models.connection import DataConnection
 from app.services.connectors.base import get_connector
+from app.services.connectors.read_only import ReadOnlyQueryError
 from app.services.engine.data_processor import DataProcessor
 from app.services.engine.renderer import ReportRenderer
 from app.services.exporters import export_report, normalize_output_format
@@ -90,6 +91,11 @@ async def fetch_element_data(
                 key = f"ds_{len(element_data)}"
                 element["data_source"] = key
                 element_data[key] = df if df is not None else pd.DataFrame()
+            except ReadOnlyQueryError:
+                # A rejected (non-SELECT) query is a deliberate validation
+                # failure, not a transient error -- surface it so the caller can
+                # report a clear message instead of silently rendering empty data.
+                raise
             except Exception as exc:
                 logger.error(
                     "Failed to execute query for %s in %s: %s",
