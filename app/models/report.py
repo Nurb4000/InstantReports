@@ -38,6 +38,14 @@ class Report(Base):
         default=now_utc,
         onupdate=now_utc,
     )
+    # Soft-delete marker. A deleted report keeps its row (and versions/outputs so
+    # the audit trail survives); only ``deleted_at`` is set. Queries that list or
+    # edit reports exclude soft-deleted rows by default; the row can be restored
+    # by clearing this column. This is intentionally non-destructive: nothing is
+    # physically removed on delete.
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
     creator: Mapped[User] = relationship(back_populates="reports_created", lazy="selectin")
     versions: Mapped[list[ReportVersion]] = relationship(back_populates="report", cascade="all, delete-orphan", lazy="selectin")

@@ -26,7 +26,7 @@ from app.config import settings as app_settings
 from app.database import get_db
 
 # Import app for static file serving
-from app.models.report import Report, ReportTemplate
+from app.models.report import Report, ReportTemplate, now_utc
 from app.models.user import User
 from app.routes._auth_helpers import check_role, get_role_value
 from app.routes.auth import get_current_user_optional
@@ -130,6 +130,7 @@ async def list_reports(
     status_filter: str | None = None,
     creator_filter: str | None = None,
     sort_by: str = "updated_at",
+    show_deleted: str | None = None,
     current_user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
@@ -137,7 +138,14 @@ async def list_reports(
         return RedirectResponse(url="/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     return await _render_report_list(
-        request, current_user, db, search, status_filter, creator_filter, sort_by
+        request,
+        current_user,
+        db,
+        search,
+        status_filter,
+        creator_filter,
+        sort_by,
+        show_deleted=show_deleted,
     )
 
 
@@ -149,6 +157,7 @@ async def _render_report_list(
     status_filter: str | None = None,
     creator_filter: str | None = None,
     sort_by: str = "updated_at",
+    show_deleted: str | None = None,
 ):
     """Render the designer report list with filters applied.
 
@@ -167,6 +176,12 @@ async def _render_report_list(
     # can never widen scope to other teams' reports.
     if get_role_value(current_user) != "admin":
         query = query.where(Report.created_by == current_user.id)
+
+    # Soft-delete: exclude deleted reports unless an admin explicitly requests
+    # them (show_deleted=true). Deleted rows are retained for audit but hidden
+    # from the normal list view.
+    if not (show_deleted and show_deleted.strip().lower() in ("1", "true", "yes")):
+        query = query.where(Report.deleted_at.is_(None))
 
     # Default to active reports when no status filter was provided in the
     # request. An explicit "all" (empty string, sent by the JS apply) shows
@@ -403,7 +418,9 @@ async def edit_report_page(
     if not current_user or not _check_role(current_user, "admin", "designer"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    result = await db.execute(select(Report).where(Report.id == report_id))
+    result = await db.execute(
+        select(Report).where(Report.id == report_id, Report.deleted_at.is_(None))
+    )
     report = result.scalar_one_or_none()
 
     if not report:
@@ -717,7 +734,36 @@ async def delete_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    await db.delete(report)
+    # Soft-delete for audit: keep the row (and its versions/outputs) but mark it
+    # deleted so it is hidden from normal list/edit views. Nothing is physically
+    # removed; restore clears ``deleted_at``.
+    report.deleted_at = now_utc()
+    await db.commit()
+    return {"status": "ok", "deleted_at": report.deleted_at.isoformat()}
+
+
+@router.post("/reports/{report_id}/restore")
+async def restore_report(
+    report_id: uuid.UUID,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore a soft-deleted report by clearing its ``deleted_at`` marker.
+
+    Admin-only: restoring is an audit-sensitive action, so it is not exposed to
+    designers. The row was never removed, so this simply makes the report visible
+    again in normal list/edit views.
+    """
+    if not current_user or not _check_role(current_user, "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = await db.execute(select(Report).where(Report.id == report_id))
+    report = result.scalar_one_or_none()
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    report.deleted_at = None
     await db.commit()
     return {"status": "ok"}
 
