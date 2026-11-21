@@ -30,9 +30,11 @@ from app.models.user import AuthSource, User, UserRole
 settings.CSRF_ENABLED = False
 
 
-# The test DB is SQLite, but the models declare Postgres-only types. Scope each
-# override to the sqlite dialect so the schema can be created locally; Postgres
-# compilation is unaffected.
+# The test models declare Postgres-only types. The three ``@compiles`` overrides
+# below map those types to their SQLite equivalents so the suite can run against a
+# local SQLite file with no database server -- an offline convenience only. On
+# PostgreSQL, which is the target and default, these overrides are inert and the
+# schema is created exactly as it compiles in production (no type masking).
 @compiles(JSONB, "sqlite")
 def _jsonb_sqlite(element, compiler, **kw):
     return "JSON"
@@ -48,8 +50,15 @@ def _uuid_sqlite(element, compiler, **kw):
     return "VARCHAR(36)"
 
 
-# Test database URL (uses SQLite for tests)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+# Test database URL. Defaults to the production PostgreSQL instance so tests run
+# against the same dialect and schema as production (parity). Override with the
+# TEST_DATABASE_URL env var to run offline against a local SQLite file when no
+# server is available, e.g.:
+#   TEST_DATABASE_URL="sqlite+aiosqlite:///./test.db" pytest
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://ir:secret@localhost:5432/instantreports",
+)
 
 # Create test engine
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
