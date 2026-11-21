@@ -30,7 +30,11 @@ from app.models.report import Report, ReportTemplate
 from app.models.user import User
 from app.routes._auth_helpers import check_role, get_role_value
 from app.routes.auth import get_current_user_optional
-from app.services.report.definition import normalize_report_definition
+from app.services.report.definition import (
+    DefinitionValidationError,
+    normalize_report_definition,
+    validate_report_definition,
+)
 from app.services.versioning import save_version
 
 logger = logging.getLogger(__name__)
@@ -243,6 +247,12 @@ async def save_report_template(
         json.loads(definition) if definition else None
     )
 
+    # Gap #4: reject malformed/hostile definitions before persisting a template.
+    try:
+        validate_report_definition(report_def)
+    except DefinitionValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid report definition: {e}")
+
     template = ReportTemplate(
         name=name,
         description=description or "",
@@ -441,6 +451,15 @@ async def import_report(
     description = report_data.get("description", "")
     definition = report_data.get("definition", {"layout": {"sections": []}, "data_sources": [], "parameters": []})
 
+    # Gap #4: reject malformed/hostile definitions before persisting them. A
+    # hostile definition could stress the renderer/exporter when the report is
+    # later rendered against live data; validate structure and size up front.
+    try:
+        validate_report_definition(definition)
+    except DefinitionValidationError as e:
+        logger.warning(f"Imported report definition failed validation: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid report definition: {e}")
+
     # Auto-create or reuse connections from templates
     import uuid as uuid_module
 
@@ -595,6 +614,12 @@ async def create_report(
 
     default_def = {"layout": {"sections": []}, "data_sources": [], "parameters": []}
     report_def = _parse_definition_field(definition, default_def)
+
+    # Gap #4: reject malformed/hostile definitions before persisting them.
+    try:
+        validate_report_definition(report_def)
+    except DefinitionValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid report definition: {e}")
 
     report = Report(
         name=name or "Untitled Report",
