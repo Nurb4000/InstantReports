@@ -27,6 +27,7 @@ from app.database import get_db
 from app.models.report import Report
 from app.models.user import User
 from app.routes.auth import get_current_user_optional
+from app.routes.rate_limiting import rate_limit_heavy_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -110,6 +111,7 @@ async def preview_temp(
 @router.get("/export")
 async def preview_export(
     request: Request,
+    heavy_quota: None = Depends(rate_limit_heavy_endpoint()),
     definition_json: str = Query(...),
     format: str = Query("pdf"),
     name: str = Query("", description="Optional download filename base."),

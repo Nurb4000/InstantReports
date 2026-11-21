@@ -204,9 +204,14 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     else:
         detail = exc.detail
     logger.error(f"HTTP Error {status_code}: {detail}")
+    # Preserve any headers attached to the exception (e.g. ``Retry-After`` from
+    # the heavy-endpoint rate limiter) instead of dropping them when rebuilding
+    # the JSON body. Starlette only sends them when ``headers`` is explicitly
+    # passed and non-empty.
     return JSONResponse(
         status_code=status_code,
         content={"detail": detail, "status_code": status_code},
+        headers=exc.headers if exc.headers else None,
     )
 
 

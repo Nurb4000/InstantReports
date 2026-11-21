@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.config import settings
 from app.models.user import User
 from app.routes.auth import get_current_user_optional
+from app.routes.rate_limiting import rate_limit_heavy_endpoint
 from app.services.ai.client import (
     AIClient,
     AIDataInsights,
@@ -38,6 +39,7 @@ async def get_ai_client():
 @router.post("/generate-report")
 async def generate_report(
     request: Request,
+    heavy_quota: None = Depends(rate_limit_heavy_endpoint()),
     current_user: User | None = Depends(get_current_user_optional),
 ):
     """Generate a report definition from natural language."""
@@ -67,6 +69,7 @@ async def generate_report(
 @router.post("/generate-sql")
 async def generate_sql(
     request: Request,
+    heavy_quota: None = Depends(rate_limit_heavy_endpoint()),
     current_user: User | None = Depends(get_current_user_optional),
 ):
     """Generate SQL from natural language."""
@@ -95,6 +98,7 @@ async def generate_sql(
 @router.post("/suggest-layout")
 async def suggest_layout(
     request: Request,
+    heavy_quota: None = Depends(rate_limit_heavy_endpoint()),
     current_user: User | None = Depends(get_current_user_optional),
 ):
     """Get layout suggestions from AI."""
@@ -122,6 +126,7 @@ async def suggest_layout(
 @router.post("/insights")
 async def get_insights(
     request: Request,
+    heavy_quota: None = Depends(rate_limit_heavy_endpoint()),
     current_user: User | None = Depends(get_current_user_optional),
 ):
     """Generate insights from data."""
@@ -149,6 +154,7 @@ async def get_insights(
 @router.post("/chat")
 async def ai_chat(
     request: Request,
+    heavy_quota: None = Depends(rate_limit_heavy_endpoint()),
     current_user: User | None = Depends(get_current_user_optional),
 ):
     """General AI chat endpoint for the designer sidebar."""
