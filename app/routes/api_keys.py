@@ -14,9 +14,15 @@ from app.services.api_key import (
     revoke_api_key,
     validate_api_key,
 )
+from app.routes.rate_limiting import rate_limit_api_key_endpoint
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 security = HTTPBearer(auto_error=False)
+
+# Allow-list of permissions a key may be created with. Anything outside this set
+# is rejected at creation (Gap #2 / H1) so a caller cannot mint a key with an
+# arbitrary/unknown permission that later behaves unexpectedly.
+_VALID_PERMISSIONS = frozenset({"read", "write", "execute", "admin"})
 
 
 @dataclass(frozen=True)
@@ -115,6 +121,7 @@ def require_permission(permission: str):
 
 @router.get("/")
 async def list_keys(
+    api_quota: None = Depends(rate_limit_api_key_endpoint()),
     _: None = Depends(require_permission("read")),
     current_user: ApiKeyPrincipal = Depends(get_current_user_from_api_key),
     db: AsyncSession = Depends(get_db),
@@ -137,6 +144,7 @@ async def list_keys(
 
 @router.post("/")
 async def create_key(
+    api_quota: None = Depends(rate_limit_api_key_endpoint()),
     name: str = Query(...),
     permissions: str = Query("read"),
     expires_in_days: int | None = Query(None),
@@ -145,7 +153,23 @@ async def create_key(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a new API key (requires ``write``)."""
-    perm_list = [p.strip() for p in permissions.split(",")]
+    # Gap #2 / H1: validate requested permissions against an allow-list instead
+    # of accepting an arbitrary string. Normalise to lowercase; enforcement is
+    # already case-insensitive, so this also stores a canonical value.
+    perm_list = [p.strip().lower() for p in permissions.split(",") if p.strip()]
+    if not perm_list:
+        raise HTTPException(
+            status_code=400, detail="At least one permission is required"
+        )
+    invalid = {p for p in perm_list if p not in _VALID_PERMISSIONS}
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid permission(s): {', '.join(sorted(invalid))}. "
+                "Valid permissions: read, write, execute, admin."
+            ),
+        )
 
     api_key, raw_key = await generate_api_key(
         db=db,
@@ -167,6 +191,7 @@ async def create_key(
 @router.delete("/{key_id}")
 async def delete_key(
     key_id: uuid.UUID,
+    api_quota: None = Depends(rate_limit_api_key_endpoint()),
     _: None = Depends(require_permission("admin")),
     current_user: ApiKeyPrincipal = Depends(get_current_user_from_api_key),
     db: AsyncSession = Depends(get_db),

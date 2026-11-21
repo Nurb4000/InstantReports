@@ -142,6 +142,12 @@ class Settings(BaseSettings):
     HEAVY_ENDPOINT_RATE_LIMIT_ATTEMPTS: int = 30
     HEAVY_ENDPOINT_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
+    # Rate limiting for the API-key management endpoints (list/create/revoke).
+    # Same per-process, per-client-IP sliding-window design as the heavy-endpoint
+    # limiter; a value of 0 disables it. Multiple workers do not share state.
+    API_KEY_RATE_LIMIT_ATTEMPTS: int = 30
+    API_KEY_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
     # Preview row limits: cap rows returned in preview/export to avoid memory
     # issues with large datasets. Tables show up to this many rows; charts limit
     # bars/slices to this count.

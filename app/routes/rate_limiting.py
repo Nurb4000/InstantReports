@@ -61,6 +61,51 @@ def _heavy_rate_limiter() -> RateLimiter:
 _heavy_limiter = _heavy_rate_limiter()
 
 
+def _api_key_rate_limiter() -> RateLimiter:
+    """Shared limiter for the API-key management endpoints.
+
+    Built once from settings and cached; replaced in tests with a controlled
+    clock so the 429 path is deterministic. Keyed by client IP like the heavy
+    endpoint limiter.
+    """
+    return RateLimiter(
+        max_attempts=settings.API_KEY_RATE_LIMIT_ATTEMPTS,
+        window_seconds=settings.API_KEY_RATE_LIMIT_WINDOW_SECONDS,
+        clock=time.monotonic,
+    )
+
+
+# Module-level singleton so all API-key endpoints share one per-client budget.
+_api_key_limiter = _api_key_rate_limiter()
+
+
+def rate_limit_api_key_endpoint() -> Callable[[Request], None]:
+    """Dependency factory that enforces the API-key-endpoint quota.
+
+    Use as ``Depends(rate_limit_api_key_endpoint())`` on the API-key management
+    routes. Raises ``429 Too Many Requests`` (with ``Retry-After``) once the
+    per-client window is full, before the handler runs; records the request when
+    under the limit. A quota of 0 disables limiting entirely.
+    """
+
+    def _dep(request: Request) -> None:
+        if settings.API_KEY_RATE_LIMIT_ATTEMPTS <= 0:
+            return
+
+        key = _client_key(request)
+        retry = _api_key_limiter.retry_after(key)
+        if retry > 0:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many requests. Please try again later.",
+                headers={"Retry-After": str(retry)},
+            )
+
+        _api_key_limiter.record(key)
+
+    return _dep
+
+
 def rate_limit_heavy_endpoint() -> Callable[[Request], None]:
     """Dependency factory that enforces the heavy-endpoint quota.
 
