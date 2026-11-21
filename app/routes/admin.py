@@ -20,6 +20,10 @@ from app.services.delivery.config import (
     sync_schedule_deliveries,
 )
 from app.services.exporters import normalize_output_format
+from app.services.scheduler.validation import (
+    validate_cron_expression,
+    validate_timezone,
+)
 
 router = APIRouter()
 
@@ -243,16 +247,14 @@ async def create_schedule(
     if not report_row.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Report not found")
 
-    # Validate the cron expression so a typo fails fast with a clear 400.
-    if cron_expression:
-        try:
-            from apscheduler.triggers.cron import CronTrigger
-
-            CronTrigger.from_crontab(cron_expression)
-        except (ValueError, TypeError) as exc:
-            raise HTTPException(
-                status_code=400, detail=f"Invalid cron expression: {exc}"
-            )
+    # Validate cron + timezone up front so a typo fails fast with a clear 400
+    # instead of breaking trigger build deep in the scheduler sync loop. Uses the
+    # same resolvers the scheduler runs at runtime (Gap #8).
+    try:
+        validate_cron_expression(cron_expression)
+        validate_timezone(timezone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     schedule = Schedule(
         report_id=report_uuid,
@@ -446,6 +448,17 @@ async def update_schedule(
 
     if name:
         schedule.name = name
+    # Validate any changed scheduling fields before persisting (Gap #8). The
+    # create route validates these too; the update path must validate as well so
+    # an edit cannot introduce a cron/timezone that breaks trigger build.
+    try:
+        if cron_expression is not None:
+            validate_cron_expression(cron_expression)
+        if timezone:
+            validate_timezone(timezone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     if cron_expression is not None:
         schedule.cron_expression = cron_expression
     if timezone:
