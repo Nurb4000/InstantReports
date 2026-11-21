@@ -21,18 +21,20 @@ from app.auth import (
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.services.ratelimit import RateLimiter
+from app.services.ratelimit import build_rate_limiter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
-# Per-process in-memory rate limiter for login attempts (bypasses weak default
-# admins and brute force in typical single-node deployments).
-_login_rate_limiter = RateLimiter(
-    max_attempts=settings.LOGIN_RATE_LIMIT_ATTEMPTS,
-    window_seconds=settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+# Login-attempt rate limiter (bypasses weak default admins and brute force in
+# typical single-node deployments). Built through the factory so a multi-worker
+# deployment can opt into a shared, restart-surviving store via
+# RATE_LIMIT_BACKEND=file; defaults to the historical in-process limiter.
+_login_rate_limiter = build_rate_limiter(
+    settings.LOGIN_RATE_LIMIT_ATTEMPTS,
+    settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
 )
 
 

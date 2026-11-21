@@ -7,10 +7,12 @@ single per-client sliding-window limiter, keyed by client IP, that those routes
 depend on to return ``429 Too Many Requests`` (with ``Retry-After``) once the
 configured quota is exceeded within the window.
 
-Like the login limiter (:mod:`app.routes.auth`), this store is per-process, so a
-multi-worker deployment does not enforce an exact global limit but still raises
-the cost of abuse substantially. The clock is module-level and the limiter is
-constructed from settings so tests can swap in a controlled clock.
+Like the login limiter (:mod:`app.routes.auth`), these limiters are per-process by
+default, so a multi-worker deployment does not enforce an exact global limit but
+still raises the cost of abuse substantially. All limiters are built through
+:func:`app.services.ratelimit.build_rate_limiter`, which honours ``RATE_LIMIT_BACKEND``
+so a deployment can opt into a shared, restart-surviving disk store; the limiter
+is constructed from settings so tests can swap in a controlled clock.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from collections.abc import Callable
 from fastapi import HTTPException, Request, status
 
 from app.config import settings
-from app.services.ratelimit import RateLimiter
+from app.services.ratelimit import RateLimiter, build_rate_limiter
 
 
 def _client_key(request: Request) -> str:
@@ -50,10 +52,9 @@ def _heavy_rate_limiter() -> RateLimiter:
     limiter is wired. Tests replace :data:`_heavy_limiter` with a controlled
     clock to exercise the 429 path deterministically.
     """
-    return RateLimiter(
-        max_attempts=settings.HEAVY_ENDPOINT_RATE_LIMIT_ATTEMPTS,
-        window_seconds=settings.HEAVY_ENDPOINT_RATE_LIMIT_WINDOW_SECONDS,
-        clock=time.monotonic,
+    return build_rate_limiter(
+        settings.HEAVY_ENDPOINT_RATE_LIMIT_ATTEMPTS,
+        settings.HEAVY_ENDPOINT_RATE_LIMIT_WINDOW_SECONDS,
     )
 
 
@@ -68,10 +69,9 @@ def _api_key_rate_limiter() -> RateLimiter:
     clock so the 429 path is deterministic. Keyed by client IP like the heavy
     endpoint limiter.
     """
-    return RateLimiter(
-        max_attempts=settings.API_KEY_RATE_LIMIT_ATTEMPTS,
-        window_seconds=settings.API_KEY_RATE_LIMIT_WINDOW_SECONDS,
-        clock=time.monotonic,
+    return build_rate_limiter(
+        settings.API_KEY_RATE_LIMIT_ATTEMPTS,
+        settings.API_KEY_RATE_LIMIT_WINDOW_SECONDS,
     )
 
 

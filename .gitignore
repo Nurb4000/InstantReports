@@ -65,5 +65,9 @@ docker-compose.override.yml
 # Alembic
 alembic/versions/.gitkeep
 
+# Rate-limiter disk state (RATE_LIMIT_BACKEND=file); runtime artifact, not source
+data/rate_limit_state.json
+data/rate_limit_state.json.lock
+
 # Internal / work-in-progress docs (kept locally, not for public push)
 .internal/

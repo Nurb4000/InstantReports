@@ -148,6 +148,14 @@ class Settings(BaseSettings):
     API_KEY_RATE_LIMIT_ATTEMPTS: int = 30
     API_KEY_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
+    # Rate-limiter persistence backend. "memory" (default) keeps events in-process
+    # (identical to the historical behaviour); "file" persists them to disk so the
+    # sliding window is shared across the entrypoint's multiple workers and
+    # survives restarts. Exact global enforcement behind many workers would still
+    # require a shared store such as Redis.
+    RATE_LIMIT_BACKEND: str = "memory"
+    RATE_LIMIT_FILE: Path = BASE_DIR / "data" / "rate_limit_state.json"
+
     # Preview row limits: cap rows returned in preview/export to avoid memory
     # issues with large datasets. Tables show up to this many rows; charts limit
     # bars/slices to this count.

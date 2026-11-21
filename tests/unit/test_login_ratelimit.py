@@ -10,6 +10,7 @@ from fastapi import status
 @pytest.mark.asyncio
 async def test_login_rate_limit_blocks_after_max_attempts():
     from app.routes import auth
+    from app.services.ratelimit import RateLimiter
 
     app = MagicMock()
     app.state.templates.TemplateResponse = MagicMock(return_value="tpl")
@@ -20,7 +21,7 @@ async def test_login_rate_limit_blocks_after_max_attempts():
     def clock():
         return t[0]
 
-    limiter = auth.RateLimiter(max_attempts=2, window_seconds=10, clock=clock)
+    limiter = RateLimiter(max_attempts=2, window_seconds=10, clock=clock)
     auth._login_rate_limiter = limiter
 
     class DummyReq:
@@ -79,11 +80,12 @@ async def test_login_ldap_backend_error_returns_uniform_401_not_500():
     "incorrect email or password" 401 as any other failed login -- not a 500 --
     so it does not reveal backend state (enumeration) and is still rate-limited."""
     from app.routes import auth
+    from app.services.ratelimit import RateLimiter
 
     app = MagicMock()
     app.state.templates.TemplateResponse = MagicMock(return_value="tpl")
 
-    limiter = auth.RateLimiter(max_attempts=5, window_seconds=10, clock=lambda: 0.0)
+    limiter = RateLimiter(max_attempts=5, window_seconds=10, clock=lambda: 0.0)
     auth._login_rate_limiter = limiter
 
     class DummyReq:
@@ -112,4 +114,4 @@ async def test_login_ldap_backend_error_returns_uniform_401_not_500():
     app.state.templates.TemplateResponse.assert_called()
     # The failed attempt is still counted against the rate limit (proves the
     # backend-error path took the uniform-failure branch, not a bare 500).
-    assert len(limiter._events["1.2.3.4:user@test.com"]) == 1
+    assert len(limiter._store.load("1.2.3.4:user@test.com")) == 1
