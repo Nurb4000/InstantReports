@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from pydantic import field_validator
@@ -191,3 +192,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Test database URL. Defaults to the local Postgres instance so the suite runs
+# against the same backend the app uses in production (no SQLite masking of FK /
+# type constraints). Override via the TEST_DATABASE_URL env var to point at a
+# different instance, e.g.:
+#   TEST_DATABASE_URL="postgresql+asyncpg://user:pass@host:5432/instantreports" pytest
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://ir:secret@localhost:5432/instantreports",
+)

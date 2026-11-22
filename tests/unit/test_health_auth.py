@@ -10,7 +10,7 @@ import pytest_asyncio
 from app.config import settings as app_settings
 
 
-# Uses the conftest `client` fixture, which overrides get_db with the sqlite
+# Uses the conftest `client` fixture, which overrides get_db with the PostgreSQL
 # test session so the health probe's DB ping succeeds.
 class TestHealthAuth:
     """D3: /health token gate."""

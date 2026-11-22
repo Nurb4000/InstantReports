@@ -15,7 +15,7 @@ class TestExecuteReportRetry:
     @pytest.mark.asyncio
     async def test_retries_with_incremented_count(self):
         """On transient failure with max_retries=2, execute_report runs twice."""
-        scheduler = ReportScheduler(database_url="sqlite:///:memory:")
+        scheduler = ReportScheduler(database_url="postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
         scheduler.scheduler = MagicMock()
 
         job_id = str(uuid.uuid4())
@@ -55,7 +55,7 @@ class TestExecuteReportRetry:
     @pytest.mark.asyncio
     async def test_no_notification_when_retry_succeeds(self):
         """A failure that succeeds on retry must not send a notification."""
-        scheduler = ReportScheduler(database_url="sqlite:///:memory:")
+        scheduler = ReportScheduler(database_url="postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
         scheduler.scheduler = MagicMock()
 
         job_id = str(uuid.uuid4())
@@ -89,7 +89,7 @@ class TestExecuteReportRetry:
     @pytest.mark.asyncio
     async def test_no_retry_on_success(self):
         """Successful executions do not trigger retry logic."""
-        scheduler = ReportScheduler(database_url="sqlite:///:memory:")
+        scheduler = ReportScheduler(database_url="postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
         scheduler.scheduler = MagicMock()
 
         job_id = str(uuid.uuid4())

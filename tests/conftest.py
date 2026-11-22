@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.ext.compiler import compiles
 
 # app.config instantiates Settings() at import time; the SECRET_KEY validator
 # rejects the development placeholder, so ensure a real key is set before any
@@ -26,7 +25,7 @@ os.environ.setdefault(
 )
 
 from app.auth import hash_password
-from app.config import settings
+from app.config import TEST_DATABASE_URL, settings
 from app.database import Base, get_db
 from app.models.user import AuthSource, User, UserRole
 
@@ -35,35 +34,17 @@ from app.models.user import AuthSource, User, UserRole
 settings.CSRF_ENABLED = False
 
 
-# The test models declare Postgres-only types. The three ``@compiles`` overrides
-# below map those types to their SQLite equivalents so the suite can run against a
-# local SQLite file with no database server -- an offline convenience only. On
-# PostgreSQL, which is the target and default, these overrides are inert and the
-# schema is created exactly as it compiles in production (no type masking).
-@compiles(JSONB, "sqlite")
-def _jsonb_sqlite(element, compiler, **kw):
-    return "JSON"
-
-
-@compiles(BYTEA, "sqlite")
-def _bytea_sqlite(element, compiler, **kw):
-    return "BLOB"
-
-
-@compiles(UUID, "sqlite")
-def _uuid_sqlite(element, compiler, **kw):
-    return "VARCHAR(36)"
-
-
-# Test database URL. Defaults to the production PostgreSQL instance so tests run
-# against the same dialect and schema as production (parity). Override with the
-# TEST_DATABASE_URL env var to run offline against a local SQLite file when no
-# server is available, e.g.:
-#   TEST_DATABASE_URL="sqlite+aiosqlite:///./test.db" pytest
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "postgresql+asyncpg://ir:secret@localhost:5432/instantreports",
-)
+# The backend test database is PostgreSQL -- the same dialect and schema the app
+# uses in production. This is deliberate: SQLite silently ignores foreign-key
+# violations, which masked missing parent rows in test fixtures and only surfaced
+# as failures once the suite was run against Postgres. Keeping Postgres as the
+# only tested backend means those violations are caught here instead of in
+# production. The models declare Postgres-only types (UUID/JSONB/BYTEA) that are
+# created exactly as they compile in production, so there is no type masking.
+#
+# Override TEST_DATABASE_URL only to point at a different Postgres instance, e.g.:
+#   TEST_DATABASE_URL="postgresql+asyncpg://user:pass@host:5432/instantreports" pytest
+# (defined once in app.config and imported above)
 
 @pytest_asyncio.fixture(scope="function")
 async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
@@ -73,9 +54,8 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     function-scoped event loops pytest-asyncio assigns to each test. asyncpg binds
     a connection to the loop that first used it, so reusing that connection under a
     later (already-closed) loop raises ``InterfaceError: another operation is in
-    progress`` -- which is why the suite passed on aiosqlite (lenient) but failed on
-    asyncpg (strict). A per-test engine gives every test its own connections, bound
-    only to that test's loop, and disposes them afterwards for full isolation.
+    progress``. A per-test engine gives every test its own connections, bound only
+    to that test's loop, and disposes them afterwards for full isolation.
     """
     eng = create_async_engine(TEST_DATABASE_URL, echo=False)
     yield eng

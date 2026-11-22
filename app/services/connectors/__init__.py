@@ -6,6 +6,7 @@ from app.services.connectors.mysql import MySQLConnector
 from app.services.connectors.odbc import ODBCCConnector
 from app.services.connectors.postgresql import PostgreSQLConnector
 from app.services.connectors.rest_graphql import GraphQLConnector, RESTAPIConnector
+from app.services.connectors.sqlite import SQLiteConnector
 from app.services.connectors.sqlserver import SQLServerConnector
 
 # Register all connectors with the factory
@@ -17,6 +18,7 @@ ConnectorFactory.register("csv", CSVConnector)
 ConnectorFactory.register("excel", ExcelConnector)
 ConnectorFactory.register("api", RESTAPIConnector)
 ConnectorFactory.register("graphql", GraphQLConnector)
+ConnectorFactory.register("sqlite", SQLiteConnector)
 
 __all__ = [
     "CSVConnector",
@@ -28,5 +30,6 @@ __all__ = [
     "ODBCCConnector",
     "PostgreSQLConnector",
     "RESTAPIConnector",
+    "SQLiteConnector",
     "SQLServerConnector",
 ]

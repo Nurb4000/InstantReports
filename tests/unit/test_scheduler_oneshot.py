@@ -72,7 +72,7 @@ async def test_sync_schedules_skips_past_one_shots():
     future = _sched(run_at=datetime.now(timezone.utc) + timedelta(hours=1))
     cron = _sched(cron_expression="0 * * * *")
 
-    sched = ReportScheduler("sqlite://")
+    sched = ReportScheduler("postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
     await sched.sync_schedules(_FakeDB([past, future, cron]))
 
     loaded = {job.id for job in sched.scheduler.get_jobs()}
@@ -87,7 +87,7 @@ async def test_sync_schedules_skipping_returns_active_count():
     past = _sched(run_at=datetime.now(timezone.utc) - timedelta(seconds=1))
     cron = _sched(cron_expression="0 * * * *")
 
-    sched = ReportScheduler("sqlite://")
+    sched = ReportScheduler("postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
     count = await sched.sync_schedules(_FakeDB([past, cron]))
 
     # Only the cron schedule counts as an active loaded job.

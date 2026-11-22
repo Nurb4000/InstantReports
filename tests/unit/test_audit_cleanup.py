@@ -4,8 +4,11 @@ Verifies ``cleanup_old_audit_logs`` purges entries older than the configured
 retention window while keeping recent ones, and honours a 0 (disabled) setting.
 
 The cleanup functions open their own session via ``app.database.async_session_factory``
-(which points at the real DATABASE_URL), so each test builds a throwaway sqlite
-engine, creates the schema, and monkeypatches that factory target to stay local.
+(which points at the real DATABASE_URL), so each test builds a throwaway PostgreSQL
+engine on the backend test DB, creates the schema, and monkeypatches that factory
+target to stay local. The schema is dropped on teardown so each test starts from an
+empty audit_log (the assertions count exact rows). AuditLog's FK columns are all
+nullable and these entries set none of them, so no parent rows are required.
 """
 
 import uuid
@@ -16,7 +19,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
     AsyncSession,
 )
-from sqlalchemy.pool import StaticPool
 
 import pytest_asyncio
 
@@ -24,6 +26,7 @@ from app.config import settings as app_settings
 from app.database import Base
 from app.models import AuditLog
 from app.services.cleanup import cleanup_old_audit_logs
+from tests.conftest import TEST_DATABASE_URL
 
 
 def _audit(age_days: int, action: str = "login") -> AuditLog:
@@ -38,17 +41,20 @@ def _audit(age_days: int, action: str = "login") -> AuditLog:
 
 @pytest_asyncio.fixture
 async def audit_db(monkeypatch):
-    """A throwaway in-memory sqlite engine; patch cleanup's factory to it."""
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-    )
+    """A throwaway PostgreSQL engine on the backend test DB, isolated per test.
+
+    The schema is created on setup and dropped on teardown so each test starts from
+    an empty audit_log (the assertions count exact rows). cleanup's factory is
+    patched to this engine so it operates only on these local rows.
+    """
+    engine = create_async_engine(TEST_DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr("app.services.cleanup.async_session_factory", factory)
     yield engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 

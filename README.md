@@ -339,13 +339,27 @@ uvicorn app.main:app --reload
 
 ### Running Tests
 
-```bash
-# Start test database
-docker compose up -d postgres
+The test suite runs against **PostgreSQL** (the same backend as production) via the
+env-overridable `TEST_DATABASE_URL` in `app/config.py`, which defaults to
+`postgresql+asyncpg://ir:secret@localhost:5432/instantreports`. `SECRET_KEY` is set
+automatically by `tests/conftest.py`, so no `.env` is needed for tests.
 
-# Run tests
+```bash
+# Option A — spin up a throwaway Postgres container (recommended)
+docker run -d --name ir-test-pg \
+  -e POSTGRES_DB=instantreports -e POSTGRES_USER=ir -e POSTGRES_PASSWORD=secret \
+  -p 5432:5432 postgres:16-alpine
+
+# Option B — use a local Postgres instance (createdb + CREATE USER ir …)
+
+# Run the suite (see findings/InstantReports-security-review.md for the
+# 2 known pre-existing failures and the remediation tracker)
 pytest
 ```
+
+For full setup options, live e2e instructions, and simulating the AI endpoint, see the
+"PostgreSQL test setup (backend + e2e)" section of
+`findings/InstantReports-security-review.md`.
 
 ## Troubleshooting
 

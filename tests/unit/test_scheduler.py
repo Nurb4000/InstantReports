@@ -57,7 +57,7 @@ async def _make_schedule(db, name: str, cron_expression: str | None = "0 * * * *
 
 
 async def test_sync_adds_active_schedule(db_session):
-    scheduler = ReportScheduler("sqlite://")
+    scheduler = ReportScheduler("postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
     schedule = await _make_schedule(db_session, name="added")
 
     count = await scheduler.sync_schedules(db_session)
@@ -68,7 +68,7 @@ async def test_sync_adds_active_schedule(db_session):
 
 
 async def test_sync_updates_schedule_edited_in_place(db_session):
-    scheduler = ReportScheduler("sqlite://")
+    scheduler = ReportScheduler("postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
     schedule = await _make_schedule(db_session, name="edited", cron_expression="0 * * * *")
     assert await scheduler.sync_schedules(db_session) == 1
     assert scheduler.scheduler.get_job(str(schedule.id)) is not None
@@ -81,7 +81,7 @@ async def test_sync_updates_schedule_edited_in_place(db_session):
 
 
 async def test_sync_removes_deactivated_schedule(db_session):
-    scheduler = ReportScheduler("sqlite://")
+    scheduler = ReportScheduler("postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
     schedule = await _make_schedule(db_session, name="deactivated")
     await scheduler.sync_schedules(db_session)
     assert scheduler.scheduler.get_job(str(schedule.id)) is not None
@@ -93,7 +93,7 @@ async def test_sync_removes_deactivated_schedule(db_session):
 
 
 async def test_sync_removes_schedule_deleted_from_db(db_session):
-    scheduler = ReportScheduler("sqlite://")
+    scheduler = ReportScheduler("postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
     schedule = await _make_schedule(db_session, name="deleted")
     await scheduler.sync_schedules(db_session)
     assert scheduler.scheduler.get_job(str(schedule.id)) is not None
@@ -105,7 +105,7 @@ async def test_sync_removes_schedule_deleted_from_db(db_session):
 
 
 async def test_sync_keeps_runner_cleanup_job(db_session):
-    scheduler = ReportScheduler("sqlite://")
+    scheduler = ReportScheduler("postgresql+asyncpg://ir:secret@localhost:5432/instantreports")
     # A one-shot job with the runner's cleanup id must never be reconciled away.
     scheduler.scheduler.add_job(
         lambda: None,
@@ -191,9 +191,13 @@ async def test_execute_report_invokes_delivery(monkeypatch):
 
     from app.database import Base
     from app.models.connection import Schedule
+    from app.models.report import Report
+    from app.models.user import AuthSource, User, UserRole
     from app.services.scheduler.engine import ReportScheduler
 
-    engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+    engine = create_async_engine(
+        "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
+    )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)  # this engine owns its own tables
@@ -213,9 +217,20 @@ async def test_execute_report_invokes_delivery(monkeypatch):
     monkeypatch.setattr("app.services.scheduler.engine._deliver_scheduled", capturing_deliver)
 
     async with factory() as db:
+        # Real parent rows so the schedule's FKs hold on PostgreSQL.
+        owner = User(
+            id=uuid.uuid4(), email="owner@test", name="Owner",
+            role=UserRole.DESIGNER, auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db.add(owner)
+        report = Report(
+            id=uuid.uuid4(), name="Report", created_by=owner.id,
+            definition={"layout": {"sections": []}},
+        )
+        db.add(report)
         sched = Schedule(
-            id=uuid.uuid4(), report_id=uuid.uuid4(), owner_id=uuid.uuid4(),
-            created_by=uuid.uuid4(), name="x", is_active=True,
+            id=uuid.uuid4(), report_id=report.id, owner_id=owner.id,
+            created_by=owner.id, name="x", is_active=True,
         )
         db.add(sched)
         await db.commit()
@@ -229,6 +244,8 @@ async def test_execute_report_invokes_delivery(monkeypatch):
     assert called["output"] is fake_output
     assert called["schedule_id"] == job_id
 
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
@@ -237,7 +254,9 @@ async def test_execute_report_skips_delivery_when_no_output(monkeypatch):
     from app.database import Base
     from app.services.scheduler.engine import ReportScheduler
 
-    engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+    engine = create_async_engine(
+        "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
+    )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -260,6 +279,8 @@ async def test_execute_report_skips_delivery_when_no_output(monkeypatch):
     await scheduler._execute_report(job_id=str(uuid.uuid4()))
 
     assert calls == []
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
@@ -270,9 +291,12 @@ async def test_execute_report_attributes_output_to_schedule_owner(monkeypatch):
     solely on schedule ownership."""
     from app.database import Base
     from app.models.report import Report
+    from app.models.user import AuthSource, User, UserRole
     from app.runner import execute_report
 
-    engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+    engine = create_async_engine(
+        "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
+    )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -289,6 +313,10 @@ async def test_execute_report_attributes_output_to_schedule_owner(monkeypatch):
 
     owner = uuid.uuid4()
     async with factory() as db:
+        db.add(User(
+            id=owner, email="owner@test", name="Owner",
+            role=UserRole.DESIGNER, auth_source=AuthSource.LOCAL, is_active=True,
+        ))
         report = Report(
             id=uuid.uuid4(), name="Attributed Report", created_by=owner,
             definition={"layout": {"sections": []}},
@@ -311,6 +339,8 @@ async def test_execute_report_attributes_output_to_schedule_owner(monkeypatch):
         f"generated_by={output.generated_by} expected {owner}"
     )
 
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
@@ -320,9 +350,13 @@ async def test_execute_report_sends_failure_notification_on_error(monkeypatch):
     never wired into the scheduler, so failures were logged and nobody told."""
     from app.database import Base
     from app.models.connection import Schedule
+    from app.models.report import Report
+    from app.models.user import AuthSource, User, UserRole
     from app.services.scheduler.engine import ReportScheduler
 
-    engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+    engine = create_async_engine(
+        "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
+    )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -341,9 +375,20 @@ async def test_execute_report_sends_failure_notification_on_error(monkeypatch):
     monkeypatch.setattr("app.services.cleanup.send_email", fake_send_email)
 
     async with factory() as db:
+        # Real parent rows so the schedule's FKs hold on PostgreSQL.
+        owner = User(
+            id=uuid.uuid4(), email="failing@test", name="Failing",
+            role=UserRole.DESIGNER, auth_source=AuthSource.LOCAL, is_active=True,
+        )
+        db.add(owner)
+        report = Report(
+            id=uuid.uuid4(), name="Failing Report", created_by=owner.id,
+            definition={"layout": {"sections": []}},
+        )
+        db.add(report)
         sched = Schedule(
-            id=uuid.uuid4(), report_id=uuid.uuid4(), owner_id=uuid.uuid4(),
-            created_by=uuid.uuid4(), name="failing", is_active=True,
+            id=uuid.uuid4(), report_id=report.id, owner_id=owner.id,
+            created_by=owner.id, name="failing", is_active=True,
         )
         db.add(sched)
         await db.commit()
@@ -356,6 +401,8 @@ async def test_execute_report_sends_failure_notification_on_error(monkeypatch):
     assert "failing" in notifications[0]["subject"]
     assert "export blew up" in notifications[0]["body"]
 
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
@@ -372,15 +419,18 @@ class TestScheduleDatasourceAuthorization:
         Returns True if execute_report was invoked (run proceeded), False if it
         was skipped by the D5 authorization check.
         """
+        from app.database import Base
         from app.models.connection import DataConnection
         from app.models.report import Report
         from app.models.user import User
         from app.services.scheduler.engine import ReportScheduler
 
-        engine = create_async_engine("sqlite+aiosqlite:///./test.db")
+        engine = create_async_engine(
+            "postgresql+asyncpg://ir:secret@localhost:5432/instantreports"
+        )
         factory = async_sessionmaker(engine, expire_on_commit=False)
         async with engine.begin() as conn:
-            await conn.run_sync(__import__("app.database", fromlist=["Base"]).Base.metadata.create_all)
+            await conn.run_sync(Base.metadata.create_all)
 
         called = {"run": False}
 
@@ -404,6 +454,8 @@ class TestScheduleDatasourceAuthorization:
             scheduler = ReportScheduler.__new__(ReportScheduler)
             await scheduler._execute_report(job_id=str(schedule.id))
 
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
         return called["run"]
 
