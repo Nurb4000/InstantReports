@@ -7,15 +7,28 @@ import pytest
 from sqlalchemy import select
 
 from app.models.connection import Delivery, DeliveryRecipient, Schedule
+from app.models.report import Report
+from app.models.user import AuthSource, User, UserRole
 from app.services.delivery.config import sync_schedule_deliveries
 
 
 async def _schedule(db, **overrides) -> Schedule:
+    # Real parent rows so the schedule's report_id/owner_id/created_by FKs hold on
+    # PostgreSQL (SQLite was silently ignoring these violations).
+    user = User(
+        id=uuid.uuid4(), email=f"sched-{uuid.uuid4().hex[:8]}@test",
+        name="sched", role=UserRole.DESIGNER, auth_source=AuthSource.LOCAL, is_active=True,
+    )
+    db.add(user)
+    await db.flush()
+    report = Report(id=uuid.uuid4(), name="sched report", created_by=user.id)
+    db.add(report)
+    await db.flush()
     fields = {
-        "report_id": uuid.uuid4(),
+        "report_id": report.id,
         "name": "Sched",
-        "owner_id": uuid.uuid4(),
-        "created_by": uuid.uuid4(),
+        "owner_id": user.id,
+        "created_by": user.id,
     }
     fields.update(overrides)
     sched = Schedule(**fields)

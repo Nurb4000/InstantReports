@@ -11,15 +11,38 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.models.connection import Schedule
 from app.models.report import Report
-from app.models.user import User, UserRole
+from app.models.user import User, AuthSource, UserRole
 from app.services.scheduler.engine import ReportScheduler
 
 
 async def _make_schedule(db, name: str, cron_expression: str | None = "0 * * * *", **kwargs):
+    # Schedule has three NOT NULL foreign keys (report_id -> reports, owner_id and
+    # created_by -> users). Create real parent rows so the constraints hold on
+    # PostgreSQL, which enforces them (SQLite silently ignores FK violations -- that
+    # is why these fixtures were valid there but fail here).
+    user = User(
+        id=uuid.uuid4(),
+        email=f"{name.lower().replace(' ', '-')}-{uuid.uuid4().hex[:8]}@test",
+        name=name,
+        role=UserRole.DESIGNER,
+        auth_source=AuthSource.LOCAL,
+        is_active=True,
+    )
+    db.add(user)
+    await db.flush()
+
+    report = Report(
+        id=uuid.uuid4(),
+        name=f"Report for {name}",
+        created_by=user.id,
+    )
+    db.add(report)
+    await db.flush()
+
     attrs = {
-        "report_id": uuid.uuid4(),
-        "owner_id": uuid.uuid4(),
-        "created_by": uuid.uuid4(),
+        "report_id": report.id,
+        "owner_id": user.id,
+        "created_by": user.id,
         "name": name,
         "cron_expression": cron_expression,
         "run_at": kwargs.pop("run_at", None),
@@ -105,6 +128,25 @@ async def test_deliver_scheduled_loads_active_deliveries_and_recipients(db_sessi
     from app.services.scheduler.engine import _deliver_scheduled
 
     schedule_id = uuid.uuid4()
+    # Real parent rows so the deliveries' schedule_id FK (and the schedule's own
+    # report_id/owner_id/created_by FKs) hold on PostgreSQL.
+    user = User(
+        id=uuid.uuid4(), email=f"deliver-{uuid.uuid4().hex[:8]}@test",
+        name="deliver", role=UserRole.DESIGNER, auth_source=AuthSource.LOCAL, is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    report = Report(id=uuid.uuid4(), name="deliver report", created_by=user.id)
+    db_session.add(report)
+    await db_session.flush()
+    db_session.add(
+        Schedule(
+            id=schedule_id, report_id=report.id, owner_id=user.id,
+            created_by=user.id, name="deliver", is_active=True,
+        )
+    )
+    await db_session.commit()
+
     active = Delivery(
         id=uuid.uuid4(), schedule_id=schedule_id, delivery_type="webhook",
         config={"url": "http://x"}, is_active=True,

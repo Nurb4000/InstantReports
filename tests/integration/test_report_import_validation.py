@@ -55,8 +55,11 @@ VALID_DEFINITION = {
 
 
 @pytest.mark.asyncio
-async def test_valid_definition_imported(client):
-    _override_user(_designer())
+async def test_valid_definition_imported(client, db_session):
+    designer = _designer()
+    db_session.add(designer)
+    await db_session.commit()
+    _override_user(designer)
     resp = await client.post(
         "/designer/reports/import",
         files={"file": ("report.json", _export_payload(VALID_DEFINITION), "application/json")},
@@ -65,8 +68,11 @@ async def test_valid_definition_imported(client):
 
 
 @pytest.mark.asyncio
-async def test_too_many_sections_rejected(client):
-    _override_user(_designer())
+async def test_too_many_sections_rejected(client, db_session):
+    designer = _designer()
+    db_session.add(designer)
+    await db_session.commit()
+    _override_user(designer)
     sections = [{"type": "detail", "elements": []} for _ in range(201)]
     payload = _export_payload({"layout": {"sections": sections}})
     resp = await client.post(
@@ -78,8 +84,11 @@ async def test_too_many_sections_rejected(client):
 
 
 @pytest.mark.asyncio
-async def test_huge_string_rejected(client):
-    _override_user(_designer())
+async def test_huge_string_rejected(client, db_session):
+    designer = _designer()
+    db_session.add(designer)
+    await db_session.commit()
+    _override_user(designer)
     big = "x" * (20_000 + 1)
     payload = _export_payload(
         {"layout": {"sections": [], "name": big}}
@@ -93,8 +102,11 @@ async def test_huge_string_rejected(client):
 
 
 @pytest.mark.asyncio
-async def test_malformed_structure_rejected(client):
-    _override_user(_designer())
+async def test_malformed_structure_rejected(client, db_session):
+    designer = _designer()
+    db_session.add(designer)
+    await db_session.commit()
+    _override_user(designer)
     payload = _export_payload({"layout": {"sections": "not-a-list"}})
     resp = await client.post(
         "/designer/reports/import",

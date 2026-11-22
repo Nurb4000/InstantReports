@@ -10,7 +10,12 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.ext.compiler import compiles
 
 # app.config instantiates Settings() at import time; the SECRET_KEY validator
@@ -60,9 +65,21 @@ TEST_DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://ir:secret@localhost:5432/instantreports",
 )
 
-# Create test engine
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-test_session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+@pytest_asyncio.fixture(scope="function")
+async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
+    """Fresh async engine per test.
+
+    A module-level shared engine reuses pooled asyncpg connections across the
+    function-scoped event loops pytest-asyncio assigns to each test. asyncpg binds
+    a connection to the loop that first used it, so reusing that connection under a
+    later (already-closed) loop raises ``InterfaceError: another operation is in
+    progress`` -- which is why the suite passed on aiosqlite (lenient) but failed on
+    asyncpg (strict). A per-test engine gives every test its own connections, bound
+    only to that test's loop, and disposes them afterwards for full isolation.
+    """
+    eng = create_async_engine(TEST_DATABASE_URL, echo=False)
+    yield eng
+    await eng.dispose()
 
 
 @pytest.fixture(scope="function")
@@ -82,12 +99,15 @@ def event_loop() -> Generator:
 
 
 @pytest_asyncio.fixture(scope="function")
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
     """Create a new database session for each test."""
+    factory = async_sessionmaker(
+        test_engine, class_=AsyncSession, expire_on_commit=False
+    )
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    async with test_session_factory() as session:
+    async with factory() as session:
         yield session
 
     async with test_engine.begin() as conn:

@@ -20,10 +20,16 @@ class TestVersioningService:
     async def test_save_version(self, db_session: AsyncSession, test_user: User):
         """Should save a new version."""
         definition = {"name": "Test Report", "layout": {"sections": []}}
-        
+        # A real report row so report_versions.report_id FK holds on PostgreSQL
+        # (earlier versions passed test_user.id as report_id, valid only because
+        # SQLite does not enforce foreign keys).
+        report = Report(name="Test Report", created_by=test_user.id)
+        db_session.add(report)
+        await db_session.commit()
+
         version = await save_version(
             db=db_session,
-            report_id=test_user.id,  # Using user.id as report_id for test
+            report_id=report.id,
             definition=definition,
             commit_message="Initial version",
             user_id=test_user.id,
@@ -35,32 +41,38 @@ class TestVersioningService:
     @pytest.mark.asyncio
     async def test_get_versions(self, db_session: AsyncSession, test_user: User):
         """Should retrieve all versions for a report."""
+        report = Report(name="Versions Report", created_by=test_user.id)
+        db_session.add(report)
+        await db_session.commit()
         # Save multiple versions
         for i in range(3):
             await save_version(
                 db=db_session,
-                report_id=test_user.id,
+                report_id=report.id,
                 definition={"version": i},
                 commit_message=f"Version {i}",
                 user_id=test_user.id,
             )
-        
-        versions = await get_versions(db_session, test_user.id)
+
+        versions = await get_versions(db_session, report.id)
         
         assert len(versions) == 3
 
     @pytest.mark.asyncio
     async def test_get_version(self, db_session: AsyncSession, test_user: User):
         """Should retrieve a specific version."""
+        report = Report(name="Single Version Report", created_by=test_user.id)
+        db_session.add(report)
+        await db_session.commit()
         await save_version(
             db=db_session,
-            report_id=test_user.id,
+            report_id=report.id,
             definition={"test": True},
             commit_message="Test",
             user_id=test_user.id,
         )
-        
-        version = await get_version(db_session, test_user.id, 1)
+
+        version = await get_version(db_session, report.id, 1)
         
         assert version is not None
         assert version.version_number == 1

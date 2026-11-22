@@ -11,6 +11,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import hash_password
 from app.main import app as fastapi_app
@@ -20,9 +21,11 @@ from app.routes.auth import get_current_user_optional
 
 
 def _user(role: UserRole) -> User:
+    """Construct a user. Unique emails avoid the users.email unique constraint
+    across calls."""
     return User(
         id=uuid.uuid4(),
-        email=f"{role.value}@example.com",
+        email=f"{role.value}-{uuid.uuid4().hex[:8]}@example.com",
         name=role.value,
         password_hash=hash_password("pw"),
         role=role,
@@ -31,15 +34,24 @@ def _user(role: UserRole) -> User:
     )
 
 
+async def _persist_user(db: AsyncSession, role: UserRole) -> User:
+    """Create and commit a user so its id exists as a FK target on PostgreSQL."""
+    user = _user(role)
+    db.add(user)
+    await db.commit()
+    return user
+
+
 @pytest.mark.asyncio
 async def test_get_connection_requires_auth(client, db_session):
     async def _no_user():
         return None
 
     fastapi_app.dependency_overrides[get_current_user_optional] = _no_user
+    creator = await _persist_user(db_session, UserRole.DESIGNER)
     conn = DataConnection(
         name="db", connector_type="postgresql",
-        config={"password": "s3cret"}, created_by=_user(UserRole.DESIGNER).id,
+        config={"password": "s3cret"}, created_by=creator.id,
     )
     db_session.add(conn)
     await db_session.commit()
@@ -58,9 +70,10 @@ async def test_get_connection_denies_non_designer_and_leaks_no_config(
 
     fastapi_app.dependency_overrides[get_current_user_optional] = _viewer
 
+    creator = await _persist_user(db_session, UserRole.DESIGNER)
     conn = DataConnection(
         name="db", connector_type="postgresql",
-        config={"password": "s3cret"}, created_by=_user(UserRole.DESIGNER).id,
+        config={"password": "s3cret"}, created_by=creator.id,
     )
     db_session.add(conn)
     await db_session.commit()
@@ -77,10 +90,11 @@ async def test_get_connection_allows_designer(client, db_session):
 
     fastapi_app.dependency_overrides[get_current_user_optional] = _designer
 
+    creator = await _persist_user(db_session, UserRole.DESIGNER)
     conn = DataConnection(
         name="db", connector_type="postgresql",
         config={"host": "h", "password": "s3cret"},
-        created_by=_user(UserRole.DESIGNER).id,
+        created_by=creator.id,
     )
     db_session.add(conn)
     await db_session.commit()

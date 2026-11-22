@@ -11,9 +11,19 @@ import uuid
 
 from app.models.connection import DataConnection
 from app.models.report import Report
+from app.models.user import AuthSource, User, UserRole
 
 
 async def test_export_report_redacts_connection_secrets(auth_client, db_session):
+    # Real owner so data_connections.created_by and reports.created_by FKs hold on
+    # PostgreSQL (SQLite was ignoring these violations).
+    creator = User(
+        id=uuid.uuid4(), email=f"exp-{uuid.uuid4().hex[:8]}@test",
+        name="exp", role=UserRole.DESIGNER, auth_source=AuthSource.LOCAL, is_active=True,
+    )
+    db_session.add(creator)
+    await db_session.commit()
+
     conn = DataConnection(
         id=uuid.uuid4(),
         name="prod-db",
@@ -27,14 +37,14 @@ async def test_export_report_redacts_connection_secrets(auth_client, db_session)
             "auth_token": "tok_live_123",
             "api_key": "key_123",
         },
-        created_by=uuid.uuid4(),
+        created_by=creator.id,
     )
     db_session.add(conn)
     await db_session.commit()
 
     report = Report(
         name="Export Me",
-        created_by=uuid.uuid4(),
+        created_by=creator.id,
         definition={
             "layout": {"sections": []},
             "data_sources": [{"connection_id": str(conn.id), "name": "ds"}],
