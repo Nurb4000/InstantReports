@@ -11,6 +11,7 @@ import ipaddress
 import socket
 from typing import Any
 
+import httpx
 import pytest
 
 from app.services.delivery.smb_webhook import (
@@ -180,6 +181,39 @@ def test_make_validating_client_uses_validating_transport():
         assert client.trust_env is False
     finally:
         _asyncio_run(client.aclose())
+
+
+def test_transport_revalidates_each_hop_blocks_internal_redirect(fake_dns):
+    """Each ``handle_async_request`` hop is re-validated, so redirects are too.
+
+    httpx re-invokes the transport for every redirect hop. This test simulates
+    that by calling the transport twice: the first (public host) validates and
+    delegates; the second (a redirect to an internal metadata IP) is rejected
+    before delegation. This is the mechanism that blocks a public endpoint that
+    302-redirects to ``169.254.169.254``, ``localhost``, or an internal service.
+    """
+    fake_dns["public.example.com"] = ["93.184.216.34"]
+
+    class _Inner:
+        async def handle_async_request(self, request):
+            return httpx.Response(200, content=b"ok", request=request)
+
+        async def aclose(self):
+            pass
+
+    transport = ValidatingTransport(_Inner())
+
+    class _Req:
+        def __init__(self, url):
+            self.url = url
+
+    # First hop (public host) validates and delegates.
+    first = _asyncio_run(transport.handle_async_request(_Req("http://public.example.com/start")))
+    assert first.status_code == 200
+
+    # Second hop (redirect to internal metadata IP) is rejected before delegation.
+    with pytest.raises(ValueError):
+        _asyncio_run(transport.handle_async_request(_Req("http://169.254.169.254/meta")))
 
 
 def _asyncio_run(coro):
