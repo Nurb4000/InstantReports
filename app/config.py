@@ -93,6 +93,23 @@ class Settings(BaseSettings):
     LDAP_EMAIL_ATTR: str = "mail"
     LDAP_NAME_ATTR: str = "cn"
 
+    # Optional TOTP MFA (Gap #10). Defaults keep MFA strictly opt-in: local
+    # accounts log in with a password only unless they individually enable MFA.
+    # Set MFA_REQUIRED=True to force every local account to set up MFA before
+    # login can complete (enforcement without a code change); it has no effect on
+    # LDAP accounts, which use their own SSO path.
+    MFA_REQUIRED: bool = False
+    # Lifetime of the short-lived "pending" cookie used for the second MFA step
+    # of login (password verified -> enter OTP). Kept short so a stolen pending
+    # cookie is useless for long.
+    MFA_PENDING_TTL_SECONDS: int = 300
+    # Number of single-use backup codes issued when MFA is enabled, for recovery
+    # if the authenticator device is lost.
+    MFA_BACKUP_CODES_COUNT: int = 8
+    # Brute-force protection for the MFA verification step (6-digit codes).
+    MFA_VERIFY_RATE_LIMIT_ATTEMPTS: int = 10
+    MFA_VERIFY_RATE_LIMIT_WINDOW_SECONDS: int = 300
+
     # Enforce TLS for LDAP binds (D2). ldap:// sends the bind DN and password in
     # cleartext; ldaps:// (implicit TLS) or STARTTLS (ldap:// + use_tls) encrypts
     # the channel. Defaults True so a plain ldap:// URL negotiates STARTTLS before

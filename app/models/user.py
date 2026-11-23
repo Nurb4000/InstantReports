@@ -38,6 +38,12 @@ class User(Base):
     auth_source: Mapped[AuthSource] = mapped_column(String(50), nullable=False, default=AuthSource.LOCAL)
     ldap_dn: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Optional TOTP MFA (Gap #10). ``mfa_secret`` holds the base32 secret; it is
+    # only meaningful when ``mfa_enabled`` is True. Local accounts start with MFA
+    # off so enabling it stays opt-in; org-wide enforcement is a separate config
+    # flag (settings.MFA_REQUIRED) that does not require this column to change.
+    mfa_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

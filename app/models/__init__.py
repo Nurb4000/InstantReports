@@ -9,6 +9,7 @@ from app.models.connection import (
     QueryTemplate,
     Schedule,
 )
+from app.models.pending_session import PendingSession
 from app.models.revoked_token import RevokedToken
 from app.models.report import (
     Report,
@@ -19,6 +20,7 @@ from app.models.report import (
     ReportVersion,
 )
 from app.models.user import AuthSource, User, UserRole
+from app.models.user_backup_code import UserBackupCode
 
 __all__ = [
     "APIKey",
@@ -37,7 +39,9 @@ __all__ = [
     "ReportTemplate",
     "ReportVersion",
     "RevokedToken",
+    "PendingSession",
     "Schedule",
     "User",
     "UserRole",
+    "UserBackupCode",
 ]

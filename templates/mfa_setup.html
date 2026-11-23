@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Set up MFA - InstantReports{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h2>Set up two-step verification</h2>
+                    <p class="text-muted">
+                        Add this account to your authenticator app (Google Authenticator, Authy,
+                        1Password, etc.), then enter the generated code to enable MFA.
+                    </p>
+
+                    {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+
+                    <ol>
+                        <li>
+                            Open your authenticator app and add a new account using the key below
+                            (base32, Authy/Google Authenticator format):
+                            <div class="form-group mt-2">
+                                <code class="mfa-secret">{{ secret }}</code>
+                            </div>
+                        </li>
+                        <li>
+                            Or copy this link and open it in an app that accepts otpauth:// links:
+                            <div class="form-group mt-2">
+                                <code class="mfa-uri"><a href="{{ otp_uri }}">{{ otp_uri }}</a></code>
+                            </div>
+                        </li>
+                        <li>Enter the 6-digit code below to finish enabling MFA.</li>
+                    </ol>
+
+                    <form method="post" action="/auth/mfa-setup" class="mt-3">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label for="code">Verification code</label>
+                            <input
+                                type="text"
+                                id="code"
+                                name="code"
+                                class="form-control"
+                                required
+                                autofocus
+                                inputmode="numeric"
+                                autocomplete="one-time-code"
+                                placeholder="000000"
+                                maxlength="10">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Enable MFA</button>
+                        <a href="/settings" class="btn btn-outline-secondary">Skip</a>
+                    </form>
+
+                    <hr>
+                    <h4>Backup codes</h4>
+                    <p class="text-muted">
+                        These single-use codes let you sign in if you lose your authenticator device.
+                        Save them somewhere safe — each can only be used once.
+                    </p>
+                    <ul class="backup-codes">
+                        {% for code in backup_codes %}
+                        <li><code>{{ code }}</code></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
