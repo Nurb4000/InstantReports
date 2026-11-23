@@ -13,6 +13,8 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.services.connection_encryption import EncryptedSecretsJSON
+from app.services.connection_encryption import EncryptedText
 
 
 class DataConnection(Base):
@@ -21,7 +23,7 @@ class DataConnection(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     connector_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    config: Mapped[dict] = mapped_column(EncryptedSecretsJSON, nullable=False, default=dict)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
@@ -37,11 +39,12 @@ class ConnectionCredentialRotation(Base):
     """A retired connection credential retained during its rotation grace period.
 
     When a connection's secret (e.g. ``password``, ``auth_token``) is rotated,
-    the retired plaintext value is stored here -- hashed for at-rest protection
-    with the plaintext kept for in-grace resolution -- alongside a
-    ``valid_until`` timestamp. ``resolve_connection_config`` re-exposes in-grace
-    values so scheduled reports / webhooks that still hold the old secret keep
-    working until the grace window closes, then they are pruned.
+    the retired value is stored here -- hashed (``secret_hash``) for at-rest
+    identification and encrypted (``secret_value``) so the plaintext is never on
+    disk -- alongside a ``valid_until`` timestamp. ``resolve_connection_config``
+    re-exposes in-grace values so scheduled reports / webhooks that still hold
+    the old secret keep working until the grace window closes, then they are
+    pruned.
     """
 
     __tablename__ = "connection_credential_rotations"
@@ -55,7 +58,10 @@ class ConnectionCredentialRotation(Base):
     )
     field_name: Mapped[str] = mapped_column(String(64), nullable=False)
     secret_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    secret_value: Mapped[str] = mapped_column(Text, nullable=False)
+    # Encrypted at rest (H2); decrypted transparently on read so the in-grace
+    # fallback keeps working. The hash lets us recognise a retired value without
+    # exposing it in indexes or logs.
+    secret_value: Mapped[str] = mapped_column(EncryptedText, nullable=False)
     valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 

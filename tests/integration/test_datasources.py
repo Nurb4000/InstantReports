@@ -1,9 +1,14 @@
 """Tests for datasources route authn/authz.
 
-Covers the round-7 fix: GET /datasources/{id} returns the full connection
-``config`` (which holds credentials such as DB passwords). That endpoint must
-be designer-gated like every other config-touching endpoint, otherwise any
-authenticated user can read another connection's secrets.
+Covers the access control + credential-exposure fixes for GET /datasources/{id}:
+
+* round-7: the endpoint must be designer-gated like every other config-touching
+  endpoint, otherwise any authenticated user can read another connection's
+  secrets.
+* H2: even a designer receives a REDACTED config -- secret values (DB passwords,
+  bearer tokens, ...) are masked to "***" and never returned in plaintext. The
+  credentials are additionally stored encrypted at rest (see
+  tests/unit/test_connection_encryption.py).
 """
 
 from __future__ import annotations
@@ -102,4 +107,8 @@ async def test_get_connection_allows_designer(client, db_session):
     resp = await client.get(f"/datasources/{conn.id}")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["config"]["password"] == "s3cret"
+    # H2: non-secret metadata is returned, but the credential is masked -- a
+    # designer must not receive the plaintext DB password over the API.
+    assert body["config"]["host"] == "h"
+    assert body["config"]["password"] == "***"
+    assert "s3cret" not in resp.text

@@ -22,6 +22,17 @@ class Settings(BaseSettings):
     SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
 
+    # Key used to encrypt connection credentials at rest (H2). Connection secrets
+    # (DB passwords, REST bearer tokens, SMTP creds, ...) live inside the JSONB
+    # ``DataConnection.config`` blob. When this is empty the key is derived from
+    # ``SECRET_KEY`` (so a deployment needs no extra configuration); set it to a
+    # dedicated value to decouple credential encryption from the JWT signing key.
+    # NOTE: the derived key is stable per ``SECRET_KEY`` -- rotating ``SECRET_KEY``
+    # without re-encrypting stored credentials makes them unreadable, so in
+    # production prefer a stable ``CONNECTION_SECRET_ENCRYPTION_KEY`` and rotate it
+    # deliberately (re-encrypting stored secrets) rather than via ``SECRET_KEY``.
+    CONNECTION_SECRET_ENCRYPTION_KEY: str = ""
+
     # CORS: comma-separated list of allowed browser origins. Empty (the default)
     # means "same-origin only" — no cross-origin requests are permitted, which is
     # safe for the bundled same-origin UI. Never use "*" together with
