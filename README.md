@@ -38,16 +38,32 @@ docker compose up --build
 # PostgreSQL: localhost:5433 (internal: 5432)
 ```
 
-### Default Admin Credentials
+### Initial Admin User
 
-**Email:** `admin@example.com`  
-**Password:** `admin`
+There is **no well-known default admin password**. The initial admin is created
+either by the app on first run or manually via the seed script — in both cases with
+a strong password you control.
 
-The admin user is created automatically on first run. If you need to seed manually:
+**Option A — set a strong password and let the app seed it on startup:**
+
+```bash
+export INITIAL_ADMIN_EMAIL=admin@example.com
+export INITIAL_ADMIN_PASSWORD='a-strong-password-of-at-least-8-chars'
+```
+
+Then start the app (`uvicorn app.main:app`). It seeds the admin on first run and
+refuses to do so with a password that is too short (< 8 chars) or a known placeholder
+(e.g. `admin`).
+
+**Option B — seed manually with a random strong password:**
 
 ```bash
 python scripts/seed_admin.py
 ```
+
+With `INITIAL_ADMIN_PASSWORD` unset, the script generates a random strong password,
+prints it once, and will not show it again — save it. A provided password that is too
+short or a known placeholder is rejected instead of being seeded.
 
 ## Configuration
 
