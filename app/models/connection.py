@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 
 
 def now_utc() -> datetime:
@@ -31,6 +31,41 @@ class DataConnection(Base):
     )
 
     creator: Mapped[User] = relationship(lazy="selectin")
+
+
+class ConnectionCredentialRotation(Base):
+    """A retired connection credential retained during its rotation grace period.
+
+    When a connection's secret (e.g. ``password``, ``auth_token``) is rotated,
+    the retired plaintext value is stored here -- hashed for at-rest protection
+    with the plaintext kept for in-grace resolution -- alongside a
+    ``valid_until`` timestamp. ``resolve_connection_config`` re-exposes in-grace
+    values so scheduled reports / webhooks that still hold the old secret keep
+    working until the grace window closes, then they are pruned.
+    """
+
+    __tablename__ = "connection_credential_rotations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("data_connections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    field_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    secret_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    secret_value: Mapped[str] = mapped_column(Text, nullable=False)
+    valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    __table_args__ = (
+        Index(
+            "idx_connection_credential_rotations_lookup",
+            "connection_id",
+            "field_name",
+        ),
+    )
 
 
 class QueryTemplate(Base):

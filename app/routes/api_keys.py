@@ -5,12 +5,16 @@ from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.services.api_key import (
+    DEFAULT_ROTATION_GRACE_PERIOD_DAYS,
     generate_api_key,
     list_user_keys,
+    prune_expired_rotations,
+    rotate_api_key,
     revoke_api_key,
     validate_api_key,
 )
@@ -201,3 +205,63 @@ async def delete_key(
     if not success:
         raise HTTPException(status_code=404, detail="API key not found")
     return {"status": "ok"}
+
+
+@router.post("/{key_id}/rotate")
+async def rotate_key(
+    key_id: uuid.UUID,
+    api_quota: None = Depends(rate_limit_api_key_endpoint()),
+    grace_period_days: int | None = Query(None, description="Days the retired key stays valid (1-30)"),
+    _: None = Depends(require_permission("write")),
+    current_user: ApiKeyPrincipal = Depends(get_current_user_from_api_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rotate an API key (requires ``write``).
+
+    A new plaintext key is returned once; the previous key remains valid for the
+    grace period (default 7 days, max 30) so existing clients keep working until
+    it elapses. Expired rotations are pruned as part of the operation.
+    """
+    try:
+        api_key, new_key = await rotate_api_key(
+            db=db,
+            key_id=key_id,
+            user_id=current_user.id,
+            grace_period_days=(
+                grace_period_days
+                if grace_period_days is not None
+                else DEFAULT_ROTATION_GRACE_PERIOD_DAYS
+            ),
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="API key not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Report when the retired key stops working so clients know their deadline.
+    from app.models.api_key import APIKeyRotation
+
+    result = await db.execute(
+        select(APIKeyRotation)
+        .where(APIKeyRotation.api_key_id == api_key.id)
+        .order_by(APIKeyRotation.created_at.desc())
+        .limit(1)
+    )
+    rotation = result.scalar_one_or_none()
+    old_key_valid_until = rotation.valid_until.isoformat() if rotation else None
+
+    await prune_expired_rotations(db, api_key.id)
+    await db.commit()
+
+    return {
+        "id": str(api_key.id),
+        "name": api_key.name,
+        "key": new_key,  # Only returned once -- the DB stores a hash, not this.
+        "permissions": api_key.permissions.split(","),
+        "grace_period_days": (
+            grace_period_days
+            if grace_period_days is not None
+            else DEFAULT_ROTATION_GRACE_PERIOD_DAYS
+        ),
+        "old_key_valid_until": old_key_valid_until,
+    }

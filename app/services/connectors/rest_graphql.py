@@ -8,6 +8,7 @@ import httpx
 import pandas as pd
 
 from app.services.connectors.base import DataConnector
+from app.services.connection_credentials import connector_secret
 from app.services.delivery.smb_webhook import (
     _validate_outbound_url,
     make_validating_client,
@@ -124,11 +125,11 @@ class RESTAPIConnector(DataConnector):
         auth_type = config.get("auth_type", "none")
 
         if auth_type == "bearer":
-            headers["Authorization"] = f"Bearer {config.get('auth_token', '')}"
+            headers["Authorization"] = f"Bearer {connector_secret(config, 'auth_token')}"
         elif auth_type == "basic":
             import base64
             credentials = base64.b64encode(
-                f'{config.get("auth_username", "")}:{config.get("auth_password", "")}'.encode()
+                f'{config.get("auth_username", "")}:{connector_secret(config, "auth_password")}'.encode()
             ).decode()
             headers["Authorization"] = f"Basic {credentials}"
 

@@ -13,6 +13,10 @@ from app.models.user import User
 from app.routes._auth_helpers import get_role_value
 from app.routes.auth import get_current_user_optional
 from app.services.connectors.base import redact_connection_config
+from app.services.connection_credentials import (
+    DEFAULT_CREDENTIAL_GRACE_PERIOD_DAYS,
+    rotate_connection_secret,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -124,6 +128,78 @@ async def create_connection(
     await db.refresh(connection)
 
     return {"status": "ok", "id": str(connection.id)}
+
+
+@router.post("/{connection_id}/rotate-secret")
+async def rotate_connection_secret_endpoint(
+    connection_id: uuid.UUID,
+    data: dict = Body(...),
+    current_user: User | None = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rotate a single credential field on a connection (Gap #11).
+
+    Accepts ``{"field_name": ..., "secret": ..., "grace_period_days": ...}``.
+    The retired value is retained and stays valid for the grace window so
+    scheduled reports / webhooks that still hold it keep working. Returns the
+    redacted config (secrets masked) plus when the retired value expires.
+    """
+    _require_designer(current_user)
+
+    field_name = (data.get("field_name") or "").strip()
+    secret = data.get("secret")
+    if not field_name or secret is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Both 'field_name' and 'secret' are required",
+        )
+
+    grace_period_days = data.get(
+        "grace_period_days", DEFAULT_CREDENTIAL_GRACE_PERIOD_DAYS
+    )
+
+    try:
+        connection = await rotate_connection_secret(
+            db,
+            connection_id,
+            current_user.id,
+            field_name=field_name,
+            new_secret=str(secret),
+            grace_period_days=grace_period_days,
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Report when the retired value stops working so clients know their deadline.
+    from datetime import datetime, timezone
+
+    from app.models.connection import ConnectionCredentialRotation
+
+    result = await db.execute(
+        select(ConnectionCredentialRotation)
+        .where(
+            ConnectionCredentialRotation.connection_id == connection_id,
+            ConnectionCredentialRotation.field_name == field_name,
+        )
+        .order_by(ConnectionCredentialRotation.created_at.desc())
+        .limit(1)
+    )
+    rotation = result.scalar_one_or_none()
+
+    return {
+        "status": "ok",
+        "id": str(connection.id),
+        "field_name": field_name,
+        "grace_period_days": grace_period_days,
+        "old_key_valid_until": (
+            rotation.valid_until.isoformat()
+            if rotation and rotation.valid_until is not None
+            else None
+        ),
+        "config": redact_connection_config(connection.config),
+    }
 
 
 @router.get("/{connection_id}")

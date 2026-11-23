@@ -7,6 +7,7 @@ import pandas as pd
 
 from app.services.connectors.base import DataConnector
 from app.services.connectors.read_only import validate_read_only_query
+from app.services.connection_credentials import connector_secret
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class SQLServerConnector(DataConnector):
                 server=config.get("host", "localhost"),
                 port=config.get("port", 1433),
                 user=config.get("user", ""),
-                password=config.get("password", ""),
+                password=connector_secret(config, "password"),
                 database=config.get("database", ""),
                 timeout=5,
             )
@@ -50,7 +51,7 @@ class SQLServerConnector(DataConnector):
                 server=config.get("host", "localhost"),
                 port=config.get("port", 1433),
                 user=config.get("user", ""),
-                password=config.get("password", ""),
+                password=connector_secret(config, "password"),
                 database=config.get("database", ""),
             )
             cursor = conn.cursor()
@@ -97,7 +98,7 @@ class SQLServerConnector(DataConnector):
             server=config.get("host", "localhost"),
             port=config.get("port", 1433),
             user=config.get("user", ""),
-            password=config.get("password", ""),
+            password=connector_secret(config, "password"),
             database=config.get("database", ""),
         )
 

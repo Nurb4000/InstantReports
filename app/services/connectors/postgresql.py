@@ -8,6 +8,7 @@ import pandas as pd
 
 from app.services.connectors.base import DataConnector
 from app.services.connectors.read_only import validate_read_only_query
+from app.services.connection_credentials import connector_secret
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class PostgreSQLConnector(DataConnector):
                 port=config.get("port", 5432),
                 database=config.get("database", ""),
                 user=config.get("user", ""),
-                password=config.get("password", ""),
+                password=connector_secret(config, "password"),
                 timeout=5,
             )
             await conn.execute("SELECT 1")
@@ -48,7 +49,7 @@ class PostgreSQLConnector(DataConnector):
                 port=config.get("port", 5432),
                 database=config.get("database", ""),
                 user=config.get("user", ""),
-                password=config.get("password", ""),
+                password=connector_secret(config, "password"),
             )
 
             rows = await conn.fetch(
@@ -95,7 +96,7 @@ class PostgreSQLConnector(DataConnector):
             port=config.get("port", 5432),
             database=config.get("database", ""),
             user=config.get("user", ""),
-            password=config.get("password", ""),
+            password=connector_secret(config, "password"),
         )
 
         try:

@@ -124,4 +124,11 @@ async def resolve_data_source_connector(db, definition: dict) -> tuple[DataConne
     if connection is None:
         return None, None
 
-    return get_connector(connection.connector_type), connection.config
+    # Resolve credentials so a retired secret still within its grace period
+    # (Gap #11) is re-exposed under ``_previous_<field>`` keys. Connectors read
+    # through ``connector_secret`` and fall back to it when the current value is
+    # absent, so rotation does not break in-flight or freshly scheduled reports.
+    from app.services.connection_credentials import resolve_connection_config
+
+    resolved_config = await resolve_connection_config(db, connection)
+    return get_connector(connection.connector_type), resolved_config
