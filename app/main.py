@@ -22,6 +22,30 @@ from app.models import *
 logger = logging.getLogger(__name__)
 
 
+def _warn_connection_encryption_key(logger: logging.Logger) -> bool:
+    """Warn once at boot if connection credentials depend on ``SECRET_KEY`` (M6).
+
+    Returns True when the warning was emitted. When no dedicated
+    ``CONNECTION_SECRET_ENCRYPTION_KEY`` is configured, stored credentials are
+    encrypted with a key derived from ``SECRET_KEY``; rotating ``SECRET_KEY`` then
+    makes every stored connection credential undecryptable with no runtime
+    diagnostic (scheduled reports / webhooks silently start failing auth). The
+    warning nudges operators to pin a stable dedicated key and rotate it
+    deliberately alongside a re-encryption pass.
+    """
+    if app_settings.CONNECTION_SECRET_ENCRYPTION_KEY:
+        return False
+    logger.warning(
+        "CONNECTION_SECRET_ENCRYPTION_KEY is not set; connection credentials are "
+        "encrypted with a key derived from SECRET_KEY. Rotating SECRET_KEY will make "
+        "stored credentials unreadable -- set a stable CONNECTION_SECRET_ENCRYPTION_KEY "
+        "and rotate it deliberately (re-encrypting stored secrets) instead. Use "
+        "app.services.connection_encryption.encrypt_config_with_key / "
+        "decrypt_config_with_key for a rotation pass."
+    )
+    return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Auto-create tables and seed admin user on startup (dev convenience)
@@ -32,6 +56,10 @@ async def lifespan(app: FastAPI):
             pass
         await engine.dispose()
         logger.info("Database tables ensured (created if missing)")
+
+        # M6: surface the connection-credential key-rotation hazard at boot so it
+        # is not a silent, operational failure.
+        _warn_connection_encryption_key(logger)
 
         # Seed admin user and default northwind connection if not exists
         import uuid

@@ -1,9 +1,25 @@
+"""ORM models for connections, schedules, deliveries and related tables.
+
+.. note:: Encryption decorator footgun (M7)
+
+   ``DataConnection.config`` is a decorated ``EncryptedSecretsJSON`` column, so the
+   model's ``__table__.c.config`` is the *decorated* type: raw SQLAlchemy core
+   ``select``/``insert``/``update`` via ``DataConnection.__table__`` transparently
+   **encrypts on write and decrypts on read**. That is correct for ORM-mapped
+   attribute access (the intent), but code that bypasses the ORM to touch the raw
+   JSONB bytes -- a re-encryption migration, bulk load, or seeding test -- must use
+   :data:`_RAW_CONNECTIONS_TABLE` instead. Using the model table there would
+   double-encrypt already-plaintext values or read back ciphertext it cannot
+   interpret.
+"""
+
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Column, MetaData, Table
 
 
 def now_utc() -> datetime:
@@ -33,6 +49,28 @@ class DataConnection(Base):
     )
 
     creator: Mapped[User] = relationship(lazy="selectin")
+
+
+# Raw (undecorated) core Table for ``data_connections`` (M7 footgun escape hatch).
+#
+# Use this -- never ``DataConnection.__table__`` -- whenever raw SQLAlchemy core
+# access needs the *plain* JSONB bytes (e.g. a re-encryption migration or a bulk
+# load that already holds plaintext). It is declared against its own ``MetaData``
+# so it is NOT part of ``Base.metadata`` (never created/dropped by ``create_all``)
+# and its ``config`` column is plain ``JSONB``, so core writes/reads are not
+# double-processed by the encryption decorator. Keep its columns in sync with the
+# model above.
+_RAW_CONNECTIONS_TABLE = Table(
+    "data_connections",
+    MetaData(),
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("name", String(255)),
+    Column("connector_type", String(50)),
+    Column("config", JSONB()),
+    Column("created_by", UUID(as_uuid=True)),
+    Column("created_at", DateTime(timezone=True)),
+    Column("updated_at", DateTime(timezone=True)),
+)
 
 
 class ConnectionCredentialRotation(Base):
@@ -127,7 +165,11 @@ class Schedule(Base):
     parameters: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     output_format: Mapped[str | None] = mapped_column(String(20), nullable=True)  # pdf, xlsx, csv, html
     delivery_type: Mapped[str] = mapped_column(String(50), default="email")  # email, sftp, smb, webhook
-    delivery_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)  # {type: email/sftp/smb/webhook, config: {...}}
+    # Encrypted at rest (H5): delivery secrets (SFTP/SMB password, webhook secret)
+    # live in this blob. EncryptedSecretsJSON keeps the compiled type JSONB so no
+    # schema change is needed; the ORM decrypts transparently on read and the
+    # response layer masks secrets via redact_delivery_config.
+    delivery_config: Mapped[dict | None] = mapped_column(EncryptedSecretsJSON, nullable=True)  # {type: email/sftp/smb/webhook, config: {...}}
     recipient_emails: Mapped[str | None] = mapped_column(Text, nullable=True)  # Comma-separated emails for email delivery
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Who owns/sees this in portal
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -143,7 +185,10 @@ class Delivery(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     schedule_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("schedules.id", ondelete="CASCADE"), nullable=False, index=True)
     delivery_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Encrypted at rest (H5): mirrors the owning schedule's delivery_config, so
+    # SFTP/SMB passwords and webhook secrets stored here are ciphertext on disk.
+    # EncryptedSecretsJSON keeps the compiled type JSONB; the ORM decrypts on read.
+    config: Mapped[dict] = mapped_column(EncryptedSecretsJSON, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 

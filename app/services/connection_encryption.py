@@ -40,13 +40,14 @@ from sqlalchemy.types import TypeDecorator, VARCHAR
 
 from app.config import settings
 
-# ``_SECRET_KEY_RE`` lives in ``connectors.base`` (shared with ``redact_connection_config``)
+# The secret matcher lives in ``connectors.base`` (shared with ``redact_connection_config``)
 # but importing it at module load time creates a cycle -- the connectors package
 # ``__init__`` imports the connectors, which import ``connection_credentials``,
 # which imports ``models.connection`` (this module's owner) while it is still
 # being defined. Import lazily inside ``_is_secret_key`` so it resolves once every
 # module has finished loading.
 _SECRET_KEY_RE = None
+_is_secret_fn = None
 
 
 def _get_secret_key_re():
@@ -56,12 +57,55 @@ def _get_secret_key_re():
         _SECRET_KEY_RE = _re
     return _SECRET_KEY_RE
 
+
+def _get_is_secret_fn():
+    """Lazily bind ``connectors.base.is_secret`` (key-name OR value-based, M8)."""
+    global _is_secret_fn
+    if _is_secret_fn is None:
+        from app.services.connectors.base import is_secret as _fn
+        _is_secret_fn = _fn
+    return _is_secret_fn
+
 # Fernet tokens are urlsafe-base64 and always start with "gAAAAA" (the version
 # byte 0x80). Used only as a fast pre-filter; the real safety net is the
 # try/except around ``Fernet.decrypt`` (fail-open on InvalidToken).
 _CIPHERTEXT_PREFIX = "gAAAA"
 
 _fernet_cache: dict[bytes, Fernet] = {}
+
+
+def _current_raw_key() -> str:
+    """Return the raw material for the active connection-encryption key.
+
+    Prefers a dedicated ``CONNECTION_SECRET_ENCRYPTION_KEY`` (stable across
+    ``SECRET_KEY`` rotations); falls back to ``SECRET_KEY`` so a deployment needs
+    no extra configuration. See M6.
+    """
+    return (
+        settings.CONNECTION_SECRET_ENCRYPTION_KEY
+        or settings.SECRET_KEY
+        or "instantreports-default-connection-encryption-key"
+    )
+
+
+def _fernet_key(raw: str) -> bytes:
+    """Derive the 256-bit Fernet key as ``urlsafe_b64(sha256(raw))``."""
+    return base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
+
+
+def fernet_for(raw: str) -> Fernet:
+    """Return a ``Fernet`` for an explicit raw key string (M6).
+
+    Deterministic -- the same ``raw`` always yields the same key -- so a stored
+    credential can be re-derived during a deliberate connection-key rotation
+    (read with the old key, re-encrypt with the new one). Cached per key.
+    """
+    key = _fernet_key(raw)
+    fer = _fernet_cache.get(key)
+    if fer is None:
+        fer = Fernet(key)
+        _fernet_cache[key] = fer
+    return fer
 
 
 def _fernet() -> Fernet:
@@ -71,17 +115,7 @@ def _fernet() -> Fernet:
     -- or the default ``SECRET_KEY`` -- yields a valid 256-bit key. Cached per raw
     key so repeated reads/writes reuse one instance.
     """
-    raw = (
-        settings.CONNECTION_SECRET_ENCRYPTION_KEY
-        or settings.SECRET_KEY
-        or "instantreports-default-connection-encryption-key"
-    )
-    key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
-    fer = _fernet_cache.get(key)
-    if fer is None:
-        fer = Fernet(key)
-        _fernet_cache[key] = fer
-    return fer
+    return fernet_for(_current_raw_key())
 
 
 def reset_encryption_cache() -> None:
@@ -124,28 +158,78 @@ def _is_secret_key(key: Any) -> bool:
     return isinstance(key, str) and bool(_get_secret_key_re().search(key))
 
 
-def _encrypt_value(key: str, value: Any) -> Any:
+def _is_secret(key: Any, value: Any) -> bool:
+    """Secret by key name OR by embedded credential in the value (M8).
+
+    Encryption keys on this so a credential stored under an opaque key (e.g. a
+    ``postgresql://user:pass@host`` DSN in ``connection_string``) is encrypted at
+    rest just like a key-named secret.
+    """
+    return bool(_get_is_secret_fn()(key, value))
+
+
+def _encrypt_value_with(fer: Fernet, key: str, value: Any) -> Any:
     if isinstance(value, dict):
-        return {k: _encrypt_value(k, v) for k, v in value.items()}
+        return {k: _encrypt_value_with(fer, k, v) for k, v in value.items()}
     if isinstance(value, list):
-        return [_encrypt_value(key, v) for v in value]
-    # Only encrypt non-empty string values whose key is recognised as a secret.
-    # Empty strings and non-secret keys are stored verbatim.
-    if _is_secret_key(key) and isinstance(value, str) and value != "":
-        return encrypt_secret(value)
+        return [_encrypt_value_with(fer, key, v) for v in value]
+    # Only encrypt non-empty string values recognised as secrets (by key name or
+    # by an embedded credential in the value). Empty strings and non-secret keys
+    # are stored verbatim.
+    if _is_secret(key, value) and isinstance(value, str) and value != "":
+        return fer.encrypt(value.encode()).decode()
     return value
+
+
+def _decrypt_value_with(fer: Fernet, key: str, value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: _decrypt_value_with(fer, k, v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_decrypt_value_with(fer, key, v) for v in value]
+    # Decrypt when the key is a secret name OR the value is already ciphertext.
+    # The latter covers secrets encrypted purely by their value (M8): such a value
+    # sits under a non-matching key, so on read we must recognise it as ciphertext
+    # (Fernet prefix) rather than relying on the key name. Fail-open means a
+    # non-decryptable string is returned unchanged.
+    if isinstance(value, str) and (_is_secret_key(key) or looks_like_ciphertext(value)):
+        try:
+            return fer.decrypt(value.encode()).decode()
+        except InvalidToken:
+            return value
+    return value
+
+
+def _encrypt_value(key: str, value: Any) -> Any:
+    return _encrypt_value_with(_fernet(), key, value)
 
 
 def _decrypt_value(key: str, value: Any) -> Any:
-    if isinstance(value, dict):
-        return {k: _decrypt_value(k, v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_decrypt_value(key, v) for v in value]
-    # Only decrypt values stored under a secret key; non-secret keys are never
-    # encrypted, so their (plaintext) values are left untouched.
-    if _is_secret_key(key) and isinstance(value, str):
-        return decrypt_secret(value)
-    return value
+    return _decrypt_value_with(_fernet(), key, value)
+
+
+def encrypt_config_with_key(config: dict[str, Any] | None, raw: str) -> dict[str, Any]:
+    """Encrypt a config's secret values with an explicit raw key (M6 rotation write).
+
+    Used by a deliberate connection-key rotation to re-encrypt already-decrypted
+    configs under the new key. Non-secret fields pass through verbatim.
+    """
+    if not config:
+        return {}
+    fer = fernet_for(raw)
+    return {k: _encrypt_value_with(fer, k, v) for k, v in config.items()}
+
+
+def decrypt_config_with_key(config: dict[str, Any] | None, raw: str) -> dict[str, Any]:
+    """Decrypt a stored config's secret values with an explicit raw key (M6 rotation read).
+
+    Reads configs during a key rotation using the OLD key before re-writing them
+    under the new one. Fail-open: values that are not decryptable under ``raw``
+    are returned unchanged.
+    """
+    if not config:
+        return {}
+    fer = fernet_for(raw)
+    return {k: _decrypt_value_with(fer, k, v) for k, v in config.items()}
 
 
 def encrypt_config_secrets(config: dict[str, Any] | None) -> dict[str, Any]:
@@ -174,7 +258,7 @@ def reencrypt_config_secrets(config: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     out = {}
     for key, value in config.items():
-        if _is_secret_key(key) and isinstance(value, str) and value and not looks_like_ciphertext(value):
+        if _is_secret(key, value) and isinstance(value, str) and value and not looks_like_ciphertext(value):
             out[key] = encrypt_secret(value)
         else:
             out[key] = value

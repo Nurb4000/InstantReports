@@ -144,6 +144,44 @@ def test_nested_dict_secret_values_are_encrypted():
     assert decrypt_config_secrets(enc) == nested
 
 
+# --- M8: value-based (opaque-key credential) encryption -----------------------
+
+M8_CONFIG = {
+    "connection_string": "postgresql://app:supersecret@db.internal:5432/app",
+    "url": "https://example.com/hook",  # public, no embedded creds -> not secret
+    "host": "db.internal",
+}
+
+
+def test_value_based_secret_is_encrypted_under_opaque_key():
+    enc = encrypt_config_secrets(M8_CONFIG)
+    # A DSN under an opaque key is encrypted even though the key name is innocuous.
+    assert looks_like_ciphertext(enc["connection_string"])
+    assert enc["connection_string"] != M8_CONFIG["connection_string"]
+    # Public URL and metadata are stored verbatim.
+    assert enc["url"] == "https://example.com/hook"
+    assert enc["host"] == "db.internal"
+
+
+def test_value_based_secret_round_trips_through_decrypt():
+    # The ciphertext sits under a non-matching key, so decrypt must recognise it
+    # as ciphertext (not rely on the key name) to recover the plaintext.
+    enc = encrypt_config_secrets(M8_CONFIG)
+    assert decrypt_config_secrets(enc) == M8_CONFIG
+
+
+def test_value_based_reencrypt_is_idempotent():
+    from app.services.connection_encryption import reencrypt_config_secrets
+
+    enc = encrypt_config_secrets(M8_CONFIG)
+    # Re-running over already-ciphertext never double-encrypts.
+    assert reencrypt_config_secrets(enc)["connection_string"] == enc["connection_string"]
+    # Over plaintext it encrypts the opaque-key credential.
+    assert looks_like_ciphertext(
+        reencrypt_config_secrets(M8_CONFIG)["connection_string"]
+    )
+
+
 # --- TypeDecorators -----------------------------------------------------------
 
 def test_encrypted_secret_json_decorator_round_trip():

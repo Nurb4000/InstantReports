@@ -15,6 +15,43 @@ _SECRET_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Value-based secret detector (M8). Credentials are sometimes stored under an
+# opaque key name that does not match ``_SECRET_KEY_RE`` -- e.g. a full
+# connection string / DSN / URI in a field named ``connection_string``, ``dsn``,
+# ``uri``, ``url`` or ``conn``. This flags such a value so it is masked in API
+# responses and encrypted at rest even though the key name gives no hint. Only a
+# URI that embeds an ``user:password@`` authority is treated as secret; a bare
+# ``scheme://host`` (no embedded credential) is not, to avoid masking public URLs.
+_CREDENTIAL_URI_RE = re.compile(
+    r"^[a-zA-Z][\w+.\-]*://[^\s:/@]{1,255}:[^\s:/@]+@",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_secret_value(value: Any) -> bool:
+    """Return True if ``value`` embeds credentials (M8 value-based detection).
+
+    Complements the key-name matcher: a string like
+    ``postgresql://user:PASSWORD@host/db`` carries a secret in its value even when
+    stored under an opaque key. Non-strings, empty strings, and very long values
+    (unlikely to be a single credential) are treated as non-secrets.
+    """
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    if not stripped or len(stripped) > 4096:
+        return False
+    return bool(_CREDENTIAL_URI_RE.search(stripped))
+
+
+def is_secret(config_key: str, value: Any) -> bool:
+    """Return True if a config entry is secret by key name OR by its value (M8).
+
+    Single point of truth shared by response redaction and at-rest encryption so
+    the two never disagree on what must be masked/encrypted.
+    """
+    return bool(_SECRET_KEY_RE.search(config_key)) or _looks_like_secret_value(value)
+
 
 def redact_connection_config(
     config: dict[str, Any] | None, mask: str = "***"
@@ -23,12 +60,15 @@ def redact_connection_config(
 
     Used when serializing a connection for an API response so plaintext
     passwords, bearer tokens, and basic-auth creds are never leaked to callers.
-    Non-secret fields (host, port, database, user, ...) pass through unchanged.
+    A value is masked when its key matches the secret-name pattern OR when the
+    value itself embeds credentials (e.g. a ``postgresql://user:pass@host`` DSN
+    stored under an opaque ``connection_string`` key). Non-secret fields (host,
+    port, database, user, public URLs) pass through unchanged.
     """
     if not config:
         return {}
     return {
-        key: (mask if _SECRET_KEY_RE.search(key) else value)
+        key: (mask if is_secret(key, value) else value)
         for key, value in config.items()
     }
 

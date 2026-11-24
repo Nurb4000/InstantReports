@@ -70,3 +70,18 @@ class TestRedactDeliveryConfig:
     def test_none_and_empty_pass_through(self):
         assert redact_delivery_config(None) is None
         assert redact_delivery_config({}) == {}
+
+    def test_opaque_key_with_embedded_credential_is_masked(self):
+        # M8: value-based detection -- a DSN/URI with embedded creds under an opaque
+        # key name is masked even though the key gives no hint.
+        config = {"type": "smtp", "connection_string": "postgresql://app:supersecret@db.internal:5432/app"}
+        redacted = redact_delivery_config(config)
+        assert redacted["connection_string"] == "***REDACTED***"
+
+    def test_url_with_embedded_credentials_is_masked_but_public_url_is_not(self):
+        assert redact_delivery_config({"type": "ftp", "url": "ftp://reader:readder@sftp.example.com/pub"})[
+            "url"
+        ] == "***REDACTED***"
+        assert redact_delivery_config({"type": "webhook", "url": "https://example.com/hook"})["url"] == \
+            "https://example.com/hook"
+

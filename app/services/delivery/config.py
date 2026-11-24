@@ -12,6 +12,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.connectors.base import is_secret
+
+# Kept for documentation: the key-name subset that ``is_secret`` also treats as a
+# secret. Redaction now uses ``is_secret`` so it is value-based too (M8) -- a
+# credential embedded in an opaque field (e.g. a DSN/URI under ``connection_string``)
+# is masked even when the key name gives no hint.
 _SECRET_KEYS = frozenset({"password", "secret"})
 
 
@@ -132,7 +138,10 @@ def redact_delivery_config(config: dict[str, Any] | None) -> dict[str, Any] | No
     Read endpoints (list/get schedule) must not echo plaintext SFTP/SMB
     ``password`` or webhook ``secret`` back to callers; the create/update
     flows still accept them for storage, but responses should never surface
-    them.
+    them. A field is masked when its key name matches the secret pattern OR its
+    value embeds credentials (M8) -- e.g. an SMTP/FTP connection string/DSN under
+    an opaque ``connection_string``/``dsn``/``url`` key -- so secrets are never
+    leaked through a differently-named field.
     """
     if not config:
         return config
@@ -140,7 +149,7 @@ def redact_delivery_config(config: dict[str, Any] | None) -> dict[str, Any] | No
     def _walk(value: Any) -> Any:
         if isinstance(value, dict):
             return {
-                key: ("***REDACTED***" if key in _SECRET_KEYS else _walk(val))
+                key: ("***REDACTED***" if is_secret(key, val) else _walk(val))
                 for key, val in value.items()
             }
         if isinstance(value, list):
